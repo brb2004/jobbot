@@ -4,7 +4,7 @@ from types import SimpleNamespace as NS
 import httpx
 import pytest
 from openai import AsyncOpenAI
-
+from app.llm.extractor_llm import LLMExtractor
 from app.llm.scorer_llm import LLMError, LLMScorer, verify
 
 
@@ -103,3 +103,35 @@ def test_reworded_quote_with_real_keywords_counts():
     met_items, _ = verify([met("Containers including Docker and Kubernetes", "Docker and Kubernetes")],
                           [], "Tools: Docker, Kubernetes")
     assert met_items == ["Containers including Docker and Kubernetes"]
+
+
+
+
+def extractor_returning(content):
+    def handler(request):
+        return httpx.Response(200, json={
+            "id": "x", "object": "chat.completion", "created": 0, "model": "m",
+            "choices": [{"index": 0, "finish_reason": "stop",
+                         "message": {"role": "assistant", "content": content}}],
+        })
+    client = AsyncOpenAI(api_key="test", base_url="http://llm.test/v1",
+                         http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    return LLMExtractor(client, model="m")
+
+
+async def test_extracts_list_even_inside_code_fences():
+    assert await extractor_returning('```json\n["Python", "Docker"]\n```').extract("x") == ["Python", "Docker"]
+
+
+async def test_extractor_drops_duplicates_and_blanks():
+    assert await extractor_returning('["Python", "python", " ", "Go"]').extract("x") == ["Python", "Go"]
+
+
+async def test_extractor_raises_on_prose():
+    with pytest.raises(LLMError):
+        await extractor_returning("Python and Docker").extract("x")
+
+
+async def test_extractor_raises_on_truncated_output():
+    with pytest.raises(LLMError):
+        await extractor_returning('["Python", "Dock').extract("x")

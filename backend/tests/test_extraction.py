@@ -44,3 +44,20 @@ async def test_failed_extraction_is_retried_next_run(session):
 
     assert await extraction.extract_job_requirements(session, BrokenExtractor()) == 0
     assert await extraction.extract_job_requirements(session, FakeExtractor()) == 1
+from uuid import uuid4
+from app.db.models_db import Resume
+
+
+async def test_resume_skills_are_extracted_once_and_cached(session):
+    session.add_all([
+        Resume(user_id=uuid4(), raw_text="python docker"),                   # needs extraction
+        Resume(user_id=uuid4(), raw_text="go", skills=["Go"]),               # already cached
+    ])
+    await session.commit()
+    ex = FakeExtractor()
+
+    first = await extraction.extract_resume_skills(session, ex)
+    second = await extraction.extract_resume_skills(session, ex)
+
+    assert (first, second) == (1, 0)
+    assert ex.calls == 1
