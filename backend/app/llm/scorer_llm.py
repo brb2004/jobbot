@@ -35,6 +35,15 @@ def normalize(text: str) -> str:
     """Lowercase, punctuation -> spaces, collapse whitespace, so quotes match despite formatting."""
     return " ".join(re.sub(r"[^a-z0-9+#]+", " ", text.lower()).split())
 
+def unique(items: list[str]) -> list[str]:
+    """Drop repeats that differ only in case/punctuation, keeping the first spelling."""
+    seen, out = set(), []
+    for item in items:
+        key = normalize(item)
+        if key and key not in seen:
+            seen.add(key)
+            out.append(item)
+    return out
 
 def verify(met: list[dict], missing: list[str], resume_text: str) -> tuple[list[str], list[str]]:
     """Keep a 'met' only if its evidence really appears in the resume. Everything else is missing."""
@@ -52,7 +61,7 @@ def verify(met: list[dict], missing: list[str], resume_text: str) -> tuple[list[
 
     missing_keys = {normalize(m) for m in unproven}
     verified = [m for m in verified if normalize(m) not in missing_keys]
-    return verified, unproven
+    return verified, unique(unproven)
 
 
 class LLMScorer:

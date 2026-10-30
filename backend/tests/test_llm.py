@@ -76,3 +76,6 @@ async def test_no_requirements_is_an_error():
 async def test_raises_on_unparseable_output():
     with pytest.raises(LLMError):
         await llm_returning("Great fit!").score(resume, job)
+def test_duplicate_requirements_count_once():
+    _, missing = verify([], ["Go", "go", "Rust"], RESUME)
+    assert missing == ["Go", "Rust"]
