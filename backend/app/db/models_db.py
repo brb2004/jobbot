@@ -30,7 +30,7 @@ class Job(Base):
     salary_min: Mapped[float | None] = mapped_column(Float)
     salary_max: Mapped[float | None] = mapped_column(Float)
     salary_currency: Mapped[str | None] = mapped_column(String(10))
-
+    requirements: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
     __table_args__ = (UniqueConstraint("board", "external_id", name="uq_jobs_board_external"),)
 
 
