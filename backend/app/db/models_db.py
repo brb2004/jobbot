@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -26,6 +26,10 @@ class Job(Base):
     external_id: Mapped[int | None] = mapped_column(BigInteger)
     url: Mapped[str | None]
     location: Mapped[str | None]
+    description: Mapped[str | None] = mapped_column(Text)
+    salary_min: Mapped[float | None] = mapped_column(Float)
+    salary_max: Mapped[float | None] = mapped_column(Float)
+    salary_currency: Mapped[str | None] = mapped_column(String(10))
 
     __table_args__ = (UniqueConstraint("board", "external_id", name="uq_jobs_board_external"),)
 

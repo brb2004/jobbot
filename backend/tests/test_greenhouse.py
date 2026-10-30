@@ -12,8 +12,13 @@ def fake_greenhouse(request: httpx.Request) -> httpx.Response:
         ]})
     if request.url.path == "/v1/boards/broken/jobs":
         return httpx.Response(500)
+    if request.url.path == "/v1/boards/stripe/jobs/1":
+        return httpx.Response(200, json={
+            "id": 1,
+            "content": "&lt;p&gt;Build things.&lt;/p&gt;",
+            "pay_input_ranges": [{"min_cents": 12000000, "max_cents": 16000000, "currency_type": "USD"}],
+        })
     return httpx.Response(404)
-
 
 def client():
     return httpx.AsyncClient(transport=httpx.MockTransport(fake_greenhouse))
@@ -51,3 +56,32 @@ async def test_crawl_counts_each_outcome_and_saves_found_jobs(session):
         summary = await gh.crawl(c, session, ["stripe", "notacompany", "broken"])
 
     assert summary == gh.CrawlSummary(found=1, missing=1, failed=1, new_jobs=1)
+
+
+async def test_fetch_details_returns_clean_description_and_salary():
+    async with client() as c:
+        d = await gh.fetch_details(c, "stripe", 1)
+
+    assert d.description == "Build things."
+    assert (d.salary_min, d.salary_max, d.salary_currency) == (120000, 160000, "USD")
+async def test_fill_descriptions_only_fetches_jobs_missing_one(session):
+    session.add_all([
+        Job(board="stripe", external_id=1, title="A"),                          # needs details
+        Job(board="stripe", external_id=2, title="B", description="already"),   # skip
+    ])
+    await session.commit()
+
+    calls = []
+    def counting(request):
+        calls.append(request.url.path)
+        return fake_greenhouse(request)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(counting)) as c:
+        first = await gh.fill_descriptions(c, session)
+        second = await gh.fill_descriptions(c, session)
+
+    assert (first, second) == (1, 0)
+    assert calls == ["/v1/boards/stripe/jobs/1"]              # job 2 never fetched, nothing re-fetched
+    job = (await session.execute(select(Job).where(Job.external_id == 1))).scalar_one()
+    assert job.description == "Build things."
+    assert job.salary_min == 120000
