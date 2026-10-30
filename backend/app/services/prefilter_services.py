@@ -12,7 +12,11 @@ def terms(text: str) -> set[str]:
 
 def top_k(resume_text: str, jobs: list[Job], k: int = 20) -> list[Job]:
     mine = terms(resume_text)
-    scored = [(len(mine & terms(f"{j.title} {j.description or ''}")), j) for j in jobs]
-    scored = [(n, j) for n, j in scored if n > 0]
+    scored = []
+    for j in jobs:
+        theirs = terms(f"{j.title} {j.description or ''}")
+        shared = len(mine & theirs)
+        if shared:
+            scored.append((shared / len(theirs), j))     # fraction, not count
     scored.sort(key=lambda x: x[0], reverse=True)
     return [j for _, j in scored[:k]]
