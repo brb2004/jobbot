@@ -11,9 +11,7 @@ def reqs_html(*items):
 
 class FakeExtractor:
     def __init__(self, mapping=None, default=("Python",)):
-        self.mapping = mapping or {}
-        self.default = list(default)
-        self.calls = 0
+        self.mapping, self.default, self.calls = mapping or {}, list(default), 0
 
     async def extract(self, text):
         self.calls += 1
@@ -25,47 +23,44 @@ class BrokenExtractor:
         raise LLMError("nonsense")
 
 
-class FakeEmbedder:
+class FakeFit:
+    """Met if the requirement is literally one of the skills."""
     def __init__(self):
-        self.index = {}
+        self.calls = 0
 
-    async def embed(self, texts):
-        out = []
-        for t in texts:
-            v = [0.0] * 64
-            v[self.index.setdefault(t, len(self.index))] = 1.0
-            out.append(v)
-        return out
+    async def __call__(self, requirement, skills):
+        self.calls += 1
+        return 1.0 if requirement.lower() in {s.lower() for s in skills} else 0.0
 
 
-async def never(requirement, skill):
-    return False
+class BrokenFit:
+    async def __call__(self, requirement, skills):
+        raise LLMError("nonsense")
 
 
-async def test_scores_html_requirements_against_resume_skills(session):
+async def test_scores_each_requirement_against_the_resume(session):
     session.add_all([
         Job(title="Backend", description="python and go", content_html=reqs_html("Python", "Go")),
         Resume(user_id=uuid4(), raw_text="python developer"),
     ])
     await session.commit()
-    ex = FakeExtractor({"python developer": ["Python"]})
 
-    assert await scoring.score_new(session, ex, FakeEmbedder(), never) == 1
+    assert await scoring.score_new(session, FakeExtractor({"python developer": ["Python"]}), FakeFit()) == 1
 
     row = (await session.execute(select(MatchScore))).scalar_one()
     assert row.score == 0.5
-    assert row.detail == {"met": ["Python"], "missing": ["Go"], "evidence": {"Python": "Python"}}
+    assert row.detail == {"met": ["Python"], "partial": [], "missing": ["Go"]}
 
 
 async def test_jobs_without_requirements_never_take_a_shortlist_slot(session):
     session.add_all([
-        Job(title="Python Engineer"),                                    # no HTML: perfect title overlap, nothing to score
+        Job(title="Python Engineer"),
         Job(title="Backend", description="python services", content_html=reqs_html("Python")),
         Resume(user_id=uuid4(), raw_text="python engineer"),
     ])
     await session.commit()
 
-    assert await scoring.score_new(session, FakeExtractor(), FakeEmbedder(), never, k=1) == 1
+    assert await scoring.score_new(session, FakeExtractor(), FakeFit(), k=1) == 1
 
 
 async def test_never_scores_or_extracts_twice(session):
@@ -74,14 +69,14 @@ async def test_never_scores_or_extracts_twice(session):
         Resume(user_id=uuid4(), raw_text="python"),
     ])
     await session.commit()
-    ex, emb = FakeExtractor(), FakeEmbedder()
+    ex, fit = FakeExtractor(), FakeFit()
 
-    await scoring.score_new(session, ex, emb, never)
-    calls_after_first = ex.calls
-    second = await scoring.score_new(session, ex, emb, never)
+    await scoring.score_new(session, ex, fit)
+    before = (ex.calls, fit.calls)
+    second = await scoring.score_new(session, ex, fit)
 
     assert second == 0
-    assert ex.calls == calls_after_first
+    assert (ex.calls, fit.calls) == before
 
 
 async def test_only_top_k_jobs_get_scored(session):
@@ -94,15 +89,25 @@ async def test_only_top_k_jobs_get_scored(session):
     ])
     await session.commit()
 
-    assert await scoring.score_new(session, FakeExtractor(), FakeEmbedder(), never, k=2) == 2
+    assert await scoring.score_new(session, FakeExtractor(), FakeFit(), k=2) == 2
 
 
-async def test_failed_resume_extraction_scores_nothing_and_does_not_crash(session):
+async def test_failed_resume_extraction_scores_nothing(session):
     session.add_all([
         Job(title="Python", description="python", content_html=reqs_html("Python")),
         Resume(user_id=uuid4(), raw_text="python"),
     ])
     await session.commit()
 
-    assert await scoring.score_new(session, BrokenExtractor(), FakeEmbedder(), never) == 0
-    assert (await session.execute(select(MatchScore))).scalars().all() == []
+    assert await scoring.score_new(session, BrokenExtractor(), FakeFit()) == 0
+
+
+async def test_failed_fit_judgment_skips_the_pair_and_retries_later(session):
+    session.add_all([
+        Job(title="Python", description="python", content_html=reqs_html("Python")),
+        Resume(user_id=uuid4(), raw_text="python"),
+    ])
+    await session.commit()
+
+    assert await scoring.score_new(session, FakeExtractor(), BrokenFit()) == 0
+    assert await scoring.score_new(session, FakeExtractor(), FakeFit()) == 1

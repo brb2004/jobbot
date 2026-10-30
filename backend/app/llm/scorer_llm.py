@@ -35,6 +35,7 @@ class ScoreResult(BaseModel):
     score: float
     met: list[str]
     missing: list[str]
+    partial: list[str] = []
     evidence: dict[str, str] = {}
 
 

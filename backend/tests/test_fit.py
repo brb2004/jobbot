@@ -1,0 +1,55 @@
+import httpx
+import pytest
+from openai import AsyncOpenAI
+
+from app.llm.fit_judge_llm import FitJudge
+from app.llm.scorer_llm import LLMError
+from app.services.fit_services import judge_requirements
+
+
+def fit_returning(content):
+    def handler(request):
+        return httpx.Response(200, json={
+            "id": "x", "object": "chat.completion", "created": 0, "model": "m",
+            "choices": [{"index": 0, "finish_reason": "stop",
+                         "message": {"role": "assistant", "content": content}}],
+        })
+    client = AsyncOpenAI(api_key="t", base_url="http://llm.test/v1",
+                         http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    return FitJudge(client, "m")
+
+
+@pytest.mark.parametrize("answer,value", [("Yes", 1.0), ("partial.", 0.5), ("No", 0.0)])
+async def test_reads_verdicts(answer, value):
+    assert await fit_returning(answer)("Go", ["Python"]) == value
+
+
+async def test_unclear_answer_raises():
+    with pytest.raises(LLMError):
+        await fit_returning("maybe")("Go", ["Python"])
+
+
+class FakeFit:
+    def __init__(self, verdicts):
+        self.verdicts, self.asked = verdicts, []
+
+    async def __call__(self, requirement, skills):
+        self.asked.append(requirement)
+        return self.verdicts[requirement]
+
+
+async def test_partial_counts_as_half():
+    r = await judge_requirements(["Go", "Docker and K8s", "Rust"], ["Docker"],
+                                 FakeFit({"Go": 1.0, "Docker and K8s": 0.5, "Rust": 0.0}))
+    assert (r.met, r.partial, r.missing, r.score) == (["Go"], ["Docker and K8s"], ["Rust"], 0.5)
+
+
+async def test_duplicate_requirements_judged_once():
+    judge = FakeFit({"Go": 1.0})
+    r = await judge_requirements(["Go", "go"], ["Go"], judge)
+    assert judge.asked == ["Go"]
+    assert r.score == 1.0
+
+
+async def test_no_requirements_means_no_score():
+    assert await judge_requirements([], ["Go"], FakeFit({})) is None

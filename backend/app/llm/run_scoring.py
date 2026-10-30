@@ -5,9 +5,8 @@ from openai import AsyncOpenAI
 
 from app.core.config_core import get_settings
 from app.core.db_core import SessionLocal, engine
-from app.llm.embedder_llm import LLMEmbedder
 from app.llm.extractor_llm import RESUME_PROMPT, LLMExtractor
-from app.llm.judge_llm import LLMJudge
+from app.llm.fit_judge_llm import FitJudge
 from app.services.scoring_services import score_new
 
 
@@ -16,7 +15,7 @@ async def main(k: int) -> None:
     client = AsyncOpenAI(base_url=cfg.LLM_API_URL, api_key=cfg.LLM_API_KEY, timeout=300)
     async with SessionLocal() as s:
         n = await score_new(s, LLMExtractor(client, cfg.LLM_MODEL, RESUME_PROMPT),
-                            LLMEmbedder(client, cfg.EMBED_MODEL), LLMJudge(client, cfg.JUDGE_MODEL), k=k)
+                            FitJudge(client, cfg.JUDGE_MODEL), k=k)
     await engine.dispose()
     print(f"scored {n} pairs")
 
