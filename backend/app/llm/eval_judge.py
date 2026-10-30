@@ -25,6 +25,10 @@ CASES = [
     ("Go", "Python", False),
     ("AWS", "Kubernetes", False),
     ("Social networks", "React", False),
+    ("Microservices", "Kubernetes", False),
+    ("Distributed systems", "Kubernetes", False),
+    ("Observability", "Prometheus", True),
+    ("Cloud platforms", "AWS", True),
 ]
 
 
