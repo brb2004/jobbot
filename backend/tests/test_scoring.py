@@ -47,7 +47,7 @@ async def test_scores_by_matching_extracted_lists(session):
     await session.commit()
     ex = FakeExtractor({"python and go": ["Python", "Go"], "python developer": ["Python"]})
 
-    assert await scoring.score_new(session, ex, FakeEmbedder(), never) == 1
+    assert await scoring.score_new(session, ex, ex, FakeEmbedder(), never) == 1
 
     row = (await session.execute(select(MatchScore))).scalar_one()
     assert row.score == 0.5
@@ -59,9 +59,9 @@ async def test_never_scores_or_extracts_twice(session):
     await session.commit()
     ex, emb = FakeExtractor(), FakeEmbedder()
 
-    await scoring.score_new(session, ex, emb, never)
+    await scoring.score_new(session, ex, ex, emb, never)
     calls_after_first = ex.calls
-    second = await scoring.score_new(session, ex, emb, never)
+    second = await scoring.score_new(session, ex, ex, emb, never)
 
     assert second == 0
     assert ex.calls == calls_after_first
@@ -78,7 +78,7 @@ async def test_only_shortlisted_jobs_get_extracted(session):
     await session.commit()
     ex = FakeExtractor()
 
-    await scoring.score_new(session, ex, FakeEmbedder(), never, k=2)
+    await scoring.score_new(session, ex, ex, FakeEmbedder(), never, k=2)
 
     assert ex.calls == 3                  # 1 resume + the 2 shortlisted jobs, never the other 2
 
@@ -87,5 +87,5 @@ async def test_failed_extraction_scores_nothing_and_does_not_crash(session):
     session.add_all([Job(title="Python", description="python"), Resume(user_id=uuid4(), raw_text="python")])
     await session.commit()
 
-    assert await scoring.score_new(session, BrokenExtractor(), FakeEmbedder(), never) == 0
+    assert await scoring.score_new(session, BrokenExtractor(), BrokenExtractor(), FakeEmbedder(), never) == 0
     assert (await session.execute(select(MatchScore))).scalars().all() == []
