@@ -20,11 +20,22 @@ class UnsupportedType(Exception):
     pass
 
 
-def extract_text(data: bytes, filename: str) -> str:
-    name = filename.lower()
-    if name.endswith(".pdf"):
+def sniff(data: bytes) -> str:
+    """Decide the file type from its first bytes, not its name."""
+    if data.startswith(b"%PDF"):
+        return "pdf"
+    if data.startswith(b"PK\x03\x04"):
+        return "docx"
+    if b"\x00" in data:
+        raise UnsupportedType                      # binary pretending to be text
+    return "txt"
+
+
+def extract_text(data: bytes) -> str:
+    kind = sniff(data)
+    if kind == "pdf":
         return "\n".join(p.extract_text() or "" for p in PdfReader(io.BytesIO(data)).pages)
-    if name.endswith(".docx"):
+    if kind == "docx":
         return "\n".join(p.text for p in Document(io.BytesIO(data)).paragraphs)
     return data.decode("utf-8", errors="ignore")
 
@@ -34,7 +45,8 @@ async def create(s: AsyncSession, user_id: UUID, filename: str, data: bytes) -> 
         raise UnsupportedType
     if len(data) > MAX_BYTES:
         raise TooLarge
-    resume = Resume(user_id=user_id, filename=filename, raw_text=extract_text(data, filename))
+    text = extract_text(data).replace("\x00", "")  # belt and braces: Postgres rejects NUL in text
+    resume = Resume(user_id=user_id, filename=filename, raw_text=text)
     s.add(resume)
     await s.commit()
     return resume

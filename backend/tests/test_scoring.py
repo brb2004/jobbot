@@ -5,7 +5,6 @@ from app.services import scoring_services as scoring
 
 
 class FakeLLM:
-    """Stands in for the real model. Counts calls so tests can check we don't waste any."""
     def __init__(self, score=0.75):
         self.score_value = score
         self.calls = 0
@@ -15,8 +14,12 @@ class FakeLLM:
         return self.score_value
 
 
-async def test_scores_every_unscored_pair(session):
-    session.add_all([Job(title="A"), Job(title="B"), Resume(user_id=uuid4())])
+async def test_scores_resumes_against_matching_jobs(session):
+    session.add_all([
+        Job(title="Python A", description="python"),
+        Job(title="Python B", description="python"),
+        Resume(user_id=uuid4(), raw_text="python"),
+    ])
     await session.commit()
 
     n = await scoring.score_new(session, FakeLLM())
@@ -27,7 +30,7 @@ async def test_scores_every_unscored_pair(session):
 
 
 async def test_never_scores_the_same_pair_twice(session):
-    session.add_all([Job(title="A"), Resume(user_id=uuid4())])
+    session.add_all([Job(title="Python", description="python"), Resume(user_id=uuid4(), raw_text="python")])
     await session.commit()
     llm = FakeLLM()
 
@@ -36,3 +39,19 @@ async def test_never_scores_the_same_pair_twice(session):
 
     assert second_run == 0
     assert llm.calls == 1
+
+
+async def test_only_top_k_jobs_reach_the_llm(session):
+    session.add_all([
+        Job(title="Python Postgres", description="python postgres fastapi"),
+        Job(title="Python", description="python postgres"),
+        Job(title="Python only", description="python"),
+        Job(title="Sales", description="cold calling"),
+        Resume(user_id=uuid4(), raw_text="python postgres fastapi"),
+    ])
+    await session.commit()
+    llm = FakeLLM()
+
+    await scoring.score_new(session, llm, k=2)
+
+    assert llm.calls == 2                       # 4 jobs, only the best 2 cost an LLM call
