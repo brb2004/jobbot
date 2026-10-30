@@ -40,7 +40,7 @@ class Resume(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
     filename: Mapped[str | None] = mapped_column(String(255))
     raw_text: Mapped[str | None] = mapped_column(Text)
-
+    skills: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
 
 class MatchScore(Base):
     __tablename__ = "match_scores"

@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Job
 from app.llm.scorer_llm import LLMError
+from app.db.models_db import Resume
 
 
 async def extract_job_requirements(s: AsyncSession, extractor) -> int:
