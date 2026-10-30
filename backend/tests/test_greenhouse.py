@@ -10,6 +10,8 @@ def fake_greenhouse(request: httpx.Request) -> httpx.Response:
             {"id": 1, "title": "Backend Engineer", "absolute_url": "https://x/1",
              "updated_at": "2026-10-01T00:00:00Z", "location": {"name": "Remote"}},
         ]})
+    if request.url.path == "/v1/boards/broken/jobs":
+        return httpx.Response(500)
     return httpx.Response(404)
 
 
@@ -43,3 +45,9 @@ async def test_save_board_inserts_then_updates_without_duplicates(session):
 
     rows = (await session.execute(select(Job).order_by(Job.external_id))).scalars().all()
     assert [r.title for r in rows] == ["Senior Backend", "Data"]
+
+async def test_crawl_counts_each_outcome_and_saves_found_jobs(session):
+    async with client() as c:
+        summary = await gh.crawl(c, session, ["stripe", "notacompany", "broken"])
+
+    assert summary == gh.CrawlSummary(found=1, missing=1, failed=1, new_jobs=1)
