@@ -1,10 +1,11 @@
+import json
 from types import SimpleNamespace as NS
 
 import httpx
 import pytest
 from openai import AsyncOpenAI
 
-from app.llm.scorer_llm import LLMError, LLMScorer
+from app.llm.scorer_llm import LLMError, LLMScorer, verify
 
 
 def llm_returning(content):
@@ -19,22 +20,55 @@ def llm_returning(content):
     return LLMScorer(client, model="m")
 
 
-resume, job = NS(raw_text="python"), NS(title="Backend", description="python")
+RESUME = "Built FastAPI services in Python. Ran Postgres on Kubernetes."
+resume, job = NS(raw_text=RESUME), NS(title="Backend", description="python")
 
 
-async def test_score_is_share_of_requirements_met():
-    r = await llm_returning('{"met": ["Python", "Postgres", "Docker"], "missing": ["Go"]}').score(resume, job)
-    assert r.score == 0.75
-    assert r.met == ["Python", "Postgres", "Docker"]
-    assert r.missing == ["Go"]
+def met(requirement, evidence):
+    return {"requirement": requirement, "evidence": evidence}
+
+
+# --- verify(): the hallucination check, pure function, no LLM ---
+
+def test_met_with_real_evidence_stays_met():
+    assert verify([met("Python", "FastAPI services in Python")], [], RESUME) == (["Python"], [])
+
+
+def test_met_with_invented_evidence_moves_to_missing():
+    assert verify([met("Go", "5 years writing Go")], [], RESUME) == ([], ["Go"])
+
+
+def test_evidence_matches_whole_words_only():
+    met_items, _ = verify([met("Go", "go")], [], "Good communicator")   # "go" inside "good" doesn't count
+    assert met_items == []
+
+
+def test_evidence_ignores_case_and_punctuation():
+    met_items, _ = verify([met("Postgres", "ran postgres on kubernetes")], [], RESUME)
+    assert met_items == ["Postgres"]
+
+
+def test_requirement_listed_as_both_counts_as_missing():
+    assert verify([met("Python", "in Python")], ["python"], RESUME) == ([], ["python"])
+
+
+# --- LLMScorer: parsing + scoring on top of verify() ---
+
+async def test_score_uses_only_verified_matches():
+    out = {"met": [met("Python", "in Python"), met("Go", "expert in Go")], "missing": ["Rust"]}
+    r = await llm_returning(json.dumps(out)).score(resume, job)
+    assert r.met == ["Python"]
+    assert r.missing == ["Rust", "Go"]
+    assert r.score == 0.33
 
 
 async def test_reads_json_inside_code_fences():
-    r = await llm_returning('```json\n{"met": ["Python"], "missing": []}\n```').score(resume, job)
+    body = json.dumps({"met": [met("Python", "in Python")], "missing": []})
+    r = await llm_returning(f"```json\n{body}\n```").score(resume, job)
     assert r.score == 1.0
 
 
-async def test_no_requirements_is_an_error_not_a_divide_by_zero():
+async def test_no_requirements_is_an_error():
     with pytest.raises(LLMError):
         await llm_returning('{"met": [], "missing": []}').score(resume, job)
 
