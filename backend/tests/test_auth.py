@@ -1,3 +1,7 @@
+import pytest
+from sqlalchemy import select
+from app.db.models_db import User
+
 async def test_register_returns_a_token_that_works(client):
     r = await client.post("/auth/register",
                           json={"email": "a@x.com", "password": "correct-horse-battery"})
@@ -34,3 +38,11 @@ async def test_login_failures_are_indistinguishable(client):
 
     assert wrong_pw.status_code == no_user.status_code == 401
     assert wrong_pw.json() == no_user.json()
+
+async def test_password_is_never_stored_in_plain_text(client, session):
+    await client.post("/auth/register", json={"email": "d@x.com", "password": "correct-horse-battery"})
+
+    user = (await session.execute(select(User).where(User.email == "d@x.com"))).scalar_one()
+
+    assert user.hashed_password != "correct-horse-battery"
+    assert user.hashed_password.startswith("$2")  
