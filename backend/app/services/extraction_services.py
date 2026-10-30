@@ -25,11 +25,13 @@ def chunks(text: str, size: int = CHUNK_CHARS) -> list[str]:
 
 
 async def extract_all(extractor, text: str, chunk_size: int = CHUNK_CHARS) -> list[str]:
+    parts = chunks(text, chunk_size)
+    if len(parts) > 1:
+        parts = [text, *parts]                  # whole-text pass + chunk passes: each misses different things
     found: list[str] = []
-    for part in chunks(text, chunk_size):
-        found += await extractor.extract(part)      # LLMError in any chunk -> whole item retried next run
+    for part in parts:
+        found += await extractor.extract(part)
     return unique(found)
-
 
 async def extract_job_requirements(s: AsyncSession, extractor, job_ids=None, chunk_size: int = CHUNK_CHARS) -> int:
     stmt = select(Job).where(Job.requirements.is_(None), Job.description.is_not(None))

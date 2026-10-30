@@ -84,5 +84,5 @@ async def test_resume_skills_are_the_union_of_every_chunk(session):
 
     await extraction.extract_resume_skills(session, ex, chunk_size=12)
 
-    assert ex.calls == 2                                    # two chunks
+    assert ex.calls == 3                                                                    # two chunks
     assert resume.skills == ["Python", "Go", "Docker"]      # union, duplicates dropped
