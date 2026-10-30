@@ -29,7 +29,7 @@ def test_bold_words_inside_a_bullet_are_not_headings():
 
 
 def test_real_postings_all_yield_bullets():
-    for name in ("stripe", "discord", "airbnb", "databricks", "lyft", "robinhood"):
+    for name in ("stripe", "discord", "airbnb", "databricks", "lyft", "robinhood", "asana"):
         bullets = requirement_bullets((FIXTURES / f"{name}.html").read_text())
         assert bullets, f"{name}: found no requirement bullets"
 
