@@ -88,6 +88,7 @@ def test_long_quote_does_not_count():
                "Linux, Docker, Kubernetes, CI, and observability experience.")
     met_items, _ = verify([met("5+ years in security writing Python", summary)], [], summary)
     assert met_items == []
+
 def test_off_topic_quote_does_not_count():
     line = "Available for full-time work immediately."
     met_items, _ = verify([met("Good English communication skills", line)], [], line)
@@ -96,5 +97,9 @@ def test_off_topic_quote_does_not_count():
 
 def test_short_on_topic_quote_counts():
     met_items, _ = verify([met("Containers including Docker and Kubernetes", "Docker, Kubernetes")],
+                          [], "Tools: Docker, Kubernetes")
+    assert met_items == ["Containers including Docker and Kubernetes"]
+def test_reworded_quote_with_real_keywords_counts():
+    met_items, _ = verify([met("Containers including Docker and Kubernetes", "Docker and Kubernetes")],
                           [], "Tools: Docker, Kubernetes")
     assert met_items == ["Containers including Docker and Kubernetes"]

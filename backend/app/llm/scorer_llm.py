@@ -65,14 +65,15 @@ def unique(items: list[str]) -> list[str]:
 
 def verify(met: list[dict], missing: list[str], resume_text: str) -> tuple[list[str], list[str]]:
     """Keep a 'met' only if its quote is real, short, and on-topic. Everything else is missing."""
-    resume = f" {normalize(resume_text)} "
+    resume_words = set(normalize(resume_text).split())
     verified, unproven = [], list(missing)
     for item in met:
         requirement = str(item.get("requirement", "")).strip()
         evidence = normalize(str(item.get("evidence", "")))
         if not requirement:
             continue
-        if evidence and f" {evidence} " in resume and supports(requirement, evidence):
+        quoted = keywords(evidence)
+        if quoted and quoted <= resume_words and supports(requirement, evidence):
             verified.append(requirement)
         else:
             unproven.append(requirement)
