@@ -65,3 +65,19 @@ async def extract_resume_skills(s: AsyncSession, extractor, chunk_size: int = CH
         await s.commit()
         done += 1
     return done
+
+
+async def fill_job_requirements(s: AsyncSession, job_ids=None) -> int:
+    """Requirements straight from the posting's HTML requirements section. No AI."""
+    from app.ingest.sections_ingest import requirement_bullets
+
+    stmt = select(Job).where(Job.requirements.is_(None), Job.content_html.is_not(None))
+    if job_ids is not None:
+        if not job_ids:
+            return 0
+        stmt = stmt.where(Job.id.in_(job_ids))
+    jobs = (await s.execute(stmt)).scalars().all()
+    for job in jobs:
+        job.requirements = requirement_bullets(job.content_html)     # [] when there's no section
+    await s.commit()
+    return len(jobs)
