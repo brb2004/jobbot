@@ -1,71 +1,44 @@
-from uuid import uuid4
-from sqlalchemy import select
-from app.db.models_db import Job, Resume, MatchScore
-from app.llm.scorer_llm import LLMError
-from app.services import scoring_services as scoring
+from types import SimpleNamespace as NS
+
+import httpx
+import pytest
+from openai import AsyncOpenAI
+
+from app.llm.scorer_llm import LLMError, LLMScorer
 
 
-class FakeLLM:
-    def __init__(self, score=0.75):
-        self.score_value = score
-        self.calls = 0
-
-    async def score(self, resume, job) -> float:
-        self.calls += 1
-        return self.score_value
-
-
-class BrokenLLM:
-    async def score(self, resume, job):
-        raise LLMError("model said nonsense")
+def llm_returning(content):
+    def handler(request):
+        return httpx.Response(200, json={
+            "id": "x", "object": "chat.completion", "created": 0, "model": "m",
+            "choices": [{"index": 0, "finish_reason": "stop",
+                         "message": {"role": "assistant", "content": content}}],
+        })
+    client = AsyncOpenAI(api_key="test", base_url="http://llm.test/v1",
+                         http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    return LLMScorer(client, model="m")
 
 
-async def test_scores_resumes_against_matching_jobs(session):
-    session.add_all([
-        Job(title="Python A", description="python"),
-        Job(title="Python B", description="python"),
-        Resume(user_id=uuid4(), raw_text="python"),
-    ])
-    await session.commit()
-
-    n = await scoring.score_new(session, FakeLLM())
-
-    assert n == 2
-    rows = (await session.execute(select(MatchScore))).scalars().all()
-    assert [r.score for r in rows] == [0.75, 0.75]
+resume, job = NS(raw_text="python"), NS(title="Backend", description="python")
 
 
-async def test_never_scores_the_same_pair_twice(session):
-    session.add_all([Job(title="Python", description="python"), Resume(user_id=uuid4(), raw_text="python")])
-    await session.commit()
-    llm = FakeLLM()
-
-    await scoring.score_new(session, llm)
-    second_run = await scoring.score_new(session, llm)
-
-    assert second_run == 0
-    assert llm.calls == 1
+async def test_score_is_share_of_requirements_met():
+    r = await llm_returning('{"met": ["Python", "Postgres", "Docker"], "missing": ["Go"]}').score(resume, job)
+    assert r.score == 0.75
+    assert r.met == ["Python", "Postgres", "Docker"]
+    assert r.missing == ["Go"]
 
 
-async def test_only_top_k_jobs_reach_the_llm(session):
-    session.add_all([
-        Job(title="Python Postgres", description="python postgres fastapi"),
-        Job(title="Python", description="python postgres"),
-        Job(title="Python only", description="python"),
-        Job(title="Sales", description="cold calling"),
-        Resume(user_id=uuid4(), raw_text="python postgres fastapi"),
-    ])
-    await session.commit()
-    llm = FakeLLM()
-
-    await scoring.score_new(session, llm, k=2)
-
-    assert llm.calls == 2
+async def test_reads_json_inside_code_fences():
+    r = await llm_returning('```json\n{"met": ["Python"], "missing": []}\n```').score(resume, job)
+    assert r.score == 1.0
 
 
-async def test_bad_llm_output_skips_the_pair_without_crashing(session):
-    session.add_all([Job(title="Python", description="python"), Resume(user_id=uuid4(), raw_text="python")])
-    await session.commit()
+async def test_no_requirements_is_an_error_not_a_divide_by_zero():
+    with pytest.raises(LLMError):
+        await llm_returning('{"met": [], "missing": []}').score(resume, job)
 
-    assert await scoring.score_new(session, BrokenLLM()) == 0
-    assert (await session.execute(select(MatchScore))).scalars().all() == []
+
+async def test_raises_on_unparseable_output():
+    with pytest.raises(LLMError):
+        await llm_returning("Great fit!").score(resume, job)

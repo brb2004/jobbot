@@ -17,10 +17,11 @@ async def score_new(s: AsyncSession, llm, k: int = 20) -> int:
             if (resume.id, job.id) in already:
                 continue
             try:
-                score = await llm.score(resume, job)
+                result = await llm.score(resume, job)
             except LLMError:
-                continue                          # no row saved → retried next run
-            s.add(MatchScore(resume_id=resume.id, job_id=job.id, score=score))
+                continue
+            s.add(MatchScore(resume_id=resume.id, job_id=job.id, score=result.score,
+                             detail={"met": result.met, "missing": result.missing}))
             scored += 1
     await s.commit()
     return scored

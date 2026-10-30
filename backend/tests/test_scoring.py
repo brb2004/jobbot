@@ -1,6 +1,7 @@
 from uuid import uuid4
 from sqlalchemy import select
 from app.db.models_db import Job, Resume, MatchScore
+from app.llm.scorer_llm import LLMError, ScoreResult
 from app.services import scoring_services as scoring
 
 
@@ -9,9 +10,14 @@ class FakeLLM:
         self.score_value = score
         self.calls = 0
 
-    async def score(self, resume, job) -> float:
+    async def score(self, resume, job) -> ScoreResult:
         self.calls += 1
-        return self.score_value
+        return ScoreResult(score=self.score_value, met=["Python"], missing=["Go"])
+
+
+class BrokenLLM:
+    async def score(self, resume, job):
+        raise LLMError("model said nonsense")
 
 
 async def test_scores_resumes_against_matching_jobs(session):
@@ -27,6 +33,16 @@ async def test_scores_resumes_against_matching_jobs(session):
     assert n == 2
     rows = (await session.execute(select(MatchScore))).scalars().all()
     assert [r.score for r in rows] == [0.75, 0.75]
+
+
+async def test_stores_met_and_missing_with_the_score(session):
+    session.add_all([Job(title="Python", description="python"), Resume(user_id=uuid4(), raw_text="python")])
+    await session.commit()
+
+    await scoring.score_new(session, FakeLLM())
+
+    row = (await session.execute(select(MatchScore))).scalar_one()
+    assert row.detail == {"met": ["Python"], "missing": ["Go"]}
 
 
 async def test_never_scores_the_same_pair_twice(session):
@@ -54,4 +70,12 @@ async def test_only_top_k_jobs_reach_the_llm(session):
 
     await scoring.score_new(session, llm, k=2)
 
-    assert llm.calls == 2                       # 4 jobs, only the best 2 cost an LLM call
+    assert llm.calls == 2
+
+
+async def test_bad_llm_output_skips_the_pair_without_crashing(session):
+    session.add_all([Job(title="Python", description="python"), Resume(user_id=uuid4(), raw_text="python")])
+    await session.commit()
+
+    assert await scoring.score_new(session, BrokenLLM()) == 0
+    assert (await session.execute(select(MatchScore))).scalars().all() == []
