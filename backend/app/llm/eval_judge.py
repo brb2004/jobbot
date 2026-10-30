@@ -34,7 +34,7 @@ CASES = [
 
 async def main():
     cfg = get_settings()
-    judge = LLMJudge(AsyncOpenAI(base_url=cfg.LLM_API_URL, api_key=cfg.LLM_API_KEY, timeout=300), cfg.LLM_MODEL)
+    judge = LLMJudge(AsyncOpenAI(base_url=cfg.LLM_API_URL, api_key=cfg.LLM_API_KEY, timeout=300), cfg.JUDGE_MODEL)
     right = 0
     for req, skill, expected in CASES:
         try:
