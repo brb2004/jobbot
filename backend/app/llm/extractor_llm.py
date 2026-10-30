@@ -7,7 +7,9 @@ from app.llm.scorer_llm import MAX_CHARS, LLMError, unique
 
 PROMPT = """List the skills, tools, technologies, and qualifications mentioned in the text below.
 Use short names of 1 to 4 words each, like "Python", "Kubernetes", "REST APIs", "5+ years experience".
-Reply with a JSON array of strings only.
+Do NOT include benefits, perks, or compensation (salary, equity, 401(k), insurance, PTO, wellness).
+Do NOT include anything the text says was not used (for example "built without Scrapy" means skip Scrapy).
+Reply with a JSON array of strings only. If there is nothing to list, reply [].
 
 TEXT:
 {text}"""

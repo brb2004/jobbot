@@ -2,21 +2,47 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Job, Resume
-from app.llm.scorer_llm import LLMError
+from app.llm.scorer_llm import LLMError, unique
+
+CHUNK_CHARS = 800          # small enough that a 7B model reads every line
 
 
-async def extract_job_requirements(s: AsyncSession, extractor, job_ids=None) -> int:
+def chunks(text: str, size: int = CHUNK_CHARS) -> list[str]:
+    """Group whole lines into pieces of at most `size` characters (a single longer line stands alone)."""
+    out, cur = [], ""
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if cur and len(cur) + 1 + len(line) > size:
+            out.append(cur)
+            cur = line
+        else:
+            cur = f"{cur}\n{line}" if cur else line
+    if cur:
+        out.append(cur)
+    return out
+
+
+async def extract_all(extractor, text: str, chunk_size: int = CHUNK_CHARS) -> list[str]:
+    found: list[str] = []
+    for part in chunks(text, chunk_size):
+        found += await extractor.extract(part)      # LLMError in any chunk -> whole item retried next run
+    return unique(found)
+
+
+async def extract_job_requirements(s: AsyncSession, extractor, job_ids=None, chunk_size: int = CHUNK_CHARS) -> int:
     stmt = select(Job).where(Job.requirements.is_(None), Job.description.is_not(None))
     if job_ids is not None:
         if not job_ids:
             return 0
-        stmt = stmt.where(Job.id.in_(job_ids))          # only the jobs someone actually needs
+        stmt = stmt.where(Job.id.in_(job_ids))
     jobs = (await s.execute(stmt)).scalars().all()
 
     done = 0
     for job in jobs:
         try:
-            job.requirements = await extractor.extract(job.description)
+            job.requirements = await extract_all(extractor, job.description, chunk_size)
         except LLMError:
             continue
         await s.commit()
@@ -24,14 +50,14 @@ async def extract_job_requirements(s: AsyncSession, extractor, job_ids=None) -> 
     return done
 
 
-async def extract_resume_skills(s: AsyncSession, extractor) -> int:
+async def extract_resume_skills(s: AsyncSession, extractor, chunk_size: int = CHUNK_CHARS) -> int:
     stmt = select(Resume).where(Resume.skills.is_(None), Resume.raw_text.is_not(None))
     resumes = (await s.execute(stmt)).scalars().all()
 
     done = 0
     for resume in resumes:
         try:
-            resume.skills = await extractor.extract(resume.raw_text)
+            resume.skills = await extract_all(extractor, resume.raw_text, chunk_size)
         except LLMError:
             continue
         await s.commit()

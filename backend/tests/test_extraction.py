@@ -61,3 +61,28 @@ async def test_resume_skills_are_extracted_once_and_cached(session):
 
     assert (first, second) == (1, 0)
     assert ex.calls == 1
+def test_chunks_split_on_lines_and_skip_blanks():
+    text = "a" * 10 + "\n\n" + "b" * 10 + "\n" + "c" * 10
+    assert extraction.chunks(text, size=25) == ["a" * 10 + "\n" + "b" * 10, "c" * 10]
+
+
+class EchoExtractor:
+    """Returns the words of whatever chunk it's given, so we can see every chunk was read."""
+    def __init__(self):
+        self.calls = 0
+
+    async def extract(self, text):
+        self.calls += 1
+        return text.split()
+
+
+async def test_resume_skills_are_the_union_of_every_chunk(session):
+    resume = Resume(user_id=uuid4(), raw_text="Python Go\nDocker Python")
+    session.add(resume)
+    await session.commit()
+    ex = EchoExtractor()
+
+    await extraction.extract_resume_skills(session, ex, chunk_size=12)
+
+    assert ex.calls == 2                                    # two chunks
+    assert resume.skills == ["Python", "Go", "Docker"]      # union, duplicates dropped
