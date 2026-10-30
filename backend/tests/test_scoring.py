@@ -1,65 +1,69 @@
 from uuid import uuid4
 from sqlalchemy import select
 from app.db.models_db import Job, Resume, MatchScore
-from app.llm.scorer_llm import LLMError, ScoreResult
+from app.llm.scorer_llm import LLMError
 from app.services import scoring_services as scoring
 
 
-class FakeLLM:
-    def __init__(self, score=0.75):
-        self.score_value = score
+class FakeExtractor:
+    def __init__(self, mapping=None, default=("Python",)):
+        self.mapping = mapping or {}
+        self.default = list(default)
         self.calls = 0
 
-    async def score(self, resume, job) -> ScoreResult:
+    async def extract(self, text):
         self.calls += 1
-        return ScoreResult(score=self.score_value, met=["Python"], missing=["Go"],
-                           evidence={"Python": "Built APIs in Python"})
+        return self.mapping.get(text, self.default)
 
 
-class BrokenLLM:
-    async def score(self, resume, job):
-        raise LLMError("model said nonsense")
+class BrokenExtractor:
+    async def extract(self, text):
+        raise LLMError("nonsense")
 
 
-async def test_scores_resumes_against_matching_jobs(session):
+class FakeEmbedder:
+    """Every distinct term gets its own direction, so only exact terms ever match."""
+    def __init__(self):
+        self.index = {}
+
+    async def embed(self, texts):
+        out = []
+        for t in texts:
+            v = [0.0] * 64
+            v[self.index.setdefault(t, len(self.index))] = 1.0
+            out.append(v)
+        return out
+
+
+async def test_scores_by_matching_extracted_lists(session):
     session.add_all([
-        Job(title="Python A", description="python"),
-        Job(title="Python B", description="python"),
-        Resume(user_id=uuid4(), raw_text="python"),
+        Job(title="Backend", description="python and go"),
+        Resume(user_id=uuid4(), raw_text="python developer"),
     ])
     await session.commit()
+    ex = FakeExtractor({"python and go": ["Python", "Go"], "python developer": ["Python"]})
 
-    n = await scoring.score_new(session, FakeLLM())
-
-    assert n == 2
-    rows = (await session.execute(select(MatchScore))).scalars().all()
-    assert [r.score for r in rows] == [0.75, 0.75]
-
-
-async def test_stores_met_and_missing_with_the_score(session):
-    session.add_all([Job(title="Python", description="python"), Resume(user_id=uuid4(), raw_text="python")])
-    await session.commit()
-
-    await scoring.score_new(session, FakeLLM())
+    assert await scoring.score_new(session, ex, FakeEmbedder()) == 1
 
     row = (await session.execute(select(MatchScore))).scalar_one()
-    assert row.detail == {"met": ["Python"], "missing": ["Go"],
-                          "evidence": {"Python": "Built APIs in Python"}}
+    assert row.score == 0.5
+    assert row.detail == {"met": ["Python"], "missing": ["Go"], "evidence": {"Python": "Python"}}
 
 
-async def test_never_scores_the_same_pair_twice(session):
+async def test_never_scores_or_extracts_twice(session):
     session.add_all([Job(title="Python", description="python"), Resume(user_id=uuid4(), raw_text="python")])
     await session.commit()
-    llm = FakeLLM()
+    ex, emb = FakeExtractor(), FakeEmbedder()
 
-    await scoring.score_new(session, llm)
-    second_run = await scoring.score_new(session, llm)
+    await scoring.score_new(session, ex, emb)
+    calls_after_first = ex.calls
+    second = await scoring.score_new(session, ex, emb)
 
-    assert second_run == 0
-    assert llm.calls == 1
+    assert second == 0
+    assert ex.calls == calls_after_first
 
 
-async def test_only_top_k_jobs_reach_the_llm(session):
+async def test_only_shortlisted_jobs_get_extracted(session):
     session.add_all([
         Job(title="Python Postgres", description="python postgres fastapi"),
         Job(title="Python", description="python postgres"),
@@ -68,16 +72,16 @@ async def test_only_top_k_jobs_reach_the_llm(session):
         Resume(user_id=uuid4(), raw_text="python postgres fastapi"),
     ])
     await session.commit()
-    llm = FakeLLM()
+    ex = FakeExtractor()
 
-    await scoring.score_new(session, llm, k=2)
+    await scoring.score_new(session, ex, FakeEmbedder(), k=2)
 
-    assert llm.calls == 2
+    assert ex.calls == 3                  # 1 resume + the 2 shortlisted jobs, never the other 2
 
 
-async def test_bad_llm_output_skips_the_pair_without_crashing(session):
+async def test_failed_extraction_scores_nothing_and_does_not_crash(session):
     session.add_all([Job(title="Python", description="python"), Resume(user_id=uuid4(), raw_text="python")])
     await session.commit()
 
-    assert await scoring.score_new(session, BrokenLLM()) == 0
+    assert await scoring.score_new(session, BrokenExtractor(), FakeEmbedder()) == 0
     assert (await session.execute(select(MatchScore))).scalars().all() == []
