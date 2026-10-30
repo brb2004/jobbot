@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     LLM_API_URL: str = "http://localhost:11434/v1"
     LLM_MODEL: str = "qwen2.5:7b-instruct"
     LLM_API_KEY: str = "ollama"
+    EMBED_MODEL: str = "nomic-embed-text"
 
 
 @lru_cache
