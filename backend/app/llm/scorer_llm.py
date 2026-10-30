@@ -29,7 +29,7 @@ class ScoreResult(BaseModel):
     score: float
     met: list[str]
     missing: list[str]
-
+    evidence: dict[str, str] = {}
 
 def normalize(text: str) -> str:
     """Lowercase, punctuation -> spaces, collapse whitespace, so quotes match despite formatting."""
@@ -90,7 +90,9 @@ class LLMScorer:
             raise LLMError(f"unparseable model output: {text[:100]!r}") from e
 
         met, missing = verify(raw_met, raw_missing, resume_text)
+        quotes = {str(i.get("requirement", "")).strip(): str(i.get("evidence", "")) for i in raw_met}
         total = len(met) + len(missing)
         if total == 0:
             raise LLMError("model listed no requirements")
-        return ScoreResult(score=round(len(met) / total, 2), met=met, missing=missing)
+        return ScoreResult(score=round(len(met) / total, 2), met=met, missing=missing,
+                           evidence={req: quotes[req] for req in met})

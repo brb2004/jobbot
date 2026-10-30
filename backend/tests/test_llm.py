@@ -79,3 +79,7 @@ async def test_raises_on_unparseable_output():
 def test_duplicate_requirements_count_once():
     _, missing = verify([], ["Go", "go", "Rust"], RESUME)
     assert missing == ["Go", "Rust"]
+async def test_keeps_the_quote_for_each_verified_match():
+    out = {"met": [met("Python", "in Python"), met("Go", "expert in Go")], "missing": []}
+    r = await llm_returning(json.dumps(out)).score(resume, job)
+    assert r.evidence == {"Python": "in Python"}        # Go's fake quote is dropped

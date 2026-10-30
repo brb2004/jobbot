@@ -21,7 +21,8 @@ async def score_new(s: AsyncSession, llm, k: int = 20) -> int:
             except LLMError:
                 continue
             s.add(MatchScore(resume_id=resume.id, job_id=job.id, score=result.score,
-                             detail={"met": result.met, "missing": result.missing}))
+                             detail={"met": result.met, "missing": result.missing,
+                                     "evidence": result.evidence}))
             scored += 1
     await s.commit()
     return scored

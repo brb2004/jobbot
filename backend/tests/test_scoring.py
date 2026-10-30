@@ -12,7 +12,8 @@ class FakeLLM:
 
     async def score(self, resume, job) -> ScoreResult:
         self.calls += 1
-        return ScoreResult(score=self.score_value, met=["Python"], missing=["Go"])
+        return ScoreResult(score=self.score_value, met=["Python"], missing=["Go"],
+                           evidence={"Python": "Built APIs in Python"})
 
 
 class BrokenLLM:
@@ -42,7 +43,8 @@ async def test_stores_met_and_missing_with_the_score(session):
     await scoring.score_new(session, FakeLLM())
 
     row = (await session.execute(select(MatchScore))).scalar_one()
-    assert row.detail == {"met": ["Python"], "missing": ["Go"]}
+    assert row.detail == {"met": ["Python"], "missing": ["Go"],
+                          "evidence": {"Python": "Built APIs in Python"}}
 
 
 async def test_never_scores_the_same_pair_twice(session):
