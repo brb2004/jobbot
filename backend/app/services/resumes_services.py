@@ -8,6 +8,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Resume
 
+MAX_BYTES = 2 * 1024 * 1024
+ALLOWED = (".pdf", ".docx", ".txt")
+
+
+class TooLarge(Exception):
+    pass
+
+
+class UnsupportedType(Exception):
+    pass
+
 
 def extract_text(data: bytes, filename: str) -> str:
     name = filename.lower()
@@ -19,6 +30,10 @@ def extract_text(data: bytes, filename: str) -> str:
 
 
 async def create(s: AsyncSession, user_id: UUID, filename: str, data: bytes) -> Resume:
+    if not filename.lower().endswith(ALLOWED):
+        raise UnsupportedType
+    if len(data) > MAX_BYTES:
+        raise TooLarge
     resume = Resume(user_id=user_id, filename=filename, raw_text=extract_text(data, filename))
     s.add(resume)
     await s.commit()
