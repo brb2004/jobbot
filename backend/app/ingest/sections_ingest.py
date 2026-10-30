@@ -5,7 +5,7 @@ from selectolax.lexbor import LexborHTMLParser
 HEADINGS = "strong, h1, h2, h3, h4, h5, h6, p"
 REQUIREMENT_HEADING = re.compile(
     r"requirement|qualification|should have|you have|who you are|expertise|you(.ll)? bring|skills"
-    r"|look(ing)? for|^experience|^preferred|about you",
+    r"|look(ing)? for|^experience|^preferred|about you|you need|^bonus",
     re.IGNORECASE,
 )
 
