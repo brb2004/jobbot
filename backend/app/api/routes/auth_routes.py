@@ -10,7 +10,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=TokenOut, status_code=201)
 async def register(body: RegisterIn, s=Depends(get_session)):
-    user = await auth_service.register(s, body.email, body.password)
+    try:
+        user = await auth_service.register(s, body.email, body.password)
+    except auth_service.EmailTaken:
+        raise HTTPException(409, "Email already registered")
     return TokenOut(access_token=create_access_token(str(user.id)))
 
 
