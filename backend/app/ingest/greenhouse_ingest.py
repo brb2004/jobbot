@@ -1,4 +1,5 @@
 import asyncio
+import html as htmllib
 from dataclasses import dataclass
 
 import httpx
@@ -28,6 +29,7 @@ class BoardJob(BaseModel):
 
 class JobDetails(BaseModel):
     description: str
+    content_html: str = ""
     salary_min: float | None = None
     salary_max: float | None = None
     salary_currency: str | None = None
@@ -58,8 +60,12 @@ async def fetch_details(client: httpx.AsyncClient, board: str, job_id: int) -> J
     def dollars(cents):
         return cents / 100 if cents is not None else None
 
+    raw = data.get("content") or ""
+    if "&lt;" in raw:
+        raw = htmllib.unescape(raw)                 # Greenhouse double-encodes
     return JobDetails(
-        description=html_to_text(data.get("content") or ""),
+        description=html_to_text(raw),
+        content_html=raw,
         salary_min=dollars(pay.get("min_cents")),
         salary_max=dollars(pay.get("max_cents")),
         salary_currency=pay.get("currency_type"),
@@ -112,7 +118,7 @@ async def crawl(client: httpx.AsyncClient, s: AsyncSession, slugs: list[str],
 async def fill_descriptions(client: httpx.AsyncClient, s: AsyncSession,
                             concurrency: int = 4) -> int:
     stmt = select(Job).where(
-        Job.description.is_(None),             # only jobs we haven't filled yet
+        Job.description.is_(None),
         Job.board.is_not(None),
         Job.external_id.is_not(None),
     )
@@ -124,13 +130,14 @@ async def fill_descriptions(client: httpx.AsyncClient, s: AsyncSession,
             try:
                 return job, await fetch_details(client, job.board, job.external_id)
             except httpx.HTTPError:
-                return job, None               # leave it empty; next run retries it
+                return job, None
 
     filled = 0
     for job, d in await asyncio.gather(*(fetch(j) for j in jobs)):
         if d is None:
             continue
         job.description = d.description
+        job.content_html = d.content_html
         job.salary_min, job.salary_max, job.salary_currency = d.salary_min, d.salary_max, d.salary_currency
         filled += 1
     await s.commit()

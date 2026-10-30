@@ -64,6 +64,7 @@ async def test_fetch_details_returns_clean_description_and_salary():
 
     assert d.description == "Build things."
     assert (d.salary_min, d.salary_max, d.salary_currency) == (120000, 160000, "USD")
+    assert d.content_html == "<p>Build things.</p>"
 async def test_fill_descriptions_only_fetches_jobs_missing_one(session):
     session.add_all([
         Job(board="stripe", external_id=1, title="A"),                          # needs details

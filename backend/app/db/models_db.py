@@ -27,6 +27,7 @@ class Job(Base):
     url: Mapped[str | None]
     location: Mapped[str | None]
     description: Mapped[str | None] = mapped_column(Text)
+    content_html: Mapped[str | None] = mapped_column(Text)
     salary_min: Mapped[float | None] = mapped_column(Float)
     salary_max: Mapped[float | None] = mapped_column(Float)
     salary_currency: Mapped[str | None] = mapped_column(String(10))
