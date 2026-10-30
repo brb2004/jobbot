@@ -1,5 +1,5 @@
 from uuid import uuid4
-from sqlalchemy import func, select
+from sqlalchemy import select
 from app.db.models_db import Job, Resume, MatchScore
 from app.llm.scorer_llm import LLMError
 from app.services import scoring_services as scoring
@@ -26,7 +26,6 @@ class BrokenExtractor:
 
 
 class FakeEmbedder:
-    """Every distinct term gets its own direction, so only exact terms ever match."""
     def __init__(self):
         self.index = {}
 
@@ -58,6 +57,17 @@ async def test_scores_html_requirements_against_resume_skills(session):
     assert row.detail == {"met": ["Python"], "missing": ["Go"], "evidence": {"Python": "Python"}}
 
 
+async def test_jobs_without_requirements_never_take_a_shortlist_slot(session):
+    session.add_all([
+        Job(title="Python Engineer"),                                    # no HTML: perfect title overlap, nothing to score
+        Job(title="Backend", description="python services", content_html=reqs_html("Python")),
+        Resume(user_id=uuid4(), raw_text="python engineer"),
+    ])
+    await session.commit()
+
+    assert await scoring.score_new(session, FakeExtractor(), FakeEmbedder(), never, k=1) == 1
+
+
 async def test_never_scores_or_extracts_twice(session):
     session.add_all([
         Job(title="Python", description="python", content_html=reqs_html("Python")),
@@ -74,7 +84,7 @@ async def test_never_scores_or_extracts_twice(session):
     assert ex.calls == calls_after_first
 
 
-async def test_only_shortlisted_jobs_get_requirements_parsed(session):
+async def test_only_top_k_jobs_get_scored(session):
     session.add_all([
         Job(title="Python Postgres", description="python postgres fastapi", content_html=reqs_html("Python")),
         Job(title="Python", description="python postgres", content_html=reqs_html("Python")),
@@ -84,10 +94,7 @@ async def test_only_shortlisted_jobs_get_requirements_parsed(session):
     ])
     await session.commit()
 
-    await scoring.score_new(session, FakeExtractor(), FakeEmbedder(), never, k=2)
-
-    parsed = await session.scalar(select(func.count()).select_from(Job).where(Job.requirements.is_not(None)))
-    assert parsed == 2
+    assert await scoring.score_new(session, FakeExtractor(), FakeEmbedder(), never, k=2) == 2
 
 
 async def test_failed_resume_extraction_scores_nothing_and_does_not_crash(session):

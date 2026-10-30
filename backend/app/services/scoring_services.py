@@ -10,23 +10,21 @@ from app.services.judge_services import CachedJudge
 
 
 async def score_new(s: AsyncSession, resume_extractor, embedder, judge, k: int = 20) -> int:
-    await extraction.extract_resume_skills(s, resume_extractor)                    # AI, once per resume
+    await extraction.extract_resume_skills(s, resume_extractor)                   # AI, once per resume
+    await extraction.fill_job_requirements(s)                                     # HTML parsing, all jobs, no AI
     resumes = (await s.execute(select(Resume).where(Resume.skills.is_not(None)))).scalars().all()
-    jobs = list((await s.execute(select(Job))).scalars().all())
+    jobs = [j for j in (await s.execute(select(Job))).scalars().all() if j.requirements]   # only scoreable jobs
     already = set((await s.execute(select(MatchScore.resume_id, MatchScore.job_id))).all())
 
     plan = [(r, j) for r in resumes
             for j in prefilter.top_k(r.raw_text or "", jobs, k)
             if (r.id, j.id) not in already]
 
-    await extraction.fill_job_requirements(s, job_ids={j.id for _, j in plan})    # HTML parsing, no AI
     await embeddings.embed_new_terms(s, embedder)
     cached_judge = CachedJudge(s, judge)
 
     scored = 0
     for resume, job in plan:
-        if not job.requirements:
-            continue                                   # no requirements section: not scored
         vectors = await embeddings.vectors_for(s, [*job.requirements, *resume.skills])
         result = await matcher.match(job.requirements, resume.skills, vectors, cached_judge)
         if result is None:
