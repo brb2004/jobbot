@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 PROMPT = """You are screening a candidate for a job.
 List the job's key requirements (skills, tools, experience level). For each one, decide if the resume shows it.
-For every requirement you mark as met, copy a short EXACT quote from the resume that proves it.
+For every requirement you mark as met, copy a short EXACT quote from the resume (at most 15 words) that proves it.
 Reply with JSON only, exactly this shape:
 {{"met": [{{"requirement": "...", "evidence": "exact words copied from the resume"}}],
   "missing": ["requirement the resume lacks", ...]}}
@@ -19,6 +19,12 @@ JOB DESCRIPTION:
 {description}"""
 
 MAX_CHARS = 6000
+MAX_QUOTE_WORDS = 15
+GENERIC = {
+    "and", "or", "the", "a", "an", "to", "of", "in", "for", "with", "on", "at", "as", "is", "are", "be",
+    "experience", "experienced", "years", "year", "ability", "able", "strong", "knowledge", "skills",
+    "work", "working", "including", "such", "using", "related", "equivalent", "understanding", "proven",
+}
 
 
 class LLMError(Exception):
@@ -31,9 +37,20 @@ class ScoreResult(BaseModel):
     missing: list[str]
     evidence: dict[str, str] = {}
 
+
 def normalize(text: str) -> str:
     """Lowercase, punctuation -> spaces, collapse whitespace, so quotes match despite formatting."""
     return " ".join(re.sub(r"[^a-z0-9+#]+", " ", text.lower()).split())
+
+
+def keywords(text: str) -> set[str]:
+    return {w for w in normalize(text).split() if len(w) > 1 and w not in GENERIC}
+
+
+def supports(requirement: str, evidence: str) -> bool:
+    """A quote counts only if it's short and shares a real keyword with the claim it proves."""
+    return len(evidence.split()) <= MAX_QUOTE_WORDS and bool(keywords(requirement) & keywords(evidence))
+
 
 def unique(items: list[str]) -> list[str]:
     """Drop repeats that differ only in case/punctuation, keeping the first spelling."""
@@ -45,8 +62,9 @@ def unique(items: list[str]) -> list[str]:
             out.append(item)
     return out
 
+
 def verify(met: list[dict], missing: list[str], resume_text: str) -> tuple[list[str], list[str]]:
-    """Keep a 'met' only if its evidence really appears in the resume. Everything else is missing."""
+    """Keep a 'met' only if its quote is real, short, and on-topic. Everything else is missing."""
     resume = f" {normalize(resume_text)} "
     verified, unproven = [], list(missing)
     for item in met:
@@ -54,14 +72,14 @@ def verify(met: list[dict], missing: list[str], resume_text: str) -> tuple[list[
         evidence = normalize(str(item.get("evidence", "")))
         if not requirement:
             continue
-        if evidence and f" {evidence} " in resume:        # spaces on both sides = whole words only
+        if evidence and f" {evidence} " in resume and supports(requirement, evidence):
             verified.append(requirement)
         else:
             unproven.append(requirement)
 
     missing_keys = {normalize(m) for m in unproven}
     verified = [m for m in verified if normalize(m) not in missing_keys]
-    return verified, unique(unproven)
+    return unique(verified), unique(unproven)
 
 
 class LLMScorer:

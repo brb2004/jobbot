@@ -82,4 +82,19 @@ def test_duplicate_requirements_count_once():
 async def test_keeps_the_quote_for_each_verified_match():
     out = {"met": [met("Python", "in Python"), met("Go", "expert in Go")], "missing": []}
     r = await llm_returning(json.dumps(out)).score(resume, job)
-    assert r.evidence == {"Python": "in Python"}        # Go's fake quote is dropped
+    assert r.evidence == {"Python": "in Python"}
+def test_long_quote_does_not_count():
+    summary = ("Backend and systems-focused engineer with hands-on C, Python, FastAPI, PostgreSQL, "
+               "Linux, Docker, Kubernetes, CI, and observability experience.")
+    met_items, _ = verify([met("5+ years in security writing Python", summary)], [], summary)
+    assert met_items == []
+def test_off_topic_quote_does_not_count():
+    line = "Available for full-time work immediately."
+    met_items, _ = verify([met("Good English communication skills", line)], [], line)
+    assert met_items == []
+
+
+def test_short_on_topic_quote_counts():
+    met_items, _ = verify([met("Containers including Docker and Kubernetes", "Docker, Kubernetes")],
+                          [], "Tools: Docker, Kubernetes")
+    assert met_items == ["Containers including Docker and Kubernetes"]
