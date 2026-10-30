@@ -13,9 +13,11 @@ async def all_terms(s: AsyncSession) -> set[str]:
     return {normalize(t) for group in [*reqs, *skills] for t in group if normalize(t)}
 
 
-async def embed_new_terms(s: AsyncSession, embedder) -> int:
+async def embed_new_terms(s: AsyncSession, embedder, terms: set[str] | None = None) -> int:
+    """Embed every term that has no vector yet. Pass `terms` to limit it to just those."""
+    wanted = {normalize(t) for t in terms if normalize(t)} if terms is not None else await all_terms(s)
     known = set((await s.execute(select(TermVector.term))).scalars().all())
-    new = sorted((await all_terms(s)) - known)
+    new = sorted(wanted - known)
     for i in range(0, len(new), BATCH):
         batch = new[i:i + BATCH]
         for term, vector in zip(batch, await embedder.embed(batch)):

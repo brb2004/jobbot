@@ -37,3 +37,20 @@ async def test_vectors_for_returns_cached_vectors(session):
     vecs = await embeddings.vectors_for(session, ["Python", "Unknown"])
 
     assert vecs == {"python": [6.0, 1.0]}
+async def test_embeds_only_the_terms_it_is_given(session):
+    session.add(Job(title="A", requirements=["Python", "Go", "Rust"]))
+    await session.commit()
+    emb = FakeEmbedder()
+
+    n = await embeddings.embed_new_terms(session, emb, terms={"Python", "Go"})
+
+    assert n == 2
+    assert sorted(emb.embedded) == ["go", "python"]                  # Rust isn't needed, so isn't embedded
+
+
+async def test_long_bullets_can_be_stored(session):
+    bullet = "Experience " + "with distributed systems " * 20             # ~490 characters
+    session.add(Job(title="A", requirements=[bullet]))
+    await session.commit()
+
+    assert await embeddings.embed_new_terms(session, FakeEmbedder()) == 1

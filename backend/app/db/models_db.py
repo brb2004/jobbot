@@ -59,12 +59,12 @@ class MatchScore(Base):
 
 class TermVector(Base):
     __tablename__ = "term_vectors"
-    term: Mapped[str] = mapped_column(String(255), primary_key=True)
+    term: Mapped[str] = mapped_column(Text, primary_key=True)
     vector: Mapped[list[float]] = mapped_column(ARRAY(Float))
 
 
 class TermMatch(Base):
     __tablename__ = "term_matches"
-    requirement: Mapped[str] = mapped_column(String(255), primary_key=True)    # normalized
-    skill: Mapped[str] = mapped_column(String(255), primary_key=True)          # normalized
+    requirement: Mapped[str] = mapped_column(Text, primary_key=True)           # normalized
+    skill: Mapped[str] = mapped_column(Text, primary_key=True)                 # normalized
     verdict: Mapped[bool]

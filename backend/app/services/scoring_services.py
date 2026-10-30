@@ -20,7 +20,7 @@ async def score_new(s: AsyncSession, resume_extractor, embedder, judge, k: int =
             for j in prefilter.top_k(r.raw_text or "", jobs, k)
             if (r.id, j.id) not in already]
 
-    await embeddings.embed_new_terms(s, embedder)
+    await embeddings.embed_new_terms(s, embedder, {t for r, j in plan for t in [*j.requirements, *r.skills]})
     cached_judge = CachedJudge(s, judge)
 
     scored = 0
