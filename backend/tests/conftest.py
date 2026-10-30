@@ -11,9 +11,9 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.main import app
-from app.core.db import engine, get_session
-from app.core.security import create_access_token
-from app.db.models import Base
+from app.core.db_core import engine, get_session
+from app.core.security_core import create_access_token
+from app.db.models_db import Base
 
 
 # 3. fixtures

@@ -1,7 +1,7 @@
 from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.models import Job, Resume, MatchScore
+from app.db.models_db import Job, Resume, MatchScore
 
 async def for_user(s: AsyncSession, user_id: UUID):
     stmt = (

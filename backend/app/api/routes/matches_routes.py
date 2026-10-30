@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
-from app.api.deps import get_current_user
-from app.core.db import get_session
-from app.schemas.matches import MatchOut
-from app.services import matches as matches_service
+from app.api.deps_api import get_current_user
+from app.core.db_core import get_session
+from app.schemas.matches_schemas import MatchOut
+from app.services import matches_services as matches_service
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 

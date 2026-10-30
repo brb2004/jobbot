@@ -1,6 +1,6 @@
 from uuid import uuid4
-from app.core.security import create_access_token
-from app.db.models import Job, Resume, MatchScore
+from app.core.security_core import create_access_token
+from app.db.models_db import Job, Resume, MatchScore
 
 async def test_dashboard_shows_only_my_matches_best_first(client, session):
     me, someone_else = uuid4(), uuid4()

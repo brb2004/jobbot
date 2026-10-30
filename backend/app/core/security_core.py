@@ -1,5 +1,5 @@
 import jwt
-from app.core.config import get_settings
+from app.core.config_core import get_settings
 from datetime import datetime, timezone, timedelta
 
 def decode_token(token: str) -> dict:

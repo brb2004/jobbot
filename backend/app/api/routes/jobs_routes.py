@@ -1,9 +1,9 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
-from app.api.deps import get_current_user
-from app.core.db import get_session
-from app.services import jobs as jobs_service
-from app.schemas.jobs import JobOut
+from app.api.deps_api import get_current_user
+from app.core.db_core import get_session
+from app.services import jobs_services as jobs_service
+from app.schemas.jobs_schemas import JobOut
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 

@@ -1,6 +1,6 @@
 from uuid import uuid4
-from app.core.security import create_access_token
-from app.db.models import Job
+from app.core.security_core import create_access_token
+from app.db.models_db import Job
 
 async def test_get_job_requires_auth(client):
     r = await client.get(f"/jobs/{uuid4()}")

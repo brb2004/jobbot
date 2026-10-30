@@ -1,8 +1,8 @@
 import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from app.core.security import decode_token
-
+from app.core.security_core import decode_token
+from uuid import UUID
 bearer = HTTPBearer(auto_error=False)
 UNAUTHORIZED = HTTPException(401, "Not authenticated", headers={"WWW-Authenticate": "Bearer"})
 
