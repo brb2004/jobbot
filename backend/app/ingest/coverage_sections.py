@@ -2,6 +2,7 @@
 import asyncio
 import re
 import sys
+from pathlib import Path
 from collections import Counter
 
 from sqlalchemy import select
@@ -29,7 +30,9 @@ async def main(board: str | None) -> None:
     if not misses:
         print(f"{board}: no misses")
         return
-    path = f"tests/fixtures/{board}.html"
+    path, n = f"tests/fixtures/{board}.html", 2
+    while Path(path).exists():                      # never overwrite a fixture that guards an earlier fix
+        path, n = f"tests/fixtures/{board}_{n}.html", n + 1
     open(path, "w").write(misses[0][1])
     print(f"{board}: {len(misses)}/{len(rows)} missed; saved one to {path}\n")
     for tag in re.findall(r"<(?:h[1-6]|strong|b)>[^<]{3,60}", misses[0][1])[:25]:

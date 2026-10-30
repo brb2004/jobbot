@@ -2,9 +2,10 @@ import re
 
 from selectolax.lexbor import LexborHTMLParser
 
-HEADINGS = "strong, h1, h2, h3, h4, h5, h6"
+HEADINGS = "strong, h1, h2, h3, h4, h5, h6, p"
 REQUIREMENT_HEADING = re.compile(
-    r"requirement|qualification|should have|you have|who you are|expertise|you(.ll)? bring|skills|look(ing)? for|^experience|^preferred|about you",
+    r"requirement|qualification|should have|you have|who you are|expertise|you(.ll)? bring|skills"
+    r"|look(ing)? for|^experience|^preferred|about you",
     re.IGNORECASE,
 )
 
@@ -14,7 +15,12 @@ def clean(text: str) -> str:
 
 
 def is_heading(node) -> bool:
-    """Real h1-h6 always; <strong> only when it's the whole text of its parent (not bold inside a sentence or bullet)."""
+    """h1-h6 always. <strong>: only when it's the whole text of its parent.
+    <p>: only a short, plain line ending in ':' (no bold or links inside), like <p>What we look for:</p>."""
+    if node.tag == "p":
+        raw = node.text(deep=True).strip()
+        plain = next(node.iter(include_text=False), None) is None
+        return plain and raw.endswith(":") and len(raw) <= 40
     if node.tag != "strong":
         return True
     parent = node.parent
@@ -32,7 +38,7 @@ def requirement_bullets(html: str) -> list[str]:
                 bullets.append(text)
             continue
         title = clean(node.text(deep=True))
-        if not title or not is_heading(node):                  # empty or inline bold: ignore, keep state
+        if not title or not is_heading(node):
             continue
         in_requirements = bool(REQUIREMENT_HEADING.search(title))
     return bullets

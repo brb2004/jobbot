@@ -29,7 +29,7 @@ def test_bold_words_inside_a_bullet_are_not_headings():
 
 
 def test_real_postings_all_yield_bullets():
-    for name in ("stripe", "discord", "airbnb", "databricks", "lyft", "robinhood", "asana"):
+    for name in ("stripe", "discord", "airbnb", "databricks", "lyft", "robinhood", "asana", "databricks_2"):
         bullets = requirement_bullets((FIXTURES / f"{name}.html").read_text())
         assert bullets, f"{name}: found no requirement bullets"
 
@@ -42,4 +42,18 @@ def test_inline_bold_and_empty_strong_do_not_end_the_section():
 def test_inline_bold_and_empty_strong_do_not_end_the_section():
     html = ("<p><strong>Your Expertise:</strong></p><p>You <strong>must</strong> know:</p>"
             "<p><strong>&nbsp;</strong></p><ul><li>Go</li></ul>")
+    assert requirement_bullets(html) == ["Go"]
+
+
+def test_plain_paragraph_heading_with_colon():
+    html = ("<p>The impact you will have:</p><ul><li>Lead projects</li></ul>"
+            "<p>What we look for:</p><ul><li>6+ years data engineering</li></ul>"
+            "<p><strong>Benefits</strong></p><ul><li>Equity</li></ul>")
+    assert requirement_bullets(html) == ["6+ years data engineering"]
+
+
+def test_long_paragraph_ending_in_colon_is_not_a_heading():
+    html = ("<p><strong>Requirements</strong></p>"
+            "<p>Below is a fairly long sentence introducing the list of things we need:</p>"
+            "<ul><li>Go</li></ul>")
     assert requirement_bullets(html) == ["Go"]
