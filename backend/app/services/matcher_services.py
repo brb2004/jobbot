@@ -2,7 +2,7 @@ import math
 
 from app.llm.scorer_llm import ScoreResult, normalize, unique
 
-THRESHOLD = 0.80          # how similar two terms must be to count as the same skill (tune on real data)
+CANDIDATES = 3            # how many nearest skills the judge may look at per requirement
 
 
 def cosine(a: list[float], b: list[float]) -> float:
@@ -11,8 +11,17 @@ def cosine(a: list[float], b: list[float]) -> float:
     return dot / (na * nb) if na and nb else 0.0
 
 
-def match(requirements: list[str], skills: list[str],
-          vectors: dict[str, list[float]] | None = None, threshold: float = THRESHOLD) -> ScoreResult | None:
+def nearest(req_key: str, have: dict[str, str], vectors: dict[str, list[float]], n: int) -> list[str]:
+    """Your n skills closest in meaning to the requirement. Ranking only; never decides by itself."""
+    if req_key not in vectors:
+        return []
+    ranked = sorted(((cosine(vectors[req_key], vectors[k]), skill) for k, skill in have.items() if k in vectors),
+                    reverse=True)
+    return [skill for _, skill in ranked[:n]]
+
+
+async def match(requirements: list[str], skills: list[str], vectors=None, judge=None,
+                candidates: int = CANDIDATES) -> ScoreResult | None:
     reqs = unique(requirements)
     if not reqs:
         return None
@@ -22,21 +31,19 @@ def match(requirements: list[str], skills: list[str],
     met, missing, evidence = [], [], {}
     for req in reqs:
         key = normalize(req)
-        if key in have:                                   # 1. exact match: free
+        if key in have:                                            # 1. exact: free
             met.append(req)
             evidence[req] = have[key]
             continue
-        best, best_sim = None, 0.0                        # 2. closest skill by meaning
-        if key in vectors:
-            for skill_key, skill in have.items():
-                if skill_key in vectors:
-                    sim = cosine(vectors[key], vectors[skill_key])
-                    if sim > best_sim:
-                        best, best_sim = skill, sim
-        if best is not None and best_sim >= threshold:
+        found = None
+        if judge is not None:                                      # 2. retrieve, then judge
+            for skill in nearest(key, have, vectors, candidates):
+                if await judge(req, skill):
+                    found = skill
+                    break
+        if found:
             met.append(req)
-            evidence[req] = best                          # "met because you have Prometheus"
+            evidence[req] = found
         else:
             missing.append(req)
-
     return ScoreResult(score=round(len(met) / len(reqs), 2), met=met, missing=missing, evidence=evidence)
