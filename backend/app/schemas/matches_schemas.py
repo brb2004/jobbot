@@ -7,5 +7,4 @@ class MatchOut(BaseModel):
     job_id: UUID
     title: str | None
     score: float
-    url: str | None = None
     detail: dict | None = None

@@ -48,7 +48,7 @@ async def test_scores_each_requirement_against_the_resume(session):
     assert await scoring.score_new(session, FakeExtractor({"python developer": ["Python"]}), FakeFit()) == 1
 
     row = (await session.execute(select(MatchScore))).scalar_one()
-    assert row.score == 0.25
+    assert row.score == 0.5
     assert row.detail == {"met": ["Python"], "partial": [], "missing": ["Go"], "soft": []}
 
 

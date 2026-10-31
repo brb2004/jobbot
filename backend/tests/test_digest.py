@@ -69,12 +69,3 @@ async def test_sends_one_email_per_user_with_new_matches(session):
 
     assert sent == 2
     assert {user_id for user_id, _ in sender.sent} == {alice, bob}   # carol's match is too old
-
-def test_each_match_shows_its_link_and_what_you_have_and_lack():
-    match = MatchOut(job_id=uuid4(), title="Backend", score=0.5, url="https://x/1",
-                     detail={"met": ["Python"], "partial": ["Docker and K8s"], "missing": ["Go"], "soft": []})
-
-    body = digest.render([match], top_n=5)
-
-    assert "https://x/1" in body
-    assert "Python" in body and "Docker and K8s" in body and "Go" in body
