@@ -73,3 +73,14 @@ real resume, reproduced as a test.
 - ~4% of jobs have no detectable requirements section.
 - No real email sender; no cron jobs yet.
 - Rotate the LiteLLM key from an earlier version of the repo.
+
+## Incidents
+- **Tests wiped the dev database.** direnv exported DATABASE_URL=jobbot_dev; conftest used setdefault, so
+  the suite ran drop_all against dev. Fix: tests read TEST_DATABASE_URL only and refuse any database not
+  named *_test. Data rebuilt from sources (crawl + re-upload) in ~20 min.
+- **A revert removed more than intended.** One commit held smoothing + digest links; reverting it dropped
+  both. Restored with `git checkout <commit> -- <files>`. Rule: one change per commit.
+
+## Preferences
+User-level title filters run before the shortlist (no AI spent on excluded jobs): include_titles (must
+contain one) + exclude_titles (must contain none), whole-word matching that also handles "Sr.".
