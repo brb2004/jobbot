@@ -50,3 +50,10 @@ async def client(session):
 @pytest.fixture
 def auth_headers():
     return {"Authorization": f"Bearer {create_access_token(str(uuid4()))}"}
+
+
+def test_include_titles_require_one_of_the_words():
+    prefs = Preferences(include_titles=["engineer", "developer"])
+    assert allowed(Job(title="IT Systems Engineer"), prefs)
+    assert not allowed(Job(title="Account Executive, Platforms"), prefs)
+    assert allowed(Job(title="Anything"), Preferences())        # no include list = everything allowed
