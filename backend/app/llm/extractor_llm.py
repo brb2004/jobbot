@@ -44,3 +44,31 @@ class LLMExtractor:
         if not isinstance(items, list):
             raise LLMError("expected a JSON array")
         return unique([str(i).strip() for i in items if str(i).strip()])
+
+
+BACKGROUND_PROMPT = """From this resume, list the person's education and work experience.
+Education: one short line per degree or program, with school, field, and status (completed, in progress, expected year).
+Experience: one short line per role, with title, organization, and dates.
+Reply with JSON only, exactly this shape: {{"education": ["..."], "experience": ["..."]}}
+
+RESUME:
+{text}"""
+
+
+class LLMBackgroundExtractor:
+    def __init__(self, client: AsyncOpenAI, model: str):
+        self.client = client
+        self.model = model
+
+    async def extract_background(self, text: str) -> dict[str, list[str]]:
+        resp = await self.client.chat.completions.create(
+            model=self.model, temperature=0,
+            messages=[{"role": "user", "content": BACKGROUND_PROMPT.format(text=text[:MAX_CHARS])}],
+        )
+        raw = resp.choices[0].message.content or ""
+        match = re.search(r"\{.*\}", raw, re.S)
+        try:
+            data = json.loads(match.group(0))
+            return {key: [str(x).strip() for x in data[key] if str(x).strip()] for key in ("education", "experience")}
+        except (AttributeError, ValueError, KeyError, TypeError) as e:
+            raise LLMError(f"unparseable model output: {raw[:100]!r}") from e

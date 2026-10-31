@@ -97,3 +97,39 @@ async def test_job_requirements_come_from_the_html_requirements_section(session)
     assert with_section.requirements == ["Go", "SQL"]
     assert without.requirements == []                 # cached as empty: never re-parsed, never scored
     assert await extraction.fill_job_requirements(session) == 0
+
+
+class BackgroundExtractor:
+    def __init__(self):
+        self.calls = 0
+
+    async def extract_background(self, text):
+        self.calls += 1
+        return {"education": ["B.S. Systems Technology, UT Dallas (in progress, 2027)"],
+                "experience": ["IT Support Specialist, TEKsystems (2026-present)"]}
+
+
+async def test_education_and_experience_are_extracted_once_and_cached(session):
+    resume = Resume(user_id=uuid4(), raw_text="python developer")
+    session.add(resume)
+    await session.commit()
+    bg = BackgroundExtractor()
+
+    await extraction.extract_resume_skills(session, FakeExtractor(), background=bg)
+    await extraction.extract_resume_skills(session, FakeExtractor(), background=bg)
+
+    assert resume.education == ["B.S. Systems Technology, UT Dallas (in progress, 2027)"]
+    assert resume.experience == ["IT Support Specialist, TEKsystems (2026-present)"]
+    assert bg.calls == 1
+
+
+async def test_existing_resumes_get_background_without_re_extracting_skills(session):
+    resume = Resume(user_id=uuid4(), raw_text="python", skills=["Python"])        # extracted before this feature
+    session.add(resume)
+    await session.commit()
+    skills_ex = FakeExtractor()
+
+    await extraction.extract_resume_skills(session, skills_ex, background=BackgroundExtractor())
+
+    assert skills_ex.calls == 0
+    assert resume.education is not None

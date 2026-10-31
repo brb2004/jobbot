@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Job, Resume
@@ -52,14 +52,23 @@ async def extract_job_requirements(s: AsyncSession, extractor, job_ids=None, chu
     return done
 
 
-async def extract_resume_skills(s: AsyncSession, extractor, chunk_size: int = CHUNK_CHARS) -> int:
-    stmt = select(Resume).where(Resume.skills.is_(None), Resume.raw_text.is_not(None))
+async def extract_resume_skills(s: AsyncSession, extractor, chunk_size: int = CHUNK_CHARS,
+                                background=None) -> int:
+    """Skills (chunked) and, if a background extractor is given, education + experience. Each once, cached."""
+    todo = Resume.skills.is_(None)
+    if background is not None:
+        todo = or_(todo, Resume.education.is_(None))
+    stmt = select(Resume).where(todo, Resume.raw_text.is_not(None))
     resumes = (await s.execute(stmt)).scalars().all()
 
     done = 0
     for resume in resumes:
         try:
-            resume.skills = await extract_all(extractor, resume.raw_text, chunk_size)
+            if resume.skills is None:
+                resume.skills = await extract_all(extractor, resume.raw_text, chunk_size)
+            if background is not None and resume.education is None:
+                found = await background.extract_background(resume.raw_text)
+                resume.education, resume.experience = found["education"], found["experience"]
         except LLMError:
             continue
         await s.commit()

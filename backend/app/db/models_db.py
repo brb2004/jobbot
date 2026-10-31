@@ -43,6 +43,8 @@ class Resume(Base):
     filename: Mapped[str | None] = mapped_column(String(255))
     raw_text: Mapped[str | None] = mapped_column(Text)
     skills: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
+    education: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
+    experience: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
 
 
 class MatchScore(Base):

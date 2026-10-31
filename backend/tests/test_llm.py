@@ -135,3 +135,29 @@ async def test_extractor_raises_on_prose():
 async def test_extractor_raises_on_truncated_output():
     with pytest.raises(LLMError):
         await extractor_returning('["Python", "Dock').extract("x")
+
+from app.llm.extractor_llm import LLMBackgroundExtractor
+
+
+def background_returning(content):
+    def handler(request):
+        return httpx.Response(200, json={
+            "id": "x", "object": "chat.completion", "created": 0, "model": "m",
+            "choices": [{"index": 0, "finish_reason": "stop",
+                         "message": {"role": "assistant", "content": content}}],
+        })
+    client = AsyncOpenAI(api_key="t", base_url="http://llm.test/v1",
+                         http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    return LLMBackgroundExtractor(client, "m")
+
+
+async def test_background_parses_education_and_experience():
+    r = await background_returning(
+        '```json\n{"education": ["B.S., UT Dallas (in progress)"], "experience": ["IT Support, TEKsystems", " "]}\n```'
+    ).extract_background("x")
+    assert r == {"education": ["B.S., UT Dallas (in progress)"], "experience": ["IT Support, TEKsystems"]}
+
+
+async def test_background_missing_a_section_raises():
+    with pytest.raises(LLMError):
+        await background_returning('{"education": []}').extract_background("x")
