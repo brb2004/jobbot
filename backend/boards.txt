@@ -1,0 +1,47 @@
+# Greenhouse board slugs, one per line. Check with: python -m app.ingest.check_boards
+
+# current
+stripe
+figma
+vercel
+airbnb
+discord
+databricks
+cloudflare
+dropbox
+reddit
+robinhood
+coinbase
+instacart
+lyft
+pinterest
+duolingo
+gitlab
+twitch
+asana
+brex
+
+# new: candidates with new-grad / junior / early-career hiring (unverified until checked)
+anthropic
+datadog
+mongodb
+elastic
+twilio
+okta
+samsara
+affirm
+chime
+gusto
+squarespace
+roblox
+riotgames
+flexport
+toast
+nuro
+waymo
+scaleai
+cockroachlabs
+grafanalabs
+mercury
+verkada
+sofi
