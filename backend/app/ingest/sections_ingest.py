@@ -9,6 +9,12 @@ REQUIREMENT_HEADING = re.compile(
     re.IGNORECASE,
 )
 
+BOILERPLATE = re.compile(
+    r"equal opportunity|accommodation|e-verify|arbitration|privacy notice|application limit"
+    r"|know your rights|protected veteran",
+    re.IGNORECASE,
+)
+
 
 def text_of(node) -> str:
     # separator=" ": "<span>field</span><span>of</span>" -> "field of", not "fieldof"
@@ -42,7 +48,7 @@ def requirement_bullets(html: str) -> list[str]:
     for node in tree.css(f"{HEADINGS}, li"):                    # document order
         if node.tag == "li":
             text = clean(text_of(node))
-            if in_requirements and text:
+            if in_requirements and text and not BOILERPLATE.search(text):
                 bullets.append(text)
             continue
         title = clean(text_of(node))

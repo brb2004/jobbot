@@ -67,3 +67,13 @@ def test_inline_tags_and_line_breaks_keep_word_spacing():
         "BS in a technical field of study",
         "Proficiency in Python, Go, and SQL (Postgres)",
     ]
+
+
+def test_legal_boilerplate_is_not_a_requirement():
+    html = ("<h3>What you'll bring</h3><ul><li>2+ years of Go</li>"
+            "<li>Equal Opportunity Employer: we consider all applicants.</li>"
+            "<li>Application Limit: max 3 applications in 6 months.</li>"
+            "<li>Accommodations: email us your request.</li>"
+            "<li>US Applicants: View Employee Rights and E-Verify Notice.</li>"
+            "<li>Data Privacy & Arbitration: you agree to our Candidate Privacy Notice.</li></ul>")
+    assert requirement_bullets(html) == ["2+ years of Go"]
