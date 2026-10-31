@@ -68,3 +68,10 @@ async def test_soft_skills_are_shown_but_not_scored():
 
 async def test_a_job_with_only_soft_bullets_gets_no_score():
     assert await judge_requirements(["Curiosity"], ["Go"], FakeFit({"Curiosity": None})) is None
+
+
+async def test_years_or_degree_requirements_are_never_soft():
+    judge = FakeFit({"5+ years in security engineering": None, "Bachelor's degree in CS": None})
+    r = await judge_requirements(["5+ years in security engineering", "Bachelor's degree in CS"], ["Python"], judge)
+    assert r.missing == ["5+ years in security engineering", "Bachelor's degree in CS"]
+    assert r.soft == []
