@@ -1,6 +1,6 @@
 from uuid import uuid4
 from sqlalchemy import select
-from app.db.models_db import Job, Resume, MatchScore
+from app.db.models_db import Job, Resume, MatchScore, User
 from app.llm.scorer_llm import LLMError
 from app.services import scoring_services as scoring
 
@@ -128,3 +128,18 @@ async def test_judge_sees_education_and_experience(session):
 
     assert "Education: B.S. Systems Technology, UT Dallas (in progress)" in fit.seen[0]
     assert "Experience: IT Support, TEKsystems" in fit.seen[0]
+
+
+
+async def test_user_title_exclusions_keep_jobs_off_the_shortlist(session):
+    user = User(email="p@x.com", hashed_password="x", preferences={"exclude_titles": ["senior"]})
+    session.add(user)
+    await session.flush()
+    session.add_all([
+        Job(title="Senior Python Engineer", description="python", content_html=reqs_html("Python")),
+        Job(title="Python Engineer", description="python", content_html=reqs_html("Python")),
+        Resume(user_id=user.id, raw_text="python"),
+    ])
+    await session.commit()
+
+    assert await scoring.score_new(session, FakeExtractor(), FakeFit()) == 1      # the senior job never scored
