@@ -10,21 +10,29 @@ REQUIREMENT_HEADING = re.compile(
 )
 
 
+def text_of(node) -> str:
+    # separator=" ": "<span>field</span><span>of</span>" -> "field of", not "fieldof"
+    return node.text(deep=True, separator=" ")
+
+
 def clean(text: str) -> str:
-    return text.replace("\xa0", " ").strip().rstrip(":").strip()
+    text = " ".join(text.replace("\xa0", " ").split())        # collapse runs of whitespace
+    text = re.sub(r" ([,.;:!?)])", r"\1", text)                # "Go ," -> "Go,"
+    text = text.replace("( ", "(")
+    return text.rstrip(":").strip()
 
 
 def is_heading(node) -> bool:
     """h1-h6 always. <strong>: only when it's the whole text of its parent.
     <p>: only a short, plain line ending in ':' (no bold or links inside), like <p>What we look for:</p>."""
     if node.tag == "p":
-        raw = node.text(deep=True).strip()
+        raw = text_of(node).strip()
         plain = next(node.iter(include_text=False), None) is None
         return plain and raw.endswith(":") and len(raw) <= 40
     if node.tag != "strong":
         return True
     parent = node.parent
-    return parent is not None and clean(parent.text(deep=True)) == clean(node.text(deep=True))
+    return parent is not None and clean(text_of(parent)) == clean(text_of(node))
 
 
 def requirement_bullets(html: str) -> list[str]:
@@ -33,11 +41,11 @@ def requirement_bullets(html: str) -> list[str]:
     bullets: list[str] = []
     for node in tree.css(f"{HEADINGS}, li"):                    # document order
         if node.tag == "li":
-            text = clean(node.text(deep=True))
+            text = clean(text_of(node))
             if in_requirements and text:
                 bullets.append(text)
             continue
-        title = clean(node.text(deep=True))
+        title = clean(text_of(node))
         if not title or not is_heading(node):
             continue
         in_requirements = bool(REQUIREMENT_HEADING.search(title))

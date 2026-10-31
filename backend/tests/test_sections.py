@@ -57,3 +57,13 @@ def test_long_paragraph_ending_in_colon_is_not_a_heading():
             "<p>Below is a fairly long sentence introducing the list of things we need:</p>"
             "<ul><li>Go</li></ul>")
     assert requirement_bullets(html) == ["Go"]
+
+
+def test_inline_tags_and_line_breaks_keep_word_spacing():
+    html = ("<h3>Requirements</h3><ul>"
+            "<li>BS in a technical field<br>of study</li>"
+            "<li><span>Proficiency in</span><span>Python, <em>Go</em>, and SQL (<b>Postgres</b>)</span></li></ul>")
+    assert requirement_bullets(html) == [
+        "BS in a technical field of study",
+        "Proficiency in Python, Go, and SQL (Postgres)",
+    ]
