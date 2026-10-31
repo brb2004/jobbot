@@ -49,7 +49,7 @@ async def test_scores_each_requirement_against_the_resume(session):
 
     row = (await session.execute(select(MatchScore))).scalar_one()
     assert row.score == 0.5
-    assert row.detail == {"met": ["Python"], "partial": [], "missing": ["Go"]}
+    assert row.detail == {"met": ["Python"], "partial": [], "missing": ["Go"], "soft": []}
 
 
 async def test_jobs_without_requirements_never_take_a_shortlist_slot(session):

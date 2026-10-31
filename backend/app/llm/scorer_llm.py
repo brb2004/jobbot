@@ -36,6 +36,7 @@ class ScoreResult(BaseModel):
     met: list[str]
     missing: list[str]
     partial: list[str] = []
+    soft: list[str] = []
     evidence: dict[str, str] = {}
 
 

@@ -2,20 +2,21 @@ from openai import AsyncOpenAI
 
 from app.llm.scorer_llm import LLMError
 
-# Skills first, requirement last: consecutive calls for one resume share the same prefix,
-# so Ollama can reuse the work it already did on the skills list.
+# Skills first, requirement last: consecutive calls for one resume share the same prefix.
 PROMPT = """CANDIDATE SKILLS:
 {skills}
 
 JOB REQUIREMENT:
 {requirement}
 
-Does the candidate meet this requirement, judging only from the skills listed above?
+First: if this requirement is a personality trait or soft skill (communication, curiosity, teamwork,
+work style, "fast-paced environment", "growth mindset"), answer "soft".
+Otherwise, does the candidate meet it, judging only from the skills listed above?
 Answer "yes" if the skills clearly cover it, "partial" if they cover some of it, "no" if they don't.
 Years of experience or degrees that are not listed count as not shown.
-Answer with one word: yes, partial, or no."""
+Answer with one word: soft, yes, partial, or no."""
 
-VERDICTS = {"yes": 1.0, "partial": 0.5, "no": 0.0}
+VERDICTS = {"soft": None, "yes": 1.0, "partial": 0.5, "no": 0.0}
 
 
 class FitJudge:
@@ -23,7 +24,8 @@ class FitJudge:
         self.client = client
         self.model = model
 
-    async def __call__(self, requirement: str, skills: list[str]) -> float:
+    async def __call__(self, requirement: str, skills: list[str]) -> float | None:
+        """1.0 yes, 0.5 partial, 0.0 no, None = soft skill (shown, not scored)."""
         resp = await self.client.chat.completions.create(
             model=self.model, temperature=0, max_tokens=3,
             messages=[{"role": "user", "content": PROMPT.format(skills=", ".join(skills), requirement=requirement)}],

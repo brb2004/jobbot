@@ -53,3 +53,18 @@ async def test_duplicate_requirements_judged_once():
 
 async def test_no_requirements_means_no_score():
     assert await judge_requirements([], ["Go"], FakeFit({})) is None
+
+
+async def test_reads_soft_verdict():
+    assert await fit_returning("Soft.")("Thrive in a fast-paced environment", ["Python"]) is None
+
+
+async def test_soft_skills_are_shown_but_not_scored():
+    r = await judge_requirements(["Go", "Thrive in fast-paced environments"], ["Go"],
+                                 FakeFit({"Go": 1.0, "Thrive in fast-paced environments": None}))
+    assert r.score == 1.0                                    # not dragged down by the soft bullet
+    assert r.soft == ["Thrive in fast-paced environments"]
+
+
+async def test_a_job_with_only_soft_bullets_gets_no_score():
+    assert await judge_requirements(["Curiosity"], ["Go"], FakeFit({"Curiosity": None})) is None

@@ -28,7 +28,7 @@ async def score_new(s: AsyncSession, resume_extractor, fit_judge, k: int = 20) -
         if result is None:
             continue
         s.add(MatchScore(resume_id=resume.id, job_id=job.id, score=result.score,
-                         detail={"met": result.met, "partial": result.partial, "missing": result.missing}))
+                         detail={"met": result.met, "partial": result.partial, "missing": result.missing, "soft": result.soft}))
         await s.commit()                                                 # save each pair: long runs keep progress
         scored += 1
     return scored
