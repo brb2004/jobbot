@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     JUDGE_MODEL: str = "qwen2.5:14b-instruct"       # judging: short input, harder task
     EMBED_MODEL: str = "nomic-embed-text"
 
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""        # set in .env, never in code
+    EMAIL_FROM: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:
