@@ -35,6 +35,10 @@ CASES = [
     ("Proficiency in Java or Ruby", NO),
     ("5+ years in security engineering", NO),
     ("Experience with blockchain protocols and smart contracts", NO),
+    ("Experience with Lakebase or Neon", NO),
+    ("Experience in using AI to address production and operational challenges", NO),
+    ("Incident response, on-call rotations, runbooks, and postmortem processes", NO),
+    ("Strong collaboration skills across workstreams", SOFT),
 ]
 
 NAME = {YES: "yes", PARTIAL: "partial", NO: "no", SOFT: "soft", "error": "error"}
