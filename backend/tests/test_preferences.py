@@ -29,3 +29,12 @@ def test_include_titles_require_one_of_the_words():
 def test_exclude_wins_over_include():
     prefs = Preferences(include_titles=["engineer"], exclude_titles=["sr"])
     assert not allowed(Job(title="Sr Software Engineer"), prefs)
+
+
+def test_locations_require_one_of_the_words():
+    prefs = Preferences(locations=["remote", "dallas"])
+    assert allowed(Job(title="Engineer", location="Remote - US"), prefs)
+    assert allowed(Job(title="Engineer", location="Dallas, TX"), prefs)
+    assert not allowed(Job(title="Engineer", location="San Francisco, CA"), prefs)
+    assert not allowed(Job(title="Engineer", location=None), prefs)          # unknown location: not shown
+    assert allowed(Job(title="Engineer", location="Anywhere"), Preferences())

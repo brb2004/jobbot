@@ -14,6 +14,7 @@ class Preferences(BaseModel):
     model_config = ConfigDict(extra="forbid")                       # unknown fields -> 422
     include_titles: list[Word] = Field(default=[], max_length=50)  # title must contain one (if set)
     exclude_titles: list[Word] = Field(default=[], max_length=50)  # title must contain none
+    locations: list[Word] = Field(default=[], max_length=50)       # job location must contain one (if set)
 
 
 def has_word(title: str, word: str) -> bool:
@@ -26,6 +27,8 @@ def allowed(job: Job, prefs: Preferences) -> bool:
     if any(has_word(title, w) for w in prefs.exclude_titles):
         return False
     if prefs.include_titles and not any(has_word(title, w) for w in prefs.include_titles):
+        return False
+    if prefs.locations and not any(has_word(job.location or "", w) for w in prefs.locations):
         return False
     return True
 
