@@ -1,7 +1,10 @@
 # 1. env vars FIRST, before anything from app/ is imported
 import os
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-that-is-at-least-32-bytes")
-os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://jobbot:jobbot123@localhost:55432/jobbot_test")
+os.environ["DATABASE_URL"] = os.environ.get(
+    "TEST_DATABASE_URL", "postgresql+asyncpg://jobbot:jobbot123@localhost:55432/jobbot_test")
+if not os.environ["DATABASE_URL"].rsplit("/", 1)[-1].endswith("_test"):
+    raise RuntimeError("Refusing to run tests: DATABASE_URL is not a *_test database")
 
 # 2. then imports
 from uuid import uuid4
