@@ -38,3 +38,15 @@ def test_locations_require_one_of_the_words():
     assert not allowed(Job(title="Engineer", location="San Francisco, CA"), prefs)
     assert not allowed(Job(title="Engineer", location=None), prefs)          # unknown location: not shown
     assert allowed(Job(title="Engineer", location="Anywhere"), Preferences())
+
+
+def test_remote_jobs_must_be_in_an_allowed_region():
+    prefs = Preferences(locations=["remote", "dallas"], remote_regions=["us", "usa", "united states"])
+    assert allowed(Job(title="E", location="Remote - United States"), prefs)
+    assert allowed(Job(title="E", location="Remote- USA"), prefs)
+    assert allowed(Job(title="E", location="San Francisco, CA, US; Remote, US"), prefs)
+    assert allowed(Job(title="E", location="Remote, Canada; Remote, United States"), prefs)
+    assert allowed(Job(title="E", location="Dallas, TX"), prefs)
+    assert allowed(Job(title="E", location="Remote"), prefs)
+    assert not allowed(Job(title="E", location="Remote - Mexico"), prefs)
+    assert not allowed(Job(title="E", location="Remote, Poland"), prefs)
