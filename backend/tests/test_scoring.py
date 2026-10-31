@@ -24,17 +24,19 @@ class BrokenExtractor:
 
 
 class FakeFit:
-    """Met if the requirement is literally one of the skills."""
+    """Met if the requirement appears in the candidate text. Records what it was shown."""
     def __init__(self):
         self.calls = 0
+        self.seen = []
 
-    async def __call__(self, requirement, skills):
+    async def __call__(self, requirement, candidate):
         self.calls += 1
-        return 1.0 if requirement.lower() in {s.lower() for s in skills} else 0.0
+        self.seen.append(candidate)
+        return 1.0 if requirement.lower() in candidate.lower() else 0.0
 
 
 class BrokenFit:
-    async def __call__(self, requirement, skills):
+    async def __call__(self, requirement, candidate):
         raise LLMError("nonsense")
 
 
@@ -48,7 +50,7 @@ async def test_scores_each_requirement_against_the_resume(session):
     assert await scoring.score_new(session, FakeExtractor({"python developer": ["Python"]}), FakeFit()) == 1
 
     row = (await session.execute(select(MatchScore))).scalar_one()
-    assert row.score == 0.5
+    assert row.score == 0.25
     assert row.detail == {"met": ["Python"], "partial": [], "missing": ["Go"], "soft": []}
 
 
@@ -111,3 +113,18 @@ async def test_failed_fit_judgment_skips_the_pair_and_retries_later(session):
 
     assert await scoring.score_new(session, FakeExtractor(), BrokenFit()) == 0
     assert await scoring.score_new(session, FakeExtractor(), FakeFit()) == 1
+
+
+async def test_judge_sees_education_and_experience(session):
+    session.add_all([
+        Job(title="Python", description="python", content_html=reqs_html("Python")),
+        Resume(user_id=uuid4(), raw_text="python", skills=["Python"],
+               education=["B.S. Systems Technology, UT Dallas (in progress)"], experience=["IT Support, TEKsystems"]),
+    ])
+    await session.commit()
+    fit = FakeFit()
+
+    await scoring.score_new(session, FakeExtractor(), fit)
+
+    assert "Education: B.S. Systems Technology, UT Dallas (in progress)" in fit.seen[0]
+    assert "Experience: IT Support, TEKsystems" in fit.seen[0]
