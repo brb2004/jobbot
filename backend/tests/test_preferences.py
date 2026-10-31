@@ -17,3 +17,15 @@ def test_matches_whole_words_only():
 
 def test_no_preferences_allows_everything():
     assert allowed(Job(title="Senior Staff Principal Intern"), Preferences())
+
+
+def test_include_titles_require_one_of_the_words():
+    prefs = Preferences(include_titles=["engineer", "developer"])
+    assert allowed(Job(title="IT Systems Engineer"), prefs)
+    assert not allowed(Job(title="Account Executive, Platforms"), prefs)
+    assert allowed(Job(title="Anything"), Preferences())          # no include list = everything allowed
+
+
+def test_exclude_wins_over_include():
+    prefs = Preferences(include_titles=["engineer"], exclude_titles=["sr"])
+    assert not allowed(Job(title="Sr Software Engineer"), prefs)
