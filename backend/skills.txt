@@ -83,3 +83,64 @@ Distributed Systems
 Microservices
 Data Structures
 Algorithms
+# ai / ml (from coverage round 1)
+=AI: artificial intelligence
+=RAG: retrieval-augmented generation, retrieval augmented generation
+=MCP: model context protocol
+MLOps
+AI Coding Tools: claude code, github copilot, copilot, =Cursor, =Claude
+# apis / web
+APIs: =API, =APIs, api design
+=SDK: =SDKs
+=HTTP
+=TLS: =SSL
+=DNS
+# data / analytics
+Databricks
+Snowflake
+Tableau
+Looker
+=BI: business intelligence
+Statistics
+=Excel: microsoft excel
+A/B Testing: a/b tests, a/b testing, ab testing
+# infra / security
+DevOps
+=IAM: identity and access management
+Okta
+Zero Trust
+# mobile
+Android
+=iOS
+# tools / domains
+Figma
+Jira
+Salesforce
+=CRM
+Robotics
+# networking / security (coverage round 2)
+Networking: computer networking
+=TCP/IP
+=TCP/UDP: =TCP, =UDP
+=BGP
+OSI Model: osi
+Firewalls: firewall
+=WAF: web application firewall
+=SASE
+=SIEM
+=OIDC: openid connect
+=HIPAA
+PCI DSS: pci-dss, =PCI
+Rate Limiting
+# infra / platform
+=SRE: site reliability engineering
+Pulumi
+=GPU: =GPUs, cuda
+Generative AI: genai, gen ai, generative ai
+# languages / data
+C: =C/C++, c programming, c language
+Ruby on Rails: =Rails
+NoSQL
+Solr
+Hadoop
+Lua

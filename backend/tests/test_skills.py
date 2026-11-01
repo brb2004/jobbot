@@ -37,4 +37,4 @@ def test_longest_match_wins():
 
 def test_real_taxonomy_tags_a_real_bullet():
     bullet = "3+ years with Go, Postgres, and Kubernetes; REST or gRPC APIs on AWS"
-    assert default_tagger().tag(bullet) == {"Go", "PostgreSQL", "Kubernetes", "REST", "gRPC", "AWS"}
+    assert default_tagger().tag(bullet) == {"Go", "PostgreSQL", "Kubernetes", "REST", "gRPC", "APIs", "AWS"}
