@@ -16,14 +16,6 @@ services:
       timeout: 3s
       retries: 5
 
-  llm:
-    restart: unless-stopped
-    image: ollama/ollama:0.12.6
-    ports:
-      - "127.0.0.1:11435:11434"
-    volumes:
-      - ollama:/root/.ollama
-
 volumes:
   pgdata:
   ollama:
