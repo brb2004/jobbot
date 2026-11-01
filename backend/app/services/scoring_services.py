@@ -5,6 +5,9 @@ from collections import Counter
 from dataclasses import dataclass
 
 
+PRIOR = 2.0     # imaginary unmet weight: a job naming 1 skill can't outrank one naming 6
+
+
 @dataclass(frozen=True)
 class Match:
     job_id: object
@@ -20,14 +23,15 @@ def idf_weights(job_skill_sets: list[set[str]]) -> dict[str, float]:
     return {s: math.log((1 + n) / (1 + d)) + 1 for s, d in df.items()}
 
 
-def score_job(job_id, job_skills: set[str], user_skills: set[str], weights: dict[str, float]) -> Match | None:
+def score_job(job_id, job_skills: set[str], user_skills: set[str], weights: dict[str, float],
+              prior: float = PRIOR) -> Match | None:
     if not job_skills:
         return None                                          # nothing to judge the job on
     w = lambda s: weights.get(s, 1.0)
     ordered = sorted(job_skills, key=lambda s: (-w(s), s))   # heaviest first, then alphabetical
     matched = [s for s in ordered if s in user_skills]
     missing = [s for s in ordered if s not in user_skills]
-    score = sum(map(w, matched)) / sum(map(w, ordered))
+    score = sum(map(w, matched)) / (sum(map(w, ordered)) + prior)
     return Match(job_id, round(score, 2), matched, missing)
 
 
