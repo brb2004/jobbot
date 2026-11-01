@@ -16,6 +16,7 @@ class Preferences(BaseModel):
     exclude_titles: list[Word] = Field(default=[], max_length=50)   # title must contain none
     locations: list[Word] = Field(default=[], max_length=50)        # a job location must contain one (if set)
     remote_regions: list[Word] = Field(default=[], max_length=50)   # a remote location must also name one (if set)
+    years_experience: int | None = Field(default=None, ge=0, le=60)  # jobs asking > this + 1 sink
 
 
 def has_word(text: str, word: str) -> bool:

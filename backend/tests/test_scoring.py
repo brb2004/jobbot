@@ -44,3 +44,21 @@ def test_prior_is_measured_in_average_skills_so_scale_doesnt_matter():
     small = score_job("j", {"A"}, {"A"}, {"A": 1.0}).score     # 1 / (1 + 2*1)
     big = score_job("j", {"A"}, {"A"}, {"A": 5.0}).score       # 5 / (5 + 2*5)
     assert small == big == 0.33
+
+
+from app.services.scoring_services import years_required
+
+
+def test_years_required_uses_each_asks_floor_and_the_max_across_bullets():
+    assert years_required(["3+ years of Go", "2–12+ years of experience", "5-7 yrs in prod", "no number"]) == 5
+    assert years_required(["Python", "Strong SQL"]) is None
+
+
+def test_over_asking_jobs_are_halved_and_flagged():
+    w = {"Python": 1.0}
+    asked = score_job("j", {"Python"}, {"Python"}, w, prior=0, job_years=5, user_years=1)
+    close = score_job("j", {"Python"}, {"Python"}, w, prior=0, job_years=2, user_years=1)
+    unknown = score_job("j", {"Python"}, {"Python"}, w, prior=0, job_years=5, user_years=None)
+    assert (asked.score, asked.years_asked) == (0.5, 5)
+    assert (close.score, close.years_asked) == (1.0, None)          # within 1 year: no penalty
+    assert (unknown.score, unknown.years_asked) == (1.0, None)      # user never said: no penalty

@@ -51,3 +51,17 @@ async def test_match_all_credits_implied_skills(session):
     await match_all(session)
     row = (await session.scalars(select(MatchScore).where(MatchScore.resume_id == resume.id))).one()
     assert row.detail["met"] == ["AI"]
+
+
+async def test_match_all_sinks_jobs_asking_for_too_many_years(session):
+    user = User(id=uuid.uuid4(), email="y@match.com", hashed_password="x", preferences={"years_experience": 1})
+    senior_ask = Job(title="Engineer A", skills=["Python"], requirements=["5+ years of Python"])
+    fair_ask = Job(title="Engineer B", skills=["Python"], requirements=["Python"])
+    resume = Resume(user_id=user.id, skills=["Python"])
+    session.add_all([user, senior_ask, fair_ask, resume])
+    await session.flush()
+    await match_all(session)
+    rows = (await session.scalars(select(MatchScore).where(MatchScore.resume_id == resume.id)
+                                  .order_by(MatchScore.score.desc()))).all()
+    assert [r.job_id for r in rows] == [fair_ask.id, senior_ask.id]   # still shown, just lower
+    assert rows[1].detail["years_asked"] == 5
