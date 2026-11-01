@@ -5,3 +5,4 @@ __pycache__/
 .env
 logs/
 !backend/boards.txt
+!backend/skills.txt

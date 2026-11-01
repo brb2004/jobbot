@@ -1,0 +1,85 @@
+# Display name: aliases.  '=' = case-sensitive.  Longest match wins.  Comments need a space before '#'.
+# languages
+Python: python3
+Java
+JavaScript: js, ecmascript
+TypeScript
+=Go: golang
+Rust
+C++: cpp
+C#: csharp
+Ruby
+PHP
+Kotlin
+Swift
+Scala
+Elixir
+SQL
+Bash: shell scripting
+PowerShell
+# data
+PostgreSQL: postgres, psql
+MySQL
+SQLite
+MongoDB: mongo
+Redis
+Cassandra
+Elasticsearch: elastic search
+Kafka: apache kafka
+RabbitMQ
+Spark: apache spark, pyspark
+Airflow: apache airflow
+pandas
+NumPy
+# apis
+GraphQL
+=REST: restful, rest api, rest apis
+gRPC
+# infra
+Docker
+Kubernetes: k8s
+Terraform
+Ansible
+AWS: amazon web services
+GCP: google cloud, google cloud platform
+Azure: microsoft azure
+Linux
+Git
+CI/CD: ci / cd, continuous integration
+GitHub Actions
+Jenkins
+Nginx
+Prometheus
+Grafana
+Datadog
+OpenTelemetry
+# web
+React: react.js, reactjs
+React Native
+Next.js: nextjs
+Vue: vue.js
+Angular
+Node.js: nodejs, =Node
+Django
+Flask
+FastAPI
+Spring: spring boot
+HTML
+CSS
+Tailwind: tailwind css
+# identity / security
+Active Directory
+Entra ID: azure ad, azure active directory
+OAuth: oauth2, oauth 2.0
+SAML
+SSO: single sign-on
+# ml
+PyTorch
+TensorFlow
+Machine Learning: ml
+LLM: llms, large language models
+# concepts
+Distributed Systems
+Microservices
+Data Structures
+Algorithms
