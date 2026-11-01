@@ -38,3 +38,28 @@ def test_longest_match_wins():
 def test_real_taxonomy_tags_a_real_bullet():
     bullet = "3+ years with Go, Postgres, and Kubernetes; REST or gRPC APIs on AWS"
     assert default_tagger().tag(bullet) == {"Go", "PostgreSQL", "Kubernetes", "REST", "gRPC", "APIs", "AWS"}
+
+
+IMPLY = """
+=AI
+Generative AI
+LLM
+RAG
+RAG > LLM
+LLM > Generative AI
+Generative AI > AI
+"""
+
+
+def test_implications_chain():
+    assert Tagger.from_text(IMPLY).expand({"RAG"}) == {"RAG", "LLM", "Generative AI", "AI"}
+
+
+def test_tagging_itself_does_not_expand():
+    assert Tagger.from_text(IMPLY).tag("RAG pipelines") == {"RAG"}
+
+
+def test_implication_to_unknown_skill_is_an_error():
+    import pytest
+    with pytest.raises(ValueError, match="Gen AI"):
+        Tagger.from_text("LLM\nLLM > Gen AI")

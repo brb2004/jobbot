@@ -14,13 +14,19 @@ class Alias:
     case_sensitive: bool
 
 
+def _lines(text: str):
+    for line in text.splitlines():
+        line = COMMENT.sub("", line).strip()
+        if line:
+            yield line
+
+
 def parse_taxonomy(text: str) -> list[Alias]:
     """'PostgreSQL: postgres, psql' -> label + aliases. Leading '=' means match case-sensitively."""
     aliases: list[Alias] = []
-    for line in text.splitlines():
-        line = COMMENT.sub("", line).strip()
-        if not line:
-            continue
+    for line in _lines(text):
+        if ">" in line:
+            continue                                                # implication line
         label, _, rest = line.partition(":")
         skill = label.strip().lstrip("=")
         for raw in [label, *rest.split(",")]:
@@ -30,8 +36,23 @@ def parse_taxonomy(text: str) -> list[Alias]:
     return aliases
 
 
+def parse_implications(text: str) -> dict[str, set[str]]:
+    """'RAG > LLM, AI' -> having RAG means you also have LLM and AI."""
+    implies: dict[str, set[str]] = {}
+    for line in _lines(text):
+        if ">" in line:
+            left, _, right = line.partition(">")
+            implies.setdefault(left.strip(), set()).update(r.strip() for r in right.split(",") if r.strip())
+    return implies
+
+
 class Tagger:
-    def __init__(self, aliases: list[Alias]):
+    def __init__(self, aliases: list[Alias], implies: dict[str, set[str]] | None = None):
+        self.implies = implies or {}
+        known = {a.skill for a in aliases}
+        unknown = {x for k, vs in self.implies.items() for x in (k, *vs)} - known
+        if unknown:
+            raise ValueError(f"implications name unknown skills: {sorted(unknown)}")
         self.exact = {a.text: a.skill for a in aliases if a.case_sensitive}
         self.folded = {a.text.lower(): a.skill for a in aliases if not a.case_sensitive}
         ordered = sorted(aliases, key=lambda a: len(a.text), reverse=True)    # longest match wins
@@ -40,11 +61,21 @@ class Tagger:
 
     @classmethod
     def from_text(cls, text: str) -> "Tagger":
-        return cls(parse_taxonomy(text))
+        return cls(parse_taxonomy(text), parse_implications(text))
 
     def tag(self, text: str) -> set[str]:
         return {self.exact.get(m.group()) or self.folded[m.group().lower()]
                 for m in self.pattern.finditer(text or "")}
+
+    def expand(self, skills: set[str]) -> set[str]:
+        """Add everything the skills imply, transitively (depth-first; cycles are harmless)."""
+        out, stack = set(skills), list(skills)
+        while stack:
+            for implied in self.implies.get(stack.pop(), ()):
+                if implied not in out:
+                    out.add(implied)
+                    stack.append(implied)
+        return out
 
 
 @lru_cache

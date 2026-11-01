@@ -36,7 +36,7 @@ async def match_all(s: AsyncSession, k: int = 20) -> int:
         prefs = Preferences.model_validate((user.preferences if user else None) or {})
         pool = {j.id: set(j.skills) for j in jobs if allowed(j, prefs)}
         await s.execute(delete(MatchScore).where(MatchScore.resume_id == resume.id))
-        for m in top_matches(set(resume.skills), pool, weights, k):
+        for m in top_matches(default_tagger().expand(set(resume.skills)), pool, weights, k):
             s.add(MatchScore(resume_id=resume.id, job_id=m.job_id, score=m.score,
                              detail={"met": m.matched, "partial": [], "missing": m.missing, "soft": []}))
             saved += 1

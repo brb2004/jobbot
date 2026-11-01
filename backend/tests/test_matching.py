@@ -41,3 +41,13 @@ async def test_match_all_respects_preferences_and_replaces_old_scores(session):
     assert rows[0].detail["met"] == ["Python"]
     assert rows[0].detail["missing"] == ["Kubernetes"]
     assert 0 < rows[0].score < 0.5                       # Kubernetes is rarer, so it outweighs Python
+
+
+async def test_match_all_credits_implied_skills(session):
+    job = Job(title="AI Engineer", skills=["AI"])
+    resume = Resume(user_id=uuid.uuid4(), skills=["LLM"])           # skills.txt: LLM > ... > AI
+    session.add_all([job, resume])
+    await session.flush()
+    await match_all(session)
+    row = (await session.scalars(select(MatchScore).where(MatchScore.resume_id == resume.id))).one()
+    assert row.detail["met"] == ["AI"]

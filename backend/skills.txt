@@ -144,3 +144,30 @@ NoSQL
 Solr
 Hadoop
 Lua
+# implications: left > right means "having left implies having right" (expands YOUR skills only)
+RAG > LLM
+LLM > Generative AI
+Generative AI > AI
+Machine Learning > AI
+PyTorch > Machine Learning
+TensorFlow > Machine Learning
+Kubernetes > Docker
+PostgreSQL > SQL
+MySQL > SQL
+SQLite > SQL
+REST > APIs
+GraphQL > APIs
+gRPC > APIs
+FastAPI > Python, REST
+Django > Python
+Flask > Python
+Next.js > React
+React > JavaScript
+TypeScript > JavaScript
+GitHub Actions > CI/CD, Git
+Jenkins > CI/CD
+Entra ID > Azure, IAM
+Active Directory > IAM
+TCP/IP > Networking
+BGP > Networking
+DNS > Networking
