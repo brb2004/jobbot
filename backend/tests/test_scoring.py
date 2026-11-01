@@ -38,3 +38,9 @@ def test_thin_jobs_are_pulled_down():
     thin = score_job("t", {"APIs"}, me, w).score                       # 1 / (1 + 2)
     thick = score_job("k", {"APIs", "Python", "React"}, me, w).score   # 3 / (3 + 2)
     assert thin < thick < 1.0
+
+
+def test_prior_is_measured_in_average_skills_so_scale_doesnt_matter():
+    small = score_job("j", {"A"}, {"A"}, {"A": 1.0}).score     # 1 / (1 + 2*1)
+    big = score_job("j", {"A"}, {"A"}, {"A": 5.0}).score       # 5 / (5 + 2*5)
+    assert small == big == 0.33

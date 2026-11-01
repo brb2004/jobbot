@@ -31,7 +31,8 @@ def score_job(job_id, job_skills: set[str], user_skills: set[str], weights: dict
     ordered = sorted(job_skills, key=lambda s: (-w(s), s))   # heaviest first, then alphabetical
     matched = [s for s in ordered if s in user_skills]
     missing = [s for s in ordered if s not in user_skills]
-    score = sum(map(w, matched)) / (sum(map(w, ordered)) + prior)
+    avg = sum(weights.values()) / len(weights) if weights else 1.0   # prior counts in average skills
+    score = sum(map(w, matched)) / (sum(map(w, ordered)) + prior * avg)
     return Match(job_id, round(score, 2), matched, missing)
 
 
