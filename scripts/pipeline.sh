@@ -5,5 +5,5 @@ cd "$(dirname "$0")/../backend"
 source .venv/bin/activate
 echo "=== $(date -Is) pipeline start"
 python -m app.ingest.run_ingest
-echo "=== $(date -Is) pipeline done"
 python -m app.services.run_matching 20
+echo "=== $(date -Is) pipeline done"
