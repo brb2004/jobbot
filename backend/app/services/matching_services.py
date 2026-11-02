@@ -26,6 +26,12 @@ async def tag_resumes(s: AsyncSession, tagger=None) -> int:
     return len(resumes)
 
 
+def _extra(prefs: Preferences) -> set[str]:
+    """User-typed skills -> canonical names via the tagger ('k8s' -> 'Kubernetes'); unknown words drop out."""
+    tagger = default_tagger()
+    return set().union(*(tagger.tag(s) for s in prefs.extra_skills))
+
+
 async def match_all(s: AsyncSession, k: int = 20) -> int:
     """Recompute every user's top k from scratch. Deterministic and cheap, so no caching needed."""
     jobs = [j for j in (await s.scalars(select(Job).where(Job.skills.is_not(None)))).all() if j.skills]
@@ -37,7 +43,7 @@ async def match_all(s: AsyncSession, k: int = 20) -> int:
         prefs = Preferences.model_validate((user.preferences if user else None) or {})
         pool = {j.id: set(j.skills) for j in jobs if allowed(j, prefs)}
         await s.execute(delete(MatchScore).where(MatchScore.resume_id == resume.id))
-        for m in top_matches(default_tagger().expand(set(resume.skills)), pool, weights, k,
+        for m in top_matches(default_tagger().expand(set(resume.skills) | _extra(prefs)), pool, weights, k,
                              job_years=years, user_years=prefs.years_experience):
             s.add(MatchScore(resume_id=resume.id, job_id=m.job_id, score=m.score,
                              detail={"met": m.matched, "partial": [], "missing": m.missing, "soft": [],

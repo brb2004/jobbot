@@ -65,3 +65,15 @@ async def test_match_all_sinks_jobs_asking_for_too_many_years(session):
                                   .order_by(MatchScore.score.desc()))).all()
     assert [r.job_id for r in rows] == [fair_ask.id, senior_ask.id]   # still shown, just lower
     assert rows[1].detail["years_asked"] == 5
+
+
+async def test_extra_skills_from_preferences_count_like_resume_skills(session):
+    user = User(id=uuid.uuid4(), email="x@match.com", hashed_password="x",
+                preferences={"extra_skills": ["k8s", "not-a-real-skill"]})
+    job = Job(title="Platform Engineer", skills=["Kubernetes"])
+    resume = Resume(user_id=user.id, skills=["Python"])
+    session.add_all([user, job, resume])
+    await session.flush()
+    await match_all(session)
+    row = (await session.scalars(select(MatchScore).where(MatchScore.resume_id == resume.id))).one()
+    assert row.detail["met"] == ["Kubernetes"]
