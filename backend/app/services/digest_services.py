@@ -9,6 +9,12 @@ from app.schemas.matches_schemas import MatchOut
 
 SHOW = 3          # requirements shown per list
 WIDTH = 80        # characters per requirement before trimming
+# Cutoffs tuned to the matcher's smoothing prior (realistic top ~0.5). Revisit after a few weeks of data.
+TIERS = [(0.45, "Strong match"), (0.30, "Worth applying"), (0.0, "Stretch")]
+
+
+def tier(score: float) -> str:
+    return next(label for cut, label in TIERS if score >= cut)
 
 
 def _short(items: list[str]) -> str:
@@ -25,7 +31,10 @@ def render(matches: list[MatchOut], top_n: int) -> str:
     blocks = []
     for i, m in enumerate(best, 1):
         d = m.detail or {}
-        lines = [f"{i}. {m.title} — {round(m.score * 100)}% match"]
+        head = f"{i}. {m.title} — {tier(m.score)}"
+        if d.get("years_asked"):
+            head += f" · asks for {d['years_asked']}+ years"
+        lines = [head]
         if d.get("met"):
             lines.append(f"   You have: {_short(d['met'])}")
         if d.get("partial"):
