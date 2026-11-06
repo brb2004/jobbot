@@ -62,3 +62,21 @@ def test_over_asking_jobs_are_halved_and_flagged():
     assert (asked.score, asked.years_asked) == (0.5, 5)
     assert (close.score, close.years_asked) == (1.0, None)          # within 1 year: no penalty
     assert (unknown.score, unknown.years_asked) == (1.0, None)      # user never said: no penalty
+
+
+def test_top_matches_applies_allow_filter_only_to_candidates():
+    jobs = {"j1": {"Python"}, "j2": {"Python"}, "j3": {"Rust"}}
+    seen = []
+    allow = lambda j: seen.append(j) or j != "j1"
+    result = top_matches({"Python"}, jobs, {"Python": 1.0, "Rust": 1.0}, allow=allow)
+    assert [m.job_id for m in result] == ["j2"]
+    assert "j3" not in seen                      # never even checked: shares no skill
+
+
+def test_allow_is_only_checked_until_k_matches_pass():
+    jobs = {f"j{i}": {"Python"} for i in range(1, 6)}          # all tie; heap pops j1, j2, j3...
+    seen = []
+    allow = lambda j: seen.append(j) or j != "j1"
+    result = top_matches({"Python"}, jobs, {"Python": 1.0}, k=2, allow=allow)
+    assert [m.job_id for m in result] == ["j2", "j3"]
+    assert seen == ["j1", "j2", "j3"]                           # stopped once 2 passed; j4, j5 never checked

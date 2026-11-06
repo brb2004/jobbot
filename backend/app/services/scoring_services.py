@@ -61,11 +61,19 @@ def build_index(jobs: dict[object, set[str]]) -> dict[str, set]:
 
 def top_matches(user_skills: set[str], jobs: dict[object, set[str]], weights: dict[str, float],
                 k: int = 20, index: dict[str, set] | None = None,
-                job_years: dict[object, int | None] | None = None, user_years: int | None = None) -> list[Match]:
+                job_years: dict[object, int | None] | None = None, user_years: int | None = None,
+                allow=None) -> list[Match]:
+    """Score every candidate (cheap), then walk best-first and run the expensive allow() only until k pass."""
     index = index if index is not None else build_index(jobs)
     job_years = job_years or {}
     candidates = set().union(*(index.get(s, set()) for s in user_skills))   # only jobs sharing a skill
-    results = [m for j in candidates
-               if (m := score_job(j, jobs[j], user_skills, weights,
-                                  job_years=job_years.get(j), user_years=user_years))]
-    return heapq.nsmallest(k, results, key=lambda m: (-m.score, str(m.job_id)))   # O(n log k)
+    heap = [((-m.score, str(m.job_id)), m) for j in candidates
+            if (m := score_job(j, jobs[j], user_skills, weights,
+                               job_years=job_years.get(j), user_years=user_years))]
+    heapq.heapify(heap)                                                     # O(n)
+    out: list[Match] = []
+    while heap and len(out) < k:
+        _, m = heapq.heappop(heap)                                          # O(log n), best first
+        if allow is None or allow(m.job_id):
+            out.append(m)
+    return out
