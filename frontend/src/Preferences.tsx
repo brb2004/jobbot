@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError, type Api, type Preferences as Prefs } from './api'
 
 const LISTS = [
-  ['include_titles', 'Job titles to include', 'Only titles containing one of these. Empty = all titles.'],
+  ['include_titles', 'Job titles to include', 'Only titles containing one of these. Empty = engineering roles (engineer, developer, SRE, DevOps, architect, scientist).'],
   ['exclude_titles', 'Job titles to exclude', 'Hide titles containing any of these, e.g. senior, staff.'],
   ['locations', 'Locations', 'e.g. remote, dallas. Empty = anywhere.'],
   ['remote_regions', 'Remote regions', 'Remote jobs must also name one of these, e.g. us, usa.'],
