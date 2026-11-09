@@ -3,7 +3,7 @@ from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Job, User
@@ -21,6 +21,28 @@ class Preferences(BaseModel):
     remote_regions: list[Word] = Field(default=[], max_length=50)   # a remote location must also name one (if set)
     years_experience: int | None = Field(default=None, ge=0, le=60)  # jobs asking > this + 1 sink
     extra_skills: list[Word] = Field(default=[], max_length=50)     # skills not on the resume
+
+    @field_validator("include_titles", "exclude_titles", "locations", "remote_regions", "extra_skills")
+    @classmethod
+    def _clean(cls, words: list[str], info) -> list[str]:
+        keep_case = info.field_name == "extra_skills"          # "Go", "REST" are case-sensitive skills
+        out, seen = [], set()
+        for w in words:
+            w = w.strip()
+            if not w:
+                raise ValueError("entries can't be blank")
+            w = w if keep_case else w.lower()
+            if w.lower() not in seen:                          # dedupe case-insensitively, keep the first
+                seen.add(w.lower())
+                out.append(w)
+        return out
+
+    @model_validator(mode="after")
+    def _no_contradictions(self):
+        both = sorted(set(self.include_titles) & set(self.exclude_titles))
+        if both:
+            raise ValueError(f"'{both[0]}' is in both include and exclude titles")
+        return self
 
 
 def has_word(text: str, word: str) -> bool:

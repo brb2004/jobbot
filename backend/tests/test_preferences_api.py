@@ -51,3 +51,12 @@ async def test_saving_preferences_rematches_immediately(client, session):
 
     await client.put("/me/preferences", headers=h, json={"exclude_titles": ["senior"]})
     assert [m["title"] for m in (await client.get("/dashboard", headers=h)).json()] == ["Engineer"]
+
+
+async def test_validation_messages_are_plain_english(client):
+    h = await register(client, "plain@prefs.com")
+    r = await client.put("/me/preferences", headers=h, json={"include_titles": ["senior"], "exclude_titles": ["senior"]})
+    assert r.status_code == 422
+    assert "Value error" not in r.text and "both" in r.text
+    r = await client.post("/auth/register", json={"email": "short@prefs.com", "password": "abc"})
+    assert r.json()["detail"][0]["msg"] == "must be at least 8 characters"

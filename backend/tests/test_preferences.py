@@ -51,3 +51,23 @@ def test_remote_jobs_must_be_in_an_allowed_region():
     assert allowed(Job(title="Engineer", location="Remote"), prefs)
     assert not allowed(Job(title="Engineer", location="Remote - Mexico"), prefs)
     assert not allowed(Job(title="Engineer", location="Remote, Poland"), prefs)
+
+
+import pytest as _pytest
+from pydantic import ValidationError as _VE
+
+
+def test_lists_are_trimmed_deduped_and_titles_lowercased():
+    p = Preferences(include_titles=["Engineer", " engineer ", "Developer"], extra_skills=["Go", "go", "REST"])
+    assert p.include_titles == ["engineer", "developer"]
+    assert p.extra_skills == ["Go", "REST"]                 # skills keep case: =Go and =REST are case-sensitive
+
+
+def test_blank_entries_are_rejected():
+    with _pytest.raises(_VE):
+        Preferences(locations=["  "])
+
+
+def test_same_word_in_include_and_exclude_is_rejected():
+    with _pytest.raises(_VE, match="both"):
+        Preferences(include_titles=["senior"], exclude_titles=["Senior"])
