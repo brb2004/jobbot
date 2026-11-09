@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import httpx
 from pydantic import BaseModel, field_validator
-from sqlalchemy import literal_column, select
+from sqlalchemy import func, literal_column, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,6 +41,7 @@ class CrawlSummary:
     missing: int = 0
     failed: int = 0
     new_jobs: int = 0
+    closed: int = 0
 
 
 async def fetch_board(client: httpx.AsyncClient, slug: str) -> list[BoardJob] | None:
@@ -62,7 +63,7 @@ async def fetch_details(client: httpx.AsyncClient, board: str, job_id: int) -> J
 
     raw = data.get("content") or ""
     if "&lt;" in raw:
-        raw = htmllib.unescape(raw)                 # Greenhouse double-encodes
+        raw = htmllib.unescape(raw)     # Greenhouse double-encodes
     return JobDetails(
         description=html_to_text(raw),
         content_html=raw,
@@ -83,11 +84,22 @@ async def save_board(s: AsyncSession, board: str, jobs: list[BoardJob]) -> int:
     stmt = stmt.on_conflict_do_update(
         constraint="uq_jobs_board_external",
         set_={"title": stmt.excluded.title, "url": stmt.excluded.url,
-              "location": stmt.excluded.location},
+              "location": stmt.excluded.location,
+              "closed_at": None},                               # listed again -> open again
     ).returning(literal_column("xmax = 0"))
     inserted = (await s.execute(stmt)).scalars().all()
     await s.commit()
     return sum(inserted)
+
+
+async def close_missing(s: AsyncSession, board: str, listed_ids: list[int]) -> int:
+    """Close this board's open jobs that the board no longer lists. Only call after a SUCCESSFUL fetch."""
+    stmt = (update(Job)
+            .where(Job.board == board, Job.closed_at.is_(None), Job.external_id.not_in(listed_ids or [-1]))
+            .values(closed_at=func.now()))
+    closed = (await s.execute(stmt)).rowcount
+    await s.commit()
+    return closed
 
 
 async def crawl(client: httpx.AsyncClient, s: AsyncSession, slugs: list[str],
@@ -106,12 +118,13 @@ async def crawl(client: httpx.AsyncClient, s: AsyncSession, slugs: list[str],
     summary = CrawlSummary()
     for slug, jobs, err in results:
         if err:
-            summary.failed += 1
+            summary.failed += 1                                 # unknown state: close nothing
         elif jobs is None:
-            summary.missing += 1
+            summary.missing += 1                                # 404: close nothing (slug may be wrong)
         else:
             summary.found += 1
             summary.new_jobs += await save_board(s, slug, jobs)
+            summary.closed += await close_missing(s, slug, [j.id for j in jobs])
     return summary
 
 
@@ -121,6 +134,7 @@ async def fill_descriptions(client: httpx.AsyncClient, s: AsyncSession,
         Job.description.is_(None),
         Job.board.is_not(None),
         Job.external_id.is_not(None),
+        Job.closed_at.is_(None),                                # don't fetch details for dead postings
     )
     jobs = list((await s.execute(stmt)).scalars().all())
     sem = asyncio.Semaphore(concurrency)

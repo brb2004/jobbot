@@ -35,7 +35,8 @@ def _extra(prefs: Preferences) -> set[str]:
 async def match_all(s: AsyncSession, k: int = 20) -> int:
     """Recompute every user's top k from scratch. Deterministic and cheap, so no caching needed."""
     tagger = default_tagger()
-    jobs = [j for j in (await s.scalars(select(Job).where(Job.skills.is_not(None)))).all() if j.skills]
+    jobs = [j for j in (await s.scalars(select(Job).where(Job.skills.is_not(None), Job.closed_at.is_(None)))).all()
+            if j.skills]
     weights = idf_weights([set(j.skills) for j in jobs])                    # weights from ALL jobs
     years = {j.id: years_required(j.requirements or []) for j in jobs}
     all_jobs = {j.id: set(j.skills) for j in jobs}

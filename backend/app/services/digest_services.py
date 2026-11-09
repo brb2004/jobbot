@@ -54,6 +54,7 @@ async def matches_for(s: AsyncSession, user_id: UUID, since: datetime):
         .join(Resume, Resume.id == MatchScore.resume_id)
         .where(Resume.user_id == user_id)
         .where(MatchScore.scored_at >= since)
+        .where(Job.closed_at.is_(None))                 # never email a dead link
         .order_by(MatchScore.score.desc())
     )
     return [MatchOut.model_validate(r, from_attributes=True) for r in (await s.execute(stmt)).all()]
