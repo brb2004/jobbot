@@ -84,3 +84,17 @@ real resume, reproduced as a test.
 ## Preferences
 User-level title filters run before the shortlist (no AI spent on excluded jobs): include_titles (must
 contain one) + exclude_titles (must contain none), whole-word matching that also handles "Sr.".
+
+## Matching performance (2026-11-08)
+Benchmark: `python -m app.services.bench_matching 100,1000,10000` (7.4k real jobs, seeded fake users with real preferences).
+
+| Step | ms/user | Finding |
+|---|---|---|
+| Baseline (per-user pool + index) | 80 | |
+| Shared global index | 56 | index rebuild wasn't the bottleneck |
+| Lazy best-first filter | 56 | filter keeps ~1% of jobs, so laziness can't stop early |
+| Profile: has_word = 84% of time -> one cached regex per word list | 8.6 | the actual bottleneck (9x) |
+| Lazy + cheap filter | 41 | slower: scores thousands before filtering |
+| Filter first (`within`), then score | 9 | cheap selective predicate first, like a query planner |
+
+10k users ≈ 90 s/run on one core. Remaining cost is the O(jobs) preference filter per user.
