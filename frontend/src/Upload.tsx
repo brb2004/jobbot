@@ -7,10 +7,14 @@ export function Upload({ api, onDone }: { api: Api; onDone: () => void }) {
   const [busy, setBusy] = useState(false)
   const [current, setCurrent] = useState<string | null>(null)
   const [years, setYears] = useState<number | null>(null)
+  const [ownYears, setOwnYears] = useState<number | null | undefined>(undefined)  // undefined = not loaded
 
   useEffect(() => {
     api.listResumes()
       .then((rs) => { setCurrent(rs[0]?.filename ?? null); setYears(rs[0]?.years_detected ?? null) })
+      .catch(() => {})
+    Promise.resolve().then(() => api.getPreferences())
+      .then((p) => setOwnYears(p.years_experience ?? null))
       .catch(() => {})
   }, [api])
 
@@ -36,7 +40,8 @@ export function Upload({ api, onDone }: { api: Api; onDone: () => void }) {
       {current && <p className="text-sm">Current: {current}</p>}
       {years !== null && (
         <p className="text-sm text-slate-600">
-          Detected experience: {years} years. Used when "Years of experience" in Preferences is blank.
+          Detected experience: {years} years.
+          {ownYears === null && ' Used when "Years of experience" in Preferences is blank.'}
         </p>
       )}
       <label htmlFor="resume" className="block text-sm font-medium">Resume (PDF, Word .docx, or plain text)</label>
