@@ -54,3 +54,8 @@ async def test_match_all_skips_closed_jobs(session):
 async def test_titles_are_stripped_on_ingest(session):
     await save_board(session, "trim", [BoardJob(id=1, title="  Security Analyst \n", absolute_url="https://x/1")])
     assert (await jobs_of(session, "trim"))[1].title == "Security Analyst"
+
+
+async def test_non_breaking_spaces_are_stripped_from_titles(session):
+    await save_board(session, "nbsp", [BoardJob(id=1, title="Forward-Deployed Engineer\u00a0 ", absolute_url="https://x/1")])
+    assert (await jobs_of(session, "nbsp"))[1].title == "Forward-Deployed Engineer"

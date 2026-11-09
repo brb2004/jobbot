@@ -101,3 +101,37 @@ async def _user(session):
     session.add(u)
     await session.flush()
     return u.id
+
+
+import io as _io
+import zipfile as _zip
+
+
+def _docx_with(document_xml: bytes) -> bytes:
+    buf = _io.BytesIO()
+    with _zip.ZipFile(buf, "w", _zip.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", "<Types/>")
+        z.writestr("word/document.xml", document_xml)
+    return buf.getvalue()
+
+
+async def test_zip_bomb_docx_is_rejected_cleanly(client, auth_headers):
+    bomb = _docx_with(b" " * (11 * 1024 * 1024))                 # ~11 MB unpacked, a few KB packed
+    r = await client.post("/resumes", headers=auth_headers, files={"file": ("big.docx", bomb, "application/octet-stream")})
+    assert r.status_code == 422
+    assert "too large" in r.json()["detail"]
+
+
+async def test_corrupt_docx_is_422_not_500(client, auth_headers):
+    r = await client.post("/resumes", headers=auth_headers, files={"file": ("bad.docx", b"PK\x03\x04garbage", "application/octet-stream")})
+    assert r.status_code == 422
+
+
+async def test_filenames_are_sanitized(client, auth_headers, session):
+    session.add(_Job(title="Backend Engineer", skills=["Python"]))
+    await session.flush()
+    nasty = "../../etc/<img src=x onerror=alert(1)>" + "a" * 200 + ".txt"
+    r = await client.post("/resumes", headers=auth_headers, files={"file": (nasty, b"Python developer", "text/plain")})
+    assert r.status_code == 201
+    name = (await client.get("/resumes", headers=auth_headers)).json()[0]["filename"]
+    assert not any(c in name for c in "/\\<>") and name.endswith(".txt") and len(name) <= 100

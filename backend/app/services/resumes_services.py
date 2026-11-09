@@ -1,4 +1,6 @@
 import io
+import re
+import zipfile
 from uuid import UUID
 
 from docx import Document
@@ -10,6 +12,8 @@ from app.db.models_db import Resume
 
 MAX_BYTES = 2 * 1024 * 1024
 ALLOWED = (".pdf", ".docx", ".txt")
+MAX_UNZIPPED = 10 * 1024 * 1024     # a .docx is a zip: cap what it expands to (zip bombs)
+MAX_ZIP_ENTRIES = 1000
 
 
 class TooLarge(Exception):
@@ -35,17 +39,45 @@ def sniff(data: bytes) -> str:
     return "txt"
 
 
+def _check_zip(data: bytes) -> None:
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as z:
+            entries = z.infolist()
+    except zipfile.BadZipFile:
+        raise Unreadable("Couldn't read this .docx. Try saving it again, or upload a PDF.") from None
+    if len(entries) > MAX_ZIP_ENTRIES or sum(e.file_size for e in entries) > MAX_UNZIPPED:
+        raise Unreadable("This .docx is too large once unpacked.")
+
+
 def extract_text(data: bytes) -> str:
     kind = sniff(data)
-    if kind == "pdf":
-        return "\n".join(p.extract_text() or "" for p in PdfReader(io.BytesIO(data)).pages)
-    if kind == "docx":
-        return "\n".join(p.text for p in Document(io.BytesIO(data)).paragraphs)
+    try:
+        if kind == "pdf":
+            return "\n".join(p.extract_text() or "" for p in PdfReader(io.BytesIO(data)).pages)
+        if kind == "docx":
+            _check_zip(data)
+            return "\n".join(p.text for p in Document(io.BytesIO(data)).paragraphs)
+    except Unreadable:
+        raise
+    except Exception:
+        # never a 500, and never echo parser internals (which can contain resume text)
+        raise Unreadable("Couldn't read this file. Try saving it again as a PDF or .docx.") from None
     return data.decode("utf-8", errors="ignore")
+
+
+def safe_filename(name: str) -> str:
+    """Basename only; no path, markup or control characters; capped length. Display-only, never a disk path."""
+    base = name.replace("\\", "/").rsplit("/", 1)[-1]
+    base = re.sub(r'[\x00-\x1f\x7f<>:"|?*]', "", base).strip(" .")
+    stem, dot, ext = base.rpartition(".")
+    if dot and len(base) > 100:
+        base = stem[: 100 - len(ext) - 1] + "." + ext
+    return base[:100] or "resume"
 
 
 async def create(s: AsyncSession, user_id: UUID, filename: str, data: bytes,
                  require_skills: bool = False) -> Resume:
+    filename = safe_filename(filename)
     if not filename.lower().endswith(ALLOWED):
         raise UnsupportedType
     if len(data) > MAX_BYTES:
