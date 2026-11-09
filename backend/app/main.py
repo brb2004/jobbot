@@ -59,3 +59,10 @@ async def security_headers(request: Request, call_next):
     if not request.url.path.startswith(("/docs", "/redoc")):   # Swagger needs its CDN scripts
         h["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
     return response
+
+
+
+@app.get("/health", include_in_schema=False)
+async def health():
+    """Liveness for Docker/Kubernetes. No auth, no DB: 'the process is up and serving'."""
+    return {"ok": True}

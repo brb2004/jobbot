@@ -156,3 +156,8 @@ async def test_delete_me_removes_account_resume_and_matches(client, session):
     assert (await client.get("/auth/me", headers=h)).status_code == 401
     assert (await session.scalars(select(Resume).where(Resume.user_id == me))).all() == []
     client.cookies.clear()
+
+
+async def test_health_needs_no_login(client):
+    r = await client.get("/health")
+    assert r.status_code == 200 and r.json() == {"ok": True}
