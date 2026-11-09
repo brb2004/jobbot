@@ -20,6 +20,10 @@ class UnsupportedType(Exception):
     pass
 
 
+class Unreadable(Exception):
+    """The file parsed but is unusable as a resume. str(exc) is the user-facing reason."""
+
+
 def sniff(data: bytes) -> str:
     """Decide the file type from its first bytes, not its name."""
     if data.startswith(b"%PDF"):
@@ -40,12 +44,21 @@ def extract_text(data: bytes) -> str:
     return data.decode("utf-8", errors="ignore")
 
 
-async def create(s: AsyncSession, user_id: UUID, filename: str, data: bytes) -> Resume:
+async def create(s: AsyncSession, user_id: UUID, filename: str, data: bytes,
+                 require_skills: bool = False) -> Resume:
     if not filename.lower().endswith(ALLOWED):
         raise UnsupportedType
     if len(data) > MAX_BYTES:
         raise TooLarge
     text = extract_text(data).replace("\x00", "")  # belt and braces: Postgres rejects NUL in text
+    # validate BEFORE deleting anything: a bad upload must never wipe the current resume
+    if not text.strip():
+        raise Unreadable("Couldn't read any text from this file. If it's a scanned image, upload a text-based PDF or .docx.")
+    if require_skills:
+        from app.services.skills_services import default_tagger
+        if not default_tagger().tag(text):
+            raise Unreadable("Couldn't find any skills in this file. Check it's your resume, "
+                             "or add skills on the Preferences page.")
     # one resume per user: replace, don't pile up. ON DELETE CASCADE drops its old match scores.
     await s.execute(delete(Resume).where(Resume.user_id == user_id))
     resume = Resume(user_id=user_id, filename=filename, raw_text=text)
@@ -61,7 +74,7 @@ async def list_for(s: AsyncSession, user_id: UUID) -> list[Resume]:
 async def upload(s: AsyncSession, user_id: UUID, filename: str, data: bytes) -> Resume:
     """Save (replacing any previous resume), tag, and match this user now instead of at the next cron run."""
     from app.services.matching_services import match_all, tag_resumes
-    resume = await create(s, user_id, filename, data)
+    resume = await create(s, user_id, filename, data, require_skills=True)
     await tag_resumes(s)
     await match_all(s, user_id=user_id)
     return resume

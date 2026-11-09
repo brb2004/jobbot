@@ -19,3 +19,11 @@ async def validation_error_without_echo(request: Request, exc: RequestValidation
     """Same 422 shape, minus 'input'/'ctx': never send a submitted value (like a password) back."""
     errors = [{k: v for k, v in e.items() if k not in ("input", "ctx")} for e in exc.errors()]
     return JSONResponse(status_code=422, content={"detail": jsonable_encoder(errors)})
+
+
+from app.services.resumes_services import Unreadable  # noqa: E402
+
+
+@app.exception_handler(Unreadable)
+async def unreadable_resume(request: Request, exc: Unreadable):
+    return JSONResponse(status_code=422, content={"detail": str(exc)})

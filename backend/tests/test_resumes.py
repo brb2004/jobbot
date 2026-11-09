@@ -68,3 +68,27 @@ async def test_upload_matches_the_user_immediately(session):
     resume = await _resumes.upload(session, me, "cv.txt", b"Python developer")
     rows = (await session.scalars(_select(_MatchScore).where(_MatchScore.resume_id == resume.id))).all()
     assert len(rows) == 1
+
+
+async def _setup_with_one_match(client, auth_headers, session):
+    session.add(_Job(title="Backend Engineer", skills=["Python"]))
+    await session.flush()
+    r = await client.post("/resumes", headers=auth_headers, files={"file": ("cv.txt", b"Python developer", "text/plain")})
+    assert r.status_code == 201
+    assert len((await client.get("/dashboard", headers=auth_headers)).json()) == 1
+
+
+async def test_empty_file_is_rejected_and_keeps_the_old_resume(client, auth_headers, session):
+    await _setup_with_one_match(client, auth_headers, session)
+    r = await client.post("/resumes", headers=auth_headers, files={"file": ("empty.pdf", b"", "application/pdf")})
+    assert r.status_code == 422
+    assert "text" in r.json()["detail"]
+    assert len((await client.get("/dashboard", headers=auth_headers)).json()) == 1      # matches survived
+
+
+async def test_file_with_no_skills_is_rejected_and_keeps_the_old_resume(client, auth_headers, session):
+    await _setup_with_one_match(client, auth_headers, session)
+    r = await client.post("/resumes", headers=auth_headers, files={"file": ("fake.pdf", b"not really a pdf", "application/pdf")})
+    assert r.status_code == 422
+    assert "skills" in r.json()["detail"]
+    assert len((await client.get("/dashboard", headers=auth_headers)).json()) == 1
