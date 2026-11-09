@@ -89,3 +89,9 @@ def test_allow_is_only_checked_until_k_matches_pass():
     result = top_matches({"Python"}, jobs, {"Python": 1.0}, k=2, allow=allow)
     assert [m.job_id for m in result] == ["j2", "j3"]
     assert seen == ["j1", "j2", "j3"]                           # stopped once 2 passed; j4, j5 never checked
+
+
+def test_within_restricts_candidates_before_scoring():
+    jobs = {"j1": {"Python"}, "j2": {"Python"}, "j3": {"Python"}}
+    result = top_matches({"Python"}, jobs, {"Python": 1.0}, within={"j2", "j3"})
+    assert [m.job_id for m in result] == ["j2", "j3"]

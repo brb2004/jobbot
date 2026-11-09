@@ -37,11 +37,11 @@ def old_way(users, jobs, prefs, weights, years):
 
 
 def new_way(users, jobs, prefs, weights, years):
-    by_id = {j.id: j for j in jobs}
     all_jobs = {j.id: set(j.skills) for j in jobs}
     index = build_index(all_jobs)                                             # once
     for u in users:
-        top_matches(u, all_jobs, weights, 20, index=index, allow=lambda jid: allowed(by_id[jid], prefs),
+        ok = {j.id for j in jobs if allowed(j, prefs)}                        # cheap filter first
+        top_matches(u, all_jobs, weights, 20, index=index, within=ok,
                     job_years=years, user_years=prefs.years_experience)
 
 

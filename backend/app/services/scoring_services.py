@@ -34,14 +34,16 @@ def years_required(bullets: list[str]) -> int | None:
 
 
 def score_job(job_id, job_skills: set[str], user_skills: set[str], weights: dict[str, float],
-              prior: float = PRIOR, job_years: int | None = None, user_years: int | None = None) -> Match | None:
+              prior: float = PRIOR, job_years: int | None = None, user_years: int | None = None,
+              avg: float | None = None) -> Match | None:
     if not job_skills:
         return None                                          # nothing to judge the job on
     w = lambda s: weights.get(s, 1.0)
     ordered = sorted(job_skills, key=lambda s: (-w(s), s))   # heaviest first, then alphabetical
     matched = [s for s in ordered if s in user_skills]
     missing = [s for s in ordered if s not in user_skills]
-    avg = sum(weights.values()) / len(weights) if weights else 1.0   # prior counts in average skills
+    if avg is None:                                          # prior counts in average skills
+        avg = sum(weights.values()) / len(weights) if weights else 1.0
     score = sum(map(w, matched)) / (sum(map(w, ordered)) + prior * avg)
     flag = None
     if job_years is not None and user_years is not None and job_years > user_years + YEARS_SLACK:
@@ -62,14 +64,17 @@ def build_index(jobs: dict[object, set[str]]) -> dict[str, set]:
 def top_matches(user_skills: set[str], jobs: dict[object, set[str]], weights: dict[str, float],
                 k: int = 20, index: dict[str, set] | None = None,
                 job_years: dict[object, int | None] | None = None, user_years: int | None = None,
-                allow=None) -> list[Match]:
-    """Score every candidate (cheap), then walk best-first and run the expensive allow() only until k pass."""
+                allow=None, within: set | None = None) -> list[Match]:
+    """within: cheap precomputed filter, applied BEFORE scoring. allow: expensive check, applied lazily best-first."""
     index = index if index is not None else build_index(jobs)
     job_years = job_years or {}
     candidates = set().union(*(index.get(s, set()) for s in user_skills))   # only jobs sharing a skill
+    if within is not None:
+        candidates &= within                                                # cheap + selective filter first
+    avg = sum(weights.values()) / len(weights) if weights else 1.0          # once, not per candidate
     heap = [((-m.score, str(m.job_id)), m) for j in candidates
-            if (m := score_job(j, jobs[j], user_skills, weights,
-                               job_years=job_years.get(j), user_years=user_years))]
+            if (m := score_job(j, jobs[j], user_skills, weights, job_years=job_years.get(j),
+                               user_years=user_years, avg=avg))]
     heapq.heapify(heap)                                                     # O(n)
     out: list[Match] = []
     while heap and len(out) < k:
