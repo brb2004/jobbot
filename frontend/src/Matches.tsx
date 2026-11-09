@@ -19,18 +19,32 @@ function Skills({ label, items }: { label: string; items: string[] }) {
 
 const company = (slug: string | null) => (slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : null)
 
-export function Matches({ api, onUpload }: { api: Api; onUpload?: () => void }) {
+export function Matches({ api, onUpload, onPreferences }:
+  { api: Api; onUpload?: () => void; onPreferences?: () => void }) {
   const [matches, setMatches] = useState<Match[] | null>(null)
+  const [hasResume, setHasResume] = useState<boolean | null>(null)   // null = still checking
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     api.matches()
       .then(setMatches)
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Could not reach the server'))
+    Promise.resolve().then(() => api.listResumes())
+      .then((rs) => setHasResume(rs.length > 0))
+      .catch(() => setHasResume(false))
   }, [api])
 
   if (error) return <p role="alert" className="text-red-600">{error}</p>
   if (matches === null) return <p className="text-slate-600">Loading…</p>
+  if (!matches.length && hasResume === null) return <p className="text-slate-600">Loading…</p>
+  if (!matches.length && hasResume)            // resume is in, so the filters are what's empty
+    return (
+      <p className="text-slate-600">
+        No jobs match your preferences right now.{' '}
+        <button onClick={onPreferences} className="underline">Loosen your preferences</button>{' '}
+        (fewer excluded titles, more locations) or check back after the next crawl.
+      </p>
+    )
   if (!matches.length)
     return (
       <p className="text-slate-600">

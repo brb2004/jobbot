@@ -56,7 +56,7 @@ function Shell() {
       <main className="p-6">
         {flash && <p role="status" className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">{flash}</p>}
         <Routes>
-          <Route path="/matches" element={<Matches api={api} onUpload={() => go('/resume')} />} />
+          <Route path="/matches" element={<Matches api={api} onUpload={() => go('/resume')} onPreferences={() => go('/preferences')} />} />
           <Route path="/resume" element={<Upload api={api} onDone={() => go('/matches', 'Resume uploaded. Your matches are updated.')} />} />
           <Route path="/preferences" element={<Preferences api={api} onSaved={() => go('/matches', 'Preferences saved. Your matches are updated.')}
                                                      onDeleted={() => setStatus('out')} />} />
