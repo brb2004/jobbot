@@ -8,7 +8,7 @@ import { Preferences } from './Preferences'
 afterEach(cleanup)
 const saved: Prefs = {
   include_titles: ['engineer'], exclude_titles: ['senior'], locations: ['remote'],
-  remote_regions: ['us'], years_experience: 1, extra_skills: [],
+  remote_regions: ['us'], years_experience: 1, extra_skills: [], include_presales: false,
 }
 const fakeApi = (o: Partial<Api> = {}) =>
   ({ getPreferences: vi.fn().mockResolvedValue(saved), savePreferences: vi.fn(async (p: Prefs) => p), ...o }) as unknown as Api
@@ -44,5 +44,15 @@ describe('delete account', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Yes, delete everything' }))
     expect(deleteAccount).toHaveBeenCalled()
     expect(onDeleted).toHaveBeenCalled()
+  })
+})
+
+describe('presales category', () => {
+  it('opting in saves include_presales: true', async () => {
+    const api = fakeApi()
+    render(<Preferences api={api} onSaved={vi.fn()} />)
+    await userEvent.click(await screen.findByLabelText(/Include sales & pre-sales roles/))
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(api.savePreferences).toHaveBeenCalledWith({ ...saved, include_presales: true })
   })
 })

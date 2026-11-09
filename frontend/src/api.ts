@@ -8,6 +8,7 @@ export interface Preferences {
   remote_regions: string[]
   years_experience: number | null
   extra_skills: string[]
+  include_presales: boolean
 }
 
 export interface MatchDetail {

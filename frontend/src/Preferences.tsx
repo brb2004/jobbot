@@ -16,6 +16,7 @@ const input = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:bo
 export function Preferences({ api, onSaved, onDeleted }: { api: Api; onSaved: () => void; onDeleted?: () => void }) {
   const [text, setText] = useState<Record<ListKey, string> | null>(null)
   const [years, setYears] = useState('')
+  const [presales, setPresales] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -26,6 +27,7 @@ export function Preferences({ api, onSaved, onDeleted }: { api: Api; onSaved: ()
       .then((p) => {
         setText(Object.fromEntries(LISTS.map(([k]) => [k, p[k].join(', ')])) as Record<ListKey, string>)
         setYears(p.years_experience?.toString() ?? '')
+        setPresales(p.include_presales)
       })
       .catch(fail)
   }, [api])
@@ -46,7 +48,7 @@ export function Preferences({ api, onSaved, onDeleted }: { api: Api; onSaved: ()
     setError(null)
     try {
       const lists = Object.fromEntries(LISTS.map(([k]) => [k, toList(text[k])])) as Pick<Prefs, ListKey>
-      await api.savePreferences({ ...lists, years_experience: years === '' ? null : Number(years) })
+      await api.savePreferences({ ...lists, years_experience: years === '' ? null : Number(years), include_presales: presales })
       onSaved()
     } catch (err) {
       fail(err)
@@ -76,6 +78,13 @@ export function Preferences({ api, onSaved, onDeleted }: { api: Api; onSaved: ()
                value={years} onChange={(e) => setYears(e.target.value)} />
         <p className="mt-1 text-xs text-slate-500">Jobs asking for more than this + 1 rank lower. Blank = use the years detected from your resume.</p>
       </div>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" className="mt-1" checked={presales} onChange={(e) => setPresales(e.target.checked)} />
+        <span>
+          Include sales &amp; pre-sales roles
+          <span className="block text-xs text-slate-500">Sales Engineer, Customer Engineer, Solutions Architect. Hidden by default.</span>
+        </span>
+      </label>
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       <button type="submit" disabled={busy}
               className="rounded-md bg-slate-900 px-4 py-2 font-medium text-white disabled:opacity-50">
