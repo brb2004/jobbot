@@ -1,5 +1,5 @@
 """Glue between the database and the pure matcher in scoring_services."""
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Job, MatchScore, Resume, User
@@ -8,20 +8,27 @@ from app.services.scoring_services import build_index, idf_weights, top_matches,
 from app.services.skills_services import default_tagger
 
 
+def _stale(model, tagger):
+    """Never tagged, or tagged with a different skills.txt."""
+    return or_(model.skills_version.is_(None), model.skills_version != tagger.version)
+
+
 async def tag_jobs(s: AsyncSession, tagger=None) -> int:
     tagger = tagger or default_tagger()
-    jobs = (await s.scalars(select(Job).where(Job.skills.is_(None), Job.requirements.is_not(None)))).all()
+    jobs = (await s.scalars(select(Job).where(Job.requirements.is_not(None), _stale(Job, tagger)))).all()
     for job in jobs:
         job.skills = sorted(set().union(*(tagger.tag(b) for b in job.requirements)))
+        job.skills_version = tagger.version
     await s.commit()
     return len(jobs)
 
 
 async def tag_resumes(s: AsyncSession, tagger=None) -> int:
     tagger = tagger or default_tagger()
-    resumes = (await s.scalars(select(Resume).where(Resume.skills.is_(None), Resume.raw_text.is_not(None)))).all()
+    resumes = (await s.scalars(select(Resume).where(Resume.raw_text.is_not(None), _stale(Resume, tagger)))).all()
     for r in resumes:
         r.skills = sorted(tagger.tag(r.raw_text))
+        r.skills_version = tagger.version
     await s.commit()
     return len(resumes)
 

@@ -3,12 +3,13 @@ import uuid
 from sqlalchemy import select
 
 from app.db.models_db import Job, MatchScore, Resume, User
+from app.services.skills_services import default_tagger
 from app.services.matching_services import match_all, tag_jobs, tag_resumes
 
 
 async def test_tag_jobs_fills_skills_once(session):
     new = Job(title="A", requirements=["3+ years of Go", "Postgres experience"])
-    done = Job(title="B", requirements=["Go"], skills=["Rust"])
+    done = Job(title="B", requirements=["Go"], skills=["Rust"], skills_version=default_tagger().version)
     session.add_all([new, done])
     await tag_jobs(session)
     assert new.skills == ["Go", "PostgreSQL"]
@@ -77,3 +78,26 @@ async def test_extra_skills_from_preferences_count_like_resume_skills(session):
     await match_all(session)
     row = (await session.scalars(select(MatchScore).where(MatchScore.resume_id == resume.id))).one()
     assert row.detail["met"] == ["Kubernetes"]
+
+
+from app.services.skills_services import Tagger
+
+
+async def test_jobs_are_retagged_when_the_taxonomy_changes(session):
+    job = Job(title="E", requirements=["Go and Rust"])
+    session.add(job)
+    v1, v2 = Tagger.from_text("Go"), Tagger.from_text("Go\nRust")
+    assert v1.version != v2.version
+    await tag_jobs(session, v1)
+    assert job.skills == ["Go"]
+    assert await tag_jobs(session, v2) == 1             # stale -> re-tagged
+    assert job.skills == ["Go", "Rust"]
+    assert await tag_jobs(session, v2) == 0             # current -> untouched
+
+
+async def test_resumes_are_retagged_when_the_taxonomy_changes(session):
+    r = Resume(user_id=uuid.uuid4(), raw_text="Go and Rust")
+    session.add(r)
+    await tag_resumes(session, Tagger.from_text("Go"))
+    await tag_resumes(session, Tagger.from_text("Go\nRust"))
+    assert r.skills == ["Go", "Rust"]

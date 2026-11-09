@@ -1,3 +1,4 @@
+import hashlib
 import re
 from dataclasses import dataclass
 from functools import lru_cache
@@ -47,7 +48,8 @@ def parse_implications(text: str) -> dict[str, set[str]]:
 
 
 class Tagger:
-    def __init__(self, aliases: list[Alias], implies: dict[str, set[str]] | None = None):
+    def __init__(self, aliases: list[Alias], implies: dict[str, set[str]] | None = None, version: str = ""):
+        self.version = version                                      # hash of the taxonomy text
         self.implies = implies or {}
         known = {a.skill for a in aliases}
         unknown = {x for k, vs in self.implies.items() for x in (k, *vs)} - known
@@ -61,7 +63,8 @@ class Tagger:
 
     @classmethod
     def from_text(cls, text: str) -> "Tagger":
-        return cls(parse_taxonomy(text), parse_implications(text))
+        return cls(parse_taxonomy(text), parse_implications(text),
+                   version=hashlib.sha256(text.encode()).hexdigest()[:12])
 
     def tag(self, text: str) -> set[str]:
         return {self.exact.get(m.group()) or self.folded[m.group().lower()]

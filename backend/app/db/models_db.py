@@ -35,6 +35,7 @@ class Job(Base):
     requirements: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
     skills: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # gone from its board
+    skills_version: Mapped[str | None] = mapped_column(String(12))   # skills.txt hash used to tag
 
     __table_args__ = (UniqueConstraint("board", "external_id", name="uq_jobs_board_external"),)
 
@@ -46,6 +47,7 @@ class Resume(Base):
     filename: Mapped[str | None] = mapped_column(String(255))
     raw_text: Mapped[str | None] = mapped_column(Text)
     skills: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
+    skills_version: Mapped[str | None] = mapped_column(String(12))   # skills.txt hash used to tag
     education: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
     experience: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
 
