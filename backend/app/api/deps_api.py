@@ -34,3 +34,11 @@ async def get_current_user(request: Request,
     if cutoff is not None and claims.get("iat", 0) < cutoff.timestamp():
         raise UNAUTHORIZED                                              # logged out after this token was issued
     return user_id
+
+
+def client_ip(request: Request) -> str:
+    """Real visitor IP for rate limits. Cloudflare overwrites CF-Connecting-IP, so it can't be forged,
+    but only trust it when every request comes through Cloudflare. Never X-Forwarded-For (client-controlled)."""
+    if get_settings().TRUST_CF_CONNECTING_IP and (ip := request.headers.get("cf-connecting-ip")):
+        return ip
+    return request.client.host if request.client else "unknown"

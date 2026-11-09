@@ -161,3 +161,27 @@ async def test_delete_me_removes_account_resume_and_matches(client, session):
 async def test_health_needs_no_login(client):
     r = await client.get("/health")
     assert r.status_code == 200 and r.json() == {"ok": True}
+
+
+async def test_behind_cloudflare_the_limit_is_per_real_visitor(client, monkeypatch):
+    from app.core.config_core import get_settings
+    monkeypatch.setattr(get_settings(), "TRUST_CF_CONNECTING_IP", True)
+    for i in range(5):
+        await client.post("/auth/register", headers={"CF-Connecting-IP": "203.0.113.1"},
+                          json={"email": f"cfa{i}@auth.com", "password": "correct-horse"})
+    blocked = await client.post("/auth/register", headers={"CF-Connecting-IP": "203.0.113.1"},
+                                json={"email": "cfa5@auth.com", "password": "correct-horse"})
+    other = await client.post("/auth/register", headers={"CF-Connecting-IP": "203.0.113.2"},
+                              json={"email": "cfb@auth.com", "password": "correct-horse"})
+    assert (blocked.status_code, other.status_code) == (429, 201)       # visitors don't share a bucket
+    client.cookies.clear()
+
+
+async def test_without_cloudflare_the_header_is_ignored(client):
+    for i in range(5):
+        await client.post("/auth/register", headers={"CF-Connecting-IP": f"198.51.100.{i}"},
+                          json={"email": f"spoof{i}@auth.com", "password": "correct-horse"})
+    r = await client.post("/auth/register", headers={"CF-Connecting-IP": "198.51.100.99"},
+                          json={"email": "spoof9@auth.com", "password": "correct-horse"})
+    assert r.status_code == 429                                          # a forged header can't dodge the limit
+    client.cookies.clear()

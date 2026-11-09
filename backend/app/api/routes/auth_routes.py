@@ -3,7 +3,7 @@ import math
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from app.api.deps_api import get_current_user
+from app.api.deps_api import client_ip, get_current_user
 from app.core.db_core import get_session
 from app.core.config_core import get_settings
 from app.core.ratelimit_core import RateLimiter
@@ -31,7 +31,7 @@ def _start_session(response: Response, user_id, include_token: bool = False) -> 
 @router.post("/register", response_model=TokenOut, status_code=201)
 async def register(body: RegisterIn, request: Request, response: Response, token: bool = False,
                    s=Depends(get_session)):
-    ip = request.client.host if request.client else "unknown"
+    ip = client_ip(request)
     if wait := REGISTER_IP.blocked(ip):
         raise HTTPException(429, "Too many sign-ups from this network. Try again later.",
                             headers={"Retry-After": str(math.ceil(wait))})
@@ -46,7 +46,7 @@ async def register(body: RegisterIn, request: Request, response: Response, token
 @router.post("/login", response_model=TokenOut)
 async def login(body: LoginIn, request: Request, response: Response, token: bool = False,
                 s=Depends(get_session)):
-    ip = request.client.host if request.client else "unknown"   # behind a reverse proxy: run uvicorn --proxy-headers
+    ip = client_ip(request)   # behind a reverse proxy: run uvicorn --proxy-headers
     keys = [(LOGIN_FAILS, f"{ip}|{body.email.lower()}"), (LOGIN_IP, ip)]
     wait = LOGIN_FAILS.blocked(keys[0][1])                       # hard block: this ip guessing this account
     if LOGIN_IP.blocked(ip):

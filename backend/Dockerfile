@@ -18,5 +18,5 @@ USER app
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s \
   CMD python -c "import urllib.request,sys; sys.exit(urllib.request.urlopen('http://127.0.0.1:8000/health').status != 200)"
-# --proxy-headers: real client IPs behind the reverse proxy (rate limiter). Only the proxy can reach this port.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*", "--no-server-header"]
+# No --proxy-headers: X-Forwarded-For is client-controlled. Real IPs come from CF-Connecting-IP (TRUST_CF_CONNECTING_IP).
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-server-header"]

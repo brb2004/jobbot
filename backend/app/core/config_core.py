@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     COOKIE_NAME: str = "jobbot_session"
     COOKIE_SECURE: bool = False     # set True in production (HTTPS only)
+    TRUST_CF_CONNECTING_IP: bool = False   # True ONLY when traffic can arrive solely via Cloudflare (Tunnel)
     DOCS_ENABLED: bool = True       # set False in production: no public /docs, /redoc, /openapi.json
 
 
