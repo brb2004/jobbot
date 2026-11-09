@@ -84,3 +84,4 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
 }
 
 export const api = createApi()
+export type Api = ReturnType<typeof createApi>
