@@ -6,6 +6,8 @@ from pydantic import BaseModel, ConfigDict
 
 
 class MatchOut(BaseModel):
+    company: str | None = None
+    location: str | None = None
     model_config = ConfigDict(from_attributes=True)
     job_id: UUID
     title: str | None

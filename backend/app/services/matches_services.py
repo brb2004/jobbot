@@ -6,7 +6,7 @@ from app.db.models_db import Job, Resume, MatchScore
 
 async def for_user(s: AsyncSession, user_id: UUID):
     stmt = (
-        select(Job.id.label("job_id"), Job.title, MatchScore.score, Job.url, MatchScore.detail)
+        select(Job.id.label("job_id"), Job.title, MatchScore.score, Job.url, Job.board.label("company"), Job.location, MatchScore.detail)
         .join(MatchScore, MatchScore.job_id == Job.id)
         .join(Resume, Resume.id == MatchScore.resume_id)
         .where(Resume.user_id == user_id)
