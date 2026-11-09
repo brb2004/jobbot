@@ -27,7 +27,7 @@ export default function App() {
             {p.label}
           </button>
         ))}
-        <button onClick={() => { api.logout(); setLoggedIn(false) }} className="ml-auto text-sm text-slate-600">
+        <button onClick={() => { api.logout(); setLoggedIn(false) }} className="ml-auto whitespace-nowrap text-sm text-slate-600">
           Log out
         </button>
       </nav>
