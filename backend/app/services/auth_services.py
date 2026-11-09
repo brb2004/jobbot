@@ -1,3 +1,4 @@
+import asyncio
 from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -14,7 +15,8 @@ class EmailTaken(Exception):
 
 
 async def register(s: AsyncSession, email: str, password: str) -> User:
-    user = User(email=email.lower(), hashed_password=hash_password(password))
+    hashed = await asyncio.to_thread(hash_password, password)   # bcrypt is ~175 ms of CPU: keep it off the event loop
+    user = User(email=email.lower(), hashed_password=hashed)
     s.add(user)
     try:
         await s.commit()
@@ -27,9 +29,10 @@ async def register(s: AsyncSession, email: str, password: str) -> User:
 async def authenticate(s: AsyncSession, email: str, password: str) -> User | None:
     user = (await s.execute(select(User).where(User.email == email.lower()))).scalar_one_or_none()
     if user is None or len(password.encode()) > 72:   # >72 bytes can't match (and would make bcrypt raise)
-        verify_password("x", _DUMMY_HASH)               # burn the same time as a real check
+        await asyncio.to_thread(verify_password, "x", _DUMMY_HASH)   # burn the same time as a real check
         return None
-    return user if verify_password(password, user.hashed_password) else None
+    ok = await asyncio.to_thread(verify_password, password, user.hashed_password)
+    return user if ok else None
 
 
 async def get(s: AsyncSession, user_id: UUID) -> User | None:
