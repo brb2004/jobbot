@@ -64,7 +64,7 @@ def build_index(jobs: dict[object, set[str]]) -> dict[str, set]:
 def top_matches(user_skills: set[str], jobs: dict[object, set[str]], weights: dict[str, float],
                 k: int = 20, index: dict[str, set] | None = None,
                 job_years: dict[object, int | None] | None = None, user_years: int | None = None,
-                allow=None, within: set | None = None) -> list[Match]:
+                allow=None, within: set | None = None, dedupe_key: dict | None = None) -> list[Match]:
     """within: cheap precomputed filter, applied BEFORE scoring. allow: expensive check, applied lazily best-first."""
     index = index if index is not None else build_index(jobs)
     job_years = job_years or {}
@@ -77,10 +77,16 @@ def top_matches(user_skills: set[str], jobs: dict[object, set[str]], weights: di
                                user_years=user_years, avg=avg))]
     heapq.heapify(heap)                                                     # O(n)
     out: list[Match] = []
+    seen: set = set()                                                       # dedupe keys already used
     while heap and len(out) < k:
         _, m = heapq.heappop(heap)                                          # O(log n), best first
+        key = dedupe_key.get(m.job_id) if dedupe_key else None
+        if key is not None and key in seen:
+            continue                                                        # a better posting of this role won
         if allow is None or allow(m.job_id):
             out.append(m)
+            if key is not None:
+                seen.add(key)
     return out
 
 

@@ -116,3 +116,14 @@ async def test_match_all_for_one_user_leaves_everyone_else_alone(session):
     their_rows = (await session.scalars(select(MatchScore).where(MatchScore.resume_id == theirs.id))).all()
     assert len(my_rows) == 1
     assert [r.score for r in their_rows] == [0.99]                                        # untouched
+
+
+async def test_same_role_posted_per_location_shows_once(session):
+    a = Job(title="Backend Engineer", board="stripe", external_id=1, skills=["Python"], location="NYC")
+    b = Job(title="Backend Engineer ", board="stripe", external_id=2, skills=["Python"], location="SF")
+    resume = Resume(user_id=uuid.uuid4(), skills=["Python"])
+    session.add_all([a, b, resume])
+    await session.flush()
+    await match_all(session)
+    rows = (await session.scalars(select(MatchScore).where(MatchScore.resume_id == resume.id))).all()
+    assert len(rows) == 1

@@ -45,11 +45,12 @@ async def match_all(s: AsyncSession, k: int = 20, user_id: UUID | None = None) -
     """Recompute every user's top k from scratch. Deterministic and cheap, so no caching needed."""
     tagger = default_tagger()
     # only the columns matching needs: skipping content_html/description is ~100 MB less per run
-    cols = select(Job.id, Job.title, Job.location, Job.skills, Job.requirements)
+    cols = select(Job.id, Job.board, Job.title, Job.location, Job.skills, Job.requirements)
     jobs = [j for j in (await s.execute(cols.where(Job.skills.is_not(None), Job.closed_at.is_(None)))).all()
             if j.skills]
     weights = idf_weights([set(j.skills) for j in jobs])                    # weights from ALL jobs
     years = {j.id: years_required(j.requirements or []) for j in jobs}
+    roles = {j.id: (j.board, (j.title or '').strip().lower()) for j in jobs}  # one per company + title
     all_jobs = {j.id: set(j.skills) for j in jobs}
     index = build_index(all_jobs)                                           # once per run, shared by every user
     users = {u.id: u for u in (await s.scalars(select(User))).all()}        # one query, not one per resume
@@ -63,7 +64,7 @@ async def match_all(s: AsyncSession, k: int = 20, user_id: UUID | None = None) -
         ok = {j.id for j in jobs if allowed(j, prefs)}                      # cheap + selective: filter first
         await s.execute(delete(MatchScore).where(MatchScore.resume_id == resume.id))
         for m in top_matches(tagger.expand(set(resume.skills) | _extra(prefs)), all_jobs, weights, k,
-                             index=index, within=ok, job_years=years, user_years=prefs.years_experience):
+                             index=index, within=ok, dedupe_key=roles, job_years=years, user_years=prefs.years_experience):
             s.add(MatchScore(resume_id=resume.id, job_id=m.job_id, score=m.score,
                              detail={"met": m.matched, "partial": [], "missing": m.missing, "soft": [],
                                      "years_asked": m.years_asked}))

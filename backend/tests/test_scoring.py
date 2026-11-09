@@ -95,3 +95,10 @@ def test_within_restricts_candidates_before_scoring():
     jobs = {"j1": {"Python"}, "j2": {"Python"}, "j3": {"Python"}}
     result = top_matches({"Python"}, jobs, {"Python": 1.0}, within={"j2", "j3"})
     assert [m.job_id for m in result] == ["j2", "j3"]
+
+
+def test_dedupe_key_keeps_only_the_best_posting_per_key():
+    jobs = {"j1": {"Python"}, "j2": {"Python"}, "j3": {"Python"}}
+    keys = {"j1": ("stripe", "backend"), "j2": ("stripe", "backend"), "j3": ("stripe", "frontend")}
+    result = top_matches({"Python"}, jobs, {"Python": 1.0}, dedupe_key=keys)
+    assert [m.job_id for m in result] == ["j1", "j3"]
