@@ -49,3 +49,8 @@ async def test_match_all_skips_closed_jobs(session):
     await match_all(session)
     rows = (await session.scalars(select(MatchScore).where(MatchScore.resume_id == resume.id))).all()
     assert [r.job_id for r in rows] == [open_job.id]
+
+
+async def test_titles_are_stripped_on_ingest(session):
+    await save_board(session, "trim", [BoardJob(id=1, title="  Security Analyst \n", absolute_url="https://x/1")])
+    assert (await jobs_of(session, "trim"))[1].title == "Security Analyst"

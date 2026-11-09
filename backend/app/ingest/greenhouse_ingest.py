@@ -77,7 +77,7 @@ async def save_board(s: AsyncSession, board: str, jobs: list[BoardJob]) -> int:
     if not jobs:
         return 0
     stmt = insert(Job).values([
-        {"board": board, "external_id": j.id, "title": j.title,
+        {"board": board, "external_id": j.id, "title": j.title.strip(),
          "url": j.absolute_url, "location": j.location}
         for j in jobs
     ])
