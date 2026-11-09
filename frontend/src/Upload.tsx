@@ -25,8 +25,8 @@ export function Upload({ api, onDone }: { api: Api; onDone: () => void }) {
     <form onSubmit={submit} className="max-w-md space-y-4">
       <h2 className="text-xl font-semibold">Your resume</h2>
       <p className="text-sm text-slate-600">Matches are built from the skills in your resume. Upload a new one any time.</p>
-      <label htmlFor="resume" className="block text-sm font-medium">Resume (PDF or Word)</label>
-      <input id="resume" type="file" accept=".pdf,.docx"
+      <label htmlFor="resume" className="block text-sm font-medium">Resume (PDF, Word .docx, or plain text)</label>
+      <input id="resume" type="file" accept=".pdf,.docx,.txt"
              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
              className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-white" />
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}

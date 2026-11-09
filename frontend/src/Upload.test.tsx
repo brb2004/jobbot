@@ -14,7 +14,7 @@ describe('Upload', () => {
     const uploadResume = vi.fn().mockResolvedValue({ id: 'r1' })
     const onDone = vi.fn()
     render(<Upload api={fakeApi({ uploadResume })} onDone={onDone} />)
-    await userEvent.upload(screen.getByLabelText('Resume (PDF or Word)'), pdf)
+    await userEvent.upload(screen.getByLabelText('Resume (PDF, Word .docx, or plain text)'), pdf)
     await userEvent.click(screen.getByRole('button', { name: 'Upload' }))
     expect(uploadResume).toHaveBeenCalledWith(pdf)
     expect(onDone).toHaveBeenCalled()
@@ -28,7 +28,7 @@ describe('Upload', () => {
   it('shows the server error', async () => {
     const uploadResume = vi.fn().mockRejectedValue(new ApiError(415, 'Only PDF or DOCX files'))
     render(<Upload api={fakeApi({ uploadResume })} onDone={vi.fn()} />)
-    await userEvent.upload(screen.getByLabelText('Resume (PDF or Word)'), pdf)
+    await userEvent.upload(screen.getByLabelText('Resume (PDF, Word .docx, or plain text)'), pdf)
     await userEvent.click(screen.getByRole('button', { name: 'Upload' }))
     expect((await screen.findByRole('alert')).textContent).toBe('Only PDF or DOCX files')
   })
