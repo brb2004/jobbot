@@ -82,3 +82,11 @@ def top_matches(user_skills: set[str], jobs: dict[object, set[str]], weights: di
         if allow is None or allow(m.job_id):
             out.append(m)
     return out
+
+
+# Cutoffs tuned to the matcher's smoothing prior (realistic top ~0.5). Revisit after a few weeks of data.
+TIERS = [(0.45, "Strong match"), (0.30, "Worth applying"), (0.0, "Stretch")]
+
+
+def tier(score: float) -> str:
+    return next(label for cut, label in TIERS if score >= cut)

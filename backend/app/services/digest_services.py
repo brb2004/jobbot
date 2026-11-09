@@ -6,15 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Job, MatchScore, Resume
 from app.schemas.matches_schemas import MatchOut
+from app.services.scoring_services import TIERS, tier  # noqa: F401  (re-exported)
 
 SHOW = 3          # requirements shown per list
 WIDTH = 80        # characters per requirement before trimming
-# Cutoffs tuned to the matcher's smoothing prior (realistic top ~0.5). Revisit after a few weeks of data.
-TIERS = [(0.45, "Strong match"), (0.30, "Worth applying"), (0.0, "Stretch")]
-
-
-def tier(score: float) -> str:
-    return next(label for cut, label in TIERS if score >= cut)
 
 
 def _short(items: list[str]) -> str:
