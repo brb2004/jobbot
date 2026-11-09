@@ -1,7 +1,14 @@
 from fastapi import FastAPI
 from app.api.routes import preferences_routes, auth_routes, jobs_routes, matches_routes, resumes_routes
 
-app = FastAPI()
+from app.core.config_core import get_settings  # noqa: E402
+
+
+def docs_kwargs(enabled: bool) -> dict:
+    return {} if enabled else {"docs_url": None, "redoc_url": None, "openapi_url": None}
+
+
+app = FastAPI(**docs_kwargs(get_settings().DOCS_ENABLED), )
 app.include_router(preferences_routes.router)
 app.include_router(auth_routes.router)
 app.include_router(jobs_routes.router)
@@ -39,3 +46,16 @@ from app.services.resumes_services import Unreadable  # noqa: E402
 @app.exception_handler(Unreadable)
 async def unreadable_resume(request: Request, exc: Unreadable):
     return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    h = response.headers
+    h["X-Content-Type-Options"] = "nosniff"
+    h["X-Frame-Options"] = "DENY"
+    h["Referrer-Policy"] = "no-referrer"
+    h["Cache-Control"] = "no-store"                       # API responses are personal; never cache them
+    if not request.url.path.startswith(("/docs", "/redoc")):   # Swagger needs its CDN scripts
+        h["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+    return response

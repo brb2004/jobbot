@@ -1,10 +1,10 @@
 import asyncio
 from uuid import UUID
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security_core import hash_password, verify_password
-from app.db.models_db import User
+from app.db.models_db import Resume, User
 
 # Checked against when the email doesn't exist, so both failures take the same time.
 _DUMMY_HASH = hash_password("timing-equalizer-not-a-real-password")
@@ -37,3 +37,10 @@ async def authenticate(s: AsyncSession, email: str, password: str) -> User | Non
 
 async def get(s: AsyncSession, user_id: UUID) -> User | None:
     return await s.get(User, user_id)
+
+
+async def delete_account(s: AsyncSession, user_id: UUID) -> None:
+    """User + resume; match scores go with the resume (ON DELETE CASCADE). Their tokens die with the row."""
+    await s.execute(delete(Resume).where(Resume.user_id == user_id))
+    await s.execute(delete(User).where(User.id == user_id))
+    await s.commit()

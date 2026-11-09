@@ -22,3 +22,19 @@ async def put_preferences(body: Preferences, s=Depends(get_session), user_id=Dep
     if prefs is None:
         raise HTTPException(401, "Not authenticated")
     return prefs
+
+
+
+from fastapi import Response  # noqa: E402
+
+from app.api.deps_api import get_current_user as _current_user  # noqa: E402
+from app.core.config_core import get_settings as _settings  # noqa: E402
+from app.core.db_core import get_session as _session  # noqa: E402
+from app.services import auth_services as _auth  # noqa: E402
+
+
+@router.delete("", status_code=204)
+async def delete_me(response: Response, s=Depends(_session), user_id=Depends(_current_user)):
+    """Delete my account, resume and matches. Can't be undone."""
+    await _auth.delete_account(s, user_id)
+    response.delete_cookie(_settings().COOKIE_NAME, path="/")

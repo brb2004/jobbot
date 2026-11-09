@@ -127,3 +127,32 @@ async def test_registration_is_rate_limited_per_ip(client):
     r = await client.post("/auth/register?token=1", json={"email": "spam5@auth.com", "password": "correct-horse"})
     assert r.status_code == 429 and int(r.headers["Retry-After"]) > 0
     client.cookies.clear()
+
+
+async def test_api_responses_carry_security_headers(client):
+    r = await client.get("/auth/me")
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert r.headers["x-frame-options"] == "DENY"
+    assert r.headers["referrer-policy"] == "no-referrer"
+    assert "frame-ancestors 'none'" in r.headers["content-security-policy"]
+
+
+def test_docs_can_be_switched_off():
+    from app.main import docs_kwargs
+    assert docs_kwargs(True) == {}
+    assert docs_kwargs(False) == {"docs_url": None, "redoc_url": None, "openapi_url": None}
+
+
+async def test_delete_me_removes_account_resume_and_matches(client, session):
+    from sqlalchemy import select
+    from app.db.models_db import Job, Resume
+    session.add(Job(title="Backend Engineer", skills=["Python"]))
+    await session.flush()
+    tok = (await client.post("/auth/register?token=1", json={"email": "gone@auth.com", "password": "correct-horse"})).json()["access_token"]
+    h = {"Authorization": f"Bearer {tok}"}
+    await client.post("/resumes", headers=h, files={"file": ("cv.txt", b"Python developer", "text/plain")})
+    me = (await client.get("/auth/me", headers=h)).json()["id"]
+    assert (await client.delete("/me", headers=h)).status_code == 204
+    assert (await client.get("/auth/me", headers=h)).status_code == 401
+    assert (await session.scalars(select(Resume).where(Resume.user_id == me))).all() == []
+    client.cookies.clear()
