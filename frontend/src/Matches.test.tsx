@@ -7,7 +7,7 @@ import { Matches } from './Matches'
 afterEach(cleanup)
 const fakeApi = (matches: () => Promise<Match[]>) => ({ matches: vi.fn(matches) }) as unknown as Api
 const m: Match = {
-  job_id: '1', title: 'Backend Engineer', score: 0.5, tier: 'Strong match', url: 'https://x/1',
+  job_id: '1', title: 'Backend Engineer', score: 0.5, tier: 'Strong match', years_note: 'asks for 5+ years', url: 'https://x/1',
   detail: { met: ['Python', 'Go'], partial: [], missing: ['Kafka'], soft: [], years_asked: 5 },
 }
 

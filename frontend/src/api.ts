@@ -16,6 +16,7 @@ export interface MatchDetail {
   missing: string[]
   soft: string[]
   years_asked?: number | null
+  over_years?: boolean
 }
 
 export interface Match {
@@ -23,6 +24,7 @@ export interface Match {
   title: string
   score: number
   tier: string
+  years_note: string | null
   url: string | null
   detail: MatchDetail | null
 }
