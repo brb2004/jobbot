@@ -1,0 +1,6 @@
+apiVersion: v2
+name: jobbot
+description: JobBot - deterministic job matching (API, web, Postgres, CronJobs)
+type: application
+version: 0.2.0
+appVersion: "2"

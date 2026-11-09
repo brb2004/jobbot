@@ -1,0 +1,31 @@
+host: jobmatch.bbenard.dev
+
+image:
+  api: jobbot-api
+  web: jobbot-web
+  tag: dev
+  pullPolicy: IfNotPresent          # minikube: images loaded locally with `minikube image load`
+
+existingSecret: jobbot-secrets      # created with kubectl, never stored in git
+
+app:
+  cookieSecure: "true"              # HTTPS at Cloudflare
+  trustCfConnectingIp: "true"       # only reachable through the tunnel
+  docsEnabled: "false"
+
+postgres:
+  image: postgres:16
+  storage: 2Gi
+
+backups:
+  storage: 2Gi
+  keepDays: 7
+
+timeZone: America/Chicago
+cronjobs:
+  pipeline:
+    schedule: "13 2 */2 * *"        # crawl + match every 2 days, 2:13am
+    command: ["sh", "-c", "python -m app.ingest.run_ingest && python -m app.services.run_matching 20"]
+  digest:
+    schedule: "7 7 * * 1"           # Monday 7:07am email
+    command: ["python", "-m", "app.services.run_digest"]

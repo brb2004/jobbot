@@ -1,0 +1,29 @@
+{{- range $name, $job := .Values.cronjobs }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: {name: {{ $name }}}
+spec:
+  schedule: {{ $job.schedule | quote }}
+  timeZone: {{ $.Values.timeZone }}
+  concurrencyPolicy: Forbid                   # never two runs at once (replaces flock)
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata: {labels: {app: {{ $name }}, jobbot/db-client: "true", app.kubernetes.io/part-of: jobbot}}
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: {{ $name }}
+              image: {{ include "jobbot.apiImage" $ }}
+              imagePullPolicy: {{ $.Values.image.pullPolicy }}
+              command: {{ toJson $job.command }}
+              env: {{- include "jobbot.appEnv" $ | nindent 16 }}
+              resources: {requests: {cpu: 100m, memory: 256Mi}, limits: {memory: 1Gi}}
+              securityContext: {{- include "jobbot.hardened" $ | nindent 16 }}
+              volumeMounts: [{name: tmp, mountPath: /tmp}]
+          volumes: [{name: tmp, emptyDir: {}}]
+{{- end }}
