@@ -53,7 +53,8 @@ function Shell() {
         <Routes>
           <Route path="/matches" element={<Matches api={api} onUpload={() => go('/resume')} />} />
           <Route path="/resume" element={<Upload api={api} onDone={() => go('/matches', 'Resume uploaded. Your matches are updated.')} />} />
-          <Route path="/preferences" element={<Preferences api={api} onSaved={() => go('/matches', 'Preferences saved. Your matches are updated.')} />} />
+          <Route path="/preferences" element={<Preferences api={api} onSaved={() => go('/matches', 'Preferences saved. Your matches are updated.')}
+                                                     onDeleted={() => setStatus('out')} />} />
           <Route path="*" element={<Navigate to="/matches" replace />} />
         </Routes>
       </main>

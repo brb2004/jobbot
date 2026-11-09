@@ -110,6 +110,10 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
       return call<unknown>('/resumes', { method: 'POST', body: form })   // no Content-Type: browser adds the boundary
     },
     listResumes: () => call<ResumeInfo[]>('/resumes'),
+    deleteAccount: async () => {
+      await call('/me', { method: 'DELETE' })
+      loggedIn = false
+    },
     matches: () => call<Match[]>('/dashboard'),
   }
 }

@@ -33,3 +33,16 @@ describe('Preferences', () => {
     expect(onSaved).toHaveBeenCalled()
   })
 })
+
+describe('delete account', () => {
+  it('needs a second click to confirm, then deletes and signs out', async () => {
+    const deleteAccount = vi.fn().mockResolvedValue(undefined)
+    const onDeleted = vi.fn()
+    render(<Preferences api={fakeApi({ deleteAccount })} onSaved={vi.fn()} onDeleted={onDeleted} />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete my account' }))
+    expect(deleteAccount).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Yes, delete everything' }))
+    expect(deleteAccount).toHaveBeenCalled()
+    expect(onDeleted).toHaveBeenCalled()
+  })
+})

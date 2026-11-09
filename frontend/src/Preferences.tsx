@@ -13,11 +13,12 @@ type ListKey = (typeof LISTS)[number][0]
 const toList = (s: string) => s.split(',').map((x) => x.trim()).filter(Boolean)
 const input = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-slate-900 focus:outline-none'
 
-export function Preferences({ api, onSaved }: { api: Api; onSaved: () => void }) {
+export function Preferences({ api, onSaved, onDeleted }: { api: Api; onSaved: () => void; onDeleted?: () => void }) {
   const [text, setText] = useState<Record<ListKey, string> | null>(null)
   const [years, setYears] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const fail = (e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not reach the server')
 
   useEffect(() => {
@@ -28,6 +29,15 @@ export function Preferences({ api, onSaved }: { api: Api; onSaved: () => void })
       })
       .catch(fail)
   }, [api])
+
+  async function deleteAccount() {
+    try {
+      await api.deleteAccount()
+      onDeleted?.()
+    } catch (err) {
+      fail(err)
+    }
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -71,6 +81,22 @@ export function Preferences({ api, onSaved }: { api: Api; onSaved: () => void })
               className="rounded-md bg-slate-900 px-4 py-2 font-medium text-white disabled:opacity-50">
         Save
       </button>
+      <section className="border-t pt-4">
+        <h3 className="text-sm font-medium text-red-700">Delete account</h3>
+        <p className="text-xs text-slate-500">Removes your account, resume and matches. This can't be undone.</p>
+        {!confirming ? (
+          <button type="button" onClick={() => setConfirming(true)} className="mt-2 text-sm text-red-700 underline">
+            Delete my account
+          </button>
+        ) : (
+          <div className="mt-2 flex gap-3">
+            <button type="button" onClick={deleteAccount} className="rounded-md bg-red-700 px-3 py-1 text-sm text-white">
+              Yes, delete everything
+            </button>
+            <button type="button" onClick={() => setConfirming(false)} className="text-sm underline">Cancel</button>
+          </div>
+        )}
+      </section>
     </form>
   )
 }
