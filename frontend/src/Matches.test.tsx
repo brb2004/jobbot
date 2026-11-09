@@ -7,7 +7,7 @@ import { Matches } from './Matches'
 afterEach(cleanup)
 const fakeApi = (matches: () => Promise<Match[]>) => ({ matches: vi.fn(matches) }) as unknown as Api
 const m: Match = {
-  job_id: '1', title: 'Backend Engineer', score: 0.5, tier: 'Strong match', years_note: 'asks for 5+ years', url: 'https://x/1',
+  job_id: '1', title: 'Backend Engineer', score: 0.5, tier: 'Strong match', company: 'stripe', location: 'Remote, US', years_note: 'asks for 5+ years', url: 'https://x/1',
   detail: { met: ['Python', 'Go'], partial: [], missing: ['Kafka'], soft: [], years_asked: 5 },
 }
 
@@ -20,11 +20,13 @@ describe('Matches', () => {
     expect(screen.getByText('Python, Go')).toBeTruthy()
     expect(screen.getByText('Kafka')).toBeTruthy()
     expect(screen.getByText('asks for 5+ years')).toBeTruthy()
+    expect(screen.getByText('Stripe · Remote, US')).toBeTruthy()
+    expect(screen.getByText('#1')).toBeTruthy()
   })
 
   it('tells new users what to do when there are no matches', async () => {
     render(<Matches api={fakeApi(async () => [])} />)
-    expect(await screen.findByText(/upload your resume/i)).toBeTruthy()
+    expect(await screen.findByRole('button', { name: /upload your resume/i })).toBeTruthy()
   })
 
   it('shows the server error', async () => {

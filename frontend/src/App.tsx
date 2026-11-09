@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from './api'
 import { Login } from './Login'
 import { Matches } from './Matches'
@@ -15,6 +15,9 @@ const PAGES: { id: Page; label: string }[] = [
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(api.isLoggedIn())
   const [page, setPage] = useState<Page>('matches')
+  const [flash, setFlash] = useState<string | null>(null)
+  useEffect(() => api.onUnauthorized(() => setLoggedIn(false)), [])   // expired session -> login
+  const go = (p: Page, message: string | null = null) => { setPage(p); setFlash(message) }
   if (!loggedIn) return <Login api={api} onDone={() => setLoggedIn(true)} />
 
   return (
@@ -22,7 +25,7 @@ export default function App() {
       <nav className="flex items-center gap-4 border-b bg-white px-6 py-3">
         <span className="font-semibold">JobBot</span>
         {PAGES.map((p) => (
-          <button key={p.id} onClick={() => setPage(p.id)}
+          <button key={p.id} onClick={() => go(p.id)}
                   className={page === p.id ? 'font-medium underline' : 'text-slate-600'}>
             {p.label}
           </button>
@@ -32,9 +35,10 @@ export default function App() {
         </button>
       </nav>
       <main className="p-6">
-        {page === 'resume' && <Upload api={api} onDone={() => setPage('matches')} />}
-        {page === 'matches' && <Matches api={api} />}
-        {page === 'preferences' && <Preferences api={api} onSaved={() => setPage('matches')} />}
+        {flash && <p role="status" className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">{flash}</p>}
+        {page === 'resume' && <Upload api={api} onDone={() => go('matches', 'Resume uploaded. Your matches are updated.')} />}
+        {page === 'matches' && <Matches api={api} onUpload={() => go('resume')} />}
+        {page === 'preferences' && <Preferences api={api} onSaved={() => go('matches', 'Preferences saved. Your matches are updated.')} />}
       </main>
     </div>
   )

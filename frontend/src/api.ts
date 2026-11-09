@@ -24,9 +24,16 @@ export interface Match {
   title: string
   score: number
   tier: string
+  company: string | null
+  location: string | null
   years_note: string | null
   url: string | null
   detail: MatchDetail | null
+}
+
+export interface ResumeInfo {
+  id: string
+  filename: string | null
 }
 
 interface TokenOut {
@@ -46,12 +53,17 @@ type Fetch = (input: string, init?: RequestInit) => Promise<Response>
 
 export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), base = '/api') {
   let token: string | null = null
+  const unauthorized = new Set<() => void>()
 
   async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers)
     if (token) headers.set('Authorization', `Bearer ${token}`)
     if (init.body && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
     const res = await fetchFn(`${base}${path}`, { ...init, headers })
+    if (res.status === 401 && token) {      // session expired: forget it and tell the app
+      token = null
+      unauthorized.forEach((fn) => fn())
+    }
     if (!res.ok) {
       let message = res.statusText
       try {
@@ -78,6 +90,8 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
     login: (email: string, password: string) => authenticate('/auth/login', email, password),
     logout: () => { token = null },
     isLoggedIn: () => token !== null,
+    onUnauthorized: (fn: () => void) => { unauthorized.add(fn); return () => { unauthorized.delete(fn) } },
+    listResumes: () => call<ResumeInfo[]>('/resumes'),
     getPreferences: () => call<Preferences>('/me/preferences'),
     savePreferences: (p: Preferences) => call<Preferences>('/me/preferences', { method: 'PUT', body: JSON.stringify(p) }),
     uploadResume: (file: File) => {

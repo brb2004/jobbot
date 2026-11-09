@@ -17,7 +17,9 @@ function Skills({ label, items }: { label: string; items: string[] }) {
   )
 }
 
-export function Matches({ api }: { api: Api }) {
+const company = (slug: string | null) => (slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : null)
+
+export function Matches({ api, onUpload }: { api: Api; onUpload?: () => void }) {
   const [matches, setMatches] = useState<Match[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -29,13 +31,20 @@ export function Matches({ api }: { api: Api }) {
 
   if (error) return <p role="alert" className="text-red-600">{error}</p>
   if (matches === null) return <p className="text-slate-600">Loading…</p>
-  if (!matches.length) return <p className="text-slate-600">No matches yet. Upload your resume to get your top 20.</p>
+  if (!matches.length)
+    return (
+      <p className="text-slate-600">
+        No matches yet.{' '}
+        <button onClick={onUpload} className="underline">Upload your resume</button> to get your top 20.
+      </p>
+    )
 
   return (
     <ol className="max-w-3xl space-y-3">
-      {matches.map((m) => (
+      {matches.map((m, i) => (
         <li key={m.job_id} className="rounded-lg bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-slate-400">#{i + 1}</span>
             {m.url
               ? <a href={m.url} target="_blank" rel="noreferrer" className="font-medium underline">{m.title}</a>
               : <span className="font-medium">{m.title}</span>}
@@ -44,6 +53,9 @@ export function Matches({ api }: { api: Api }) {
               <span className={`text-xs ${m.detail?.over_years ? 'text-amber-700' : 'text-slate-600'}`}>{m.years_note}</span>
             )}
           </div>
+          {(m.company || m.location) && (
+            <p className="text-sm text-slate-500">{[company(m.company), m.location].filter(Boolean).join(' · ')}</p>
+          )}
           <Skills label="You have" items={m.detail?.met ?? []} />
           <Skills label="Missing" items={m.detail?.missing ?? []} />
         </li>

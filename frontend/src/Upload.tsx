@@ -1,10 +1,15 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError, type Api } from './api'
 
 export function Upload({ api, onDone }: { api: Api; onDone: () => void }) {
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [current, setCurrent] = useState<string | null>(null)
+
+  useEffect(() => {
+    api.listResumes().then((rs) => setCurrent(rs[0]?.filename ?? null)).catch(() => {})
+  }, [api])
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -25,6 +30,7 @@ export function Upload({ api, onDone }: { api: Api; onDone: () => void }) {
     <form onSubmit={submit} className="max-w-md space-y-4">
       <h2 className="text-xl font-semibold">Your resume</h2>
       <p className="text-sm text-slate-600">Matches are built from the skills in your resume. Upload a new one any time.</p>
+      {current && <p className="text-sm">Current: {current}</p>}
       <label htmlFor="resume" className="block text-sm font-medium">Resume (PDF, Word .docx, or plain text)</label>
       <input id="resume" type="file" accept=".pdf,.docx,.txt"
              onChange={(e) => setFile(e.target.files?.[0] ?? null)}

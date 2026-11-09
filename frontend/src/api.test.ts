@@ -52,3 +52,26 @@ describe('validation errors', () => {
     })
   })
 })
+
+describe('session expiry', () => {
+  it('a 401 while logged in clears the token and tells listeners', async () => {
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce(json({ access_token: 'abc', token_type: 'bearer' }))
+      .mockResolvedValueOnce(json({ detail: 'Not authenticated' }, 401))
+    const api = createApi(fetchFn)
+    const listener = vi.fn()
+    api.onUnauthorized(listener)
+    await api.login('a@b.com', 'pw')
+    await expect(api.matches()).rejects.toMatchObject({ status: 401 })
+    expect(listener).toHaveBeenCalledOnce()
+    expect(api.isLoggedIn()).toBe(false)
+  })
+
+  it('a wrong password at login is not a session expiry', async () => {
+    const api = createApi(vi.fn().mockResolvedValue(json({ detail: 'Invalid email or password' }, 401)))
+    const listener = vi.fn()
+    api.onUnauthorized(listener)
+    await expect(api.login('a@b.com', 'bad')).rejects.toMatchObject({ status: 401 })
+    expect(listener).not.toHaveBeenCalled()
+  })
+})
