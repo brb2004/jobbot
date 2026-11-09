@@ -47,6 +47,7 @@ class Resume(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
     filename: Mapped[str | None] = mapped_column(String(255))
     raw_text: Mapped[str | None] = mapped_column(Text)
+    years_detected: Mapped[int | None]                   # from the resume text; prefs override
     skills: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
     skills_version: Mapped[str | None] = mapped_column(String(12))   # skills.txt hash used to tag
     education: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))

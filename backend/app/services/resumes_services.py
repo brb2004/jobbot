@@ -93,7 +93,8 @@ async def create(s: AsyncSession, user_id: UUID, filename: str, data: bytes,
                              "or add skills on the Preferences page.")
     # one resume per user: replace, don't pile up. ON DELETE CASCADE drops its old match scores.
     await s.execute(delete(Resume).where(Resume.user_id == user_id))
-    resume = Resume(user_id=user_id, filename=filename, raw_text=text)
+    from app.services.experience_services import years_from_resume
+    resume = Resume(user_id=user_id, filename=filename, raw_text=text, years_detected=years_from_resume(text))
     s.add(resume)
     await s.commit()
     return resume

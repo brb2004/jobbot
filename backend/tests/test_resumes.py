@@ -135,3 +135,11 @@ async def test_filenames_are_sanitized(client, auth_headers, session):
     assert r.status_code == 201
     name = (await client.get("/resumes", headers=auth_headers)).json()[0]["filename"]
     assert not any(c in name for c in "/\\<>") and name.endswith(".txt") and len(name) <= 100
+
+
+async def test_upload_reports_detected_years(client, auth_headers, session):
+    session.add(_Job(title="Backend Engineer", skills=["Python"]))
+    await session.flush()
+    await client.post("/resumes", headers=auth_headers,
+                      files={"file": ("cv.txt", b"Python developer with 3 years of experience", "text/plain")})
+    assert (await client.get("/resumes", headers=auth_headers)).json()[0]["years_detected"] == 3

@@ -69,7 +69,7 @@ async def match_all(s: AsyncSession, k: int = 20, user_id: UUID | None = None) -
         ok = {j.id for j in jobs if allowed(j, prefs)}                      # cheap + selective: filter first
         await s.execute(delete(MatchScore).where(MatchScore.resume_id == resume.id))
         for m in top_matches(tagger.expand(set(resume.skills) | _extra(prefs)), all_jobs, weights, k,
-                             index=index, within=ok, dedupe_key=roles, job_years=years, user_years=prefs.years_experience):
+                             index=index, within=ok, dedupe_key=roles, job_years=years, user_years=prefs.years_experience if prefs.years_experience is not None else resume.years_detected):
             s.add(MatchScore(resume_id=resume.id, job_id=m.job_id, score=m.score,
                              detail={"met": m.matched, "partial": [], "missing": m.missing, "soft": [],
                                      "years_asked": m.years_asked,
