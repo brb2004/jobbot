@@ -9,7 +9,7 @@ jobs:
       PGPASS: ci-only-password
       JWT: ci-only-secret-key-that-is-at-least-32-bytes
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build images
         run: |
