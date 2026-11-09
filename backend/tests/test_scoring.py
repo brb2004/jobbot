@@ -59,9 +59,9 @@ def test_over_asking_jobs_are_halved_and_flagged():
     asked = score_job("j", {"Python"}, {"Python"}, w, prior=0, job_years=5, user_years=1)
     close = score_job("j", {"Python"}, {"Python"}, w, prior=0, job_years=2, user_years=1)
     unknown = score_job("j", {"Python"}, {"Python"}, w, prior=0, job_years=5, user_years=None)
-    assert (asked.score, asked.years_asked) == (0.5, 5)
-    assert (close.score, close.years_asked) == (1.0, None)          # within 1 year: no penalty
-    assert (unknown.score, unknown.years_asked) == (1.0, None)      # user never said: no penalty
+    assert (asked.score, asked.years_asked, asked.over_years) == (0.5, 5, True)
+    assert (close.score, close.years_asked, close.over_years) == (1.0, 2, False)       # within 1 year: no penalty
+    assert (unknown.score, unknown.years_asked, unknown.over_years) == (1.0, 5, False) # user never said: no penalty
 
 
 def test_top_matches_applies_allow_filter_only_to_candidates():
@@ -102,3 +102,20 @@ def test_dedupe_key_keeps_only_the_best_posting_per_key():
     keys = {"j1": ("stripe", "backend"), "j2": ("stripe", "backend"), "j3": ("stripe", "frontend")}
     result = top_matches({"Python"}, jobs, {"Python": 1.0}, dedupe_key=keys)
     assert [m.job_id for m in result] == ["j1", "j3"]
+
+
+from app.services.scoring_services import years_from_title, years_note
+
+
+def test_years_from_title_when_the_posting_gives_no_number():
+    assert years_from_title("Senior Backend Engineer") == 5
+    assert years_from_title("Sr. Engineer") == 5
+    assert years_from_title("Staff Software Engineer") == 8
+    assert years_from_title("Principal Engineer") == 10
+    assert years_from_title("Software Engineer II") is None
+
+
+def test_years_note_wording():
+    assert years_note({"years_asked": 3}) == "asks for 3+ years"
+    assert years_note({"years_asked": 5, "years_source": "title"}) == "senior-level title (~5+ years)"
+    assert years_note({}) is None

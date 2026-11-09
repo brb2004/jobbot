@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Job, MatchScore, Resume, User
 from app.services.preferences_services import Preferences, allowed
-from app.services.scoring_services import build_index, idf_weights, top_matches, years_required
+from app.services.scoring_services import build_index, idf_weights, top_matches, years_from_title, years_required
 from app.services.skills_services import default_tagger
 
 
@@ -49,7 +49,11 @@ async def match_all(s: AsyncSession, k: int = 20, user_id: UUID | None = None) -
     jobs = [j for j in (await s.execute(cols.where(Job.skills.is_not(None), Job.closed_at.is_(None)))).all()
             if j.skills]
     weights = idf_weights([set(j.skills) for j in jobs])                    # weights from ALL jobs
-    years = {j.id: years_required(j.requirements or []) for j in jobs}
+    years, years_src = {}, {}
+    for j in jobs:                                                          # stated number first, then the title
+        stated = years_required(j.requirements or [])
+        years[j.id] = stated if stated is not None else years_from_title(j.title)
+        years_src[j.id] = "requirements" if stated is not None else "title"
     roles = {j.id: (j.board, (j.title or '').strip().lower()) for j in jobs}  # one per company + title
     all_jobs = {j.id: set(j.skills) for j in jobs}
     index = build_index(all_jobs)                                           # once per run, shared by every user
@@ -67,7 +71,8 @@ async def match_all(s: AsyncSession, k: int = 20, user_id: UUID | None = None) -
                              index=index, within=ok, dedupe_key=roles, job_years=years, user_years=prefs.years_experience):
             s.add(MatchScore(resume_id=resume.id, job_id=m.job_id, score=m.score,
                              detail={"met": m.matched, "partial": [], "missing": m.missing, "soft": [],
-                                     "years_asked": m.years_asked}))
+                                     "years_asked": m.years_asked,
+                                     "years_source": years_src.get(m.job_id), "over_years": m.over_years}))
             saved += 1
     await s.commit()                                                        # one commit for the whole run
     return saved

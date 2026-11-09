@@ -93,7 +93,7 @@ def test_tier_labels():
 
 def test_render_shows_tier_and_years_flag_instead_of_percent():
     m = MatchOut(job_id=_uuid.uuid4(), title="Backend", score=0.25, url="https://x/1",
-                 detail={"met": ["Python"], "missing": [], "years_asked": 3})
+                 detail={"met": ["Python"], "missing": [], "years_asked": 3, "over_years": True})
     text = render([m], 20)
     assert "Backend — Stretch · asks for 3+ years" in text
     assert "%" not in text

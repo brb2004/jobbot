@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Job, MatchScore, Resume
 from app.schemas.matches_schemas import MatchOut
-from app.services.scoring_services import TIERS, tier  # noqa: F401  (re-exported)
+from app.services.scoring_services import TIERS, tier, years_note  # noqa: F401  (re-exported)
 
 SHOW = 3          # requirements shown per list
 WIDTH = 80        # characters per requirement before trimming
@@ -27,8 +27,8 @@ def render(matches: list[MatchOut], top_n: int) -> str:
     for i, m in enumerate(best, 1):
         d = m.detail or {}
         head = f"{i}. {m.title} — {tier(m.score)}"
-        if d.get("years_asked"):
-            head += f" · asks for {d['years_asked']}+ years"
+        if d.get("over_years") and (note := years_note(d)):
+            head += f" · {note}"                     # email: only flag when it's over your level
         lines = [head]
         if d.get("met"):
             lines.append(f"   You have: {_short(d['met'])}")

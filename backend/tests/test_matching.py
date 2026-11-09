@@ -127,3 +127,14 @@ async def test_same_role_posted_per_location_shows_once(session):
     await match_all(session)
     rows = (await session.scalars(select(MatchScore).where(MatchScore.resume_id == resume.id))).all()
     assert len(rows) == 1
+
+
+async def test_senior_title_without_a_number_counts_as_5_years(session):
+    user = User(id=uuid.uuid4(), email="sr@match.com", hashed_password="x", preferences={"years_experience": 0})
+    job = Job(title="Senior Backend Engineer", skills=["Python"], requirements=["Python"])
+    resume = Resume(user_id=user.id, skills=["Python"])
+    session.add_all([user, job, resume])
+    await session.flush()
+    await match_all(session)
+    d = (await session.scalars(select(MatchScore).where(MatchScore.resume_id == resume.id))).one().detail
+    assert (d["years_asked"], d["years_source"], d["over_years"]) == (5, "title", True)

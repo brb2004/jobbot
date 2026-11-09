@@ -78,3 +78,14 @@ async def test_uploading_through_the_api_matches_immediately(client, auth_header
     r = await client.post("/resumes", headers=auth_headers, files={"file": ("cv.txt", b"Python developer", "text/plain")})
     assert r.status_code == 201
     assert len((await client.get("/dashboard", headers=auth_headers)).json()) == 1
+
+
+async def test_dashboard_sends_the_years_note(client, auth_headers, session):
+    job = _J(title="Backend Engineer", url="https://x/2")
+    resume = _R(user_id=_my_id(auth_headers))
+    session.add_all([job, resume])
+    await session.flush()
+    session.add(_MS(resume_id=resume.id, job_id=job.id, score=0.5,
+                    detail={"met": [], "missing": [], "years_asked": 3, "over_years": True}))
+    await session.flush()
+    assert (await client.get("/dashboard", headers=auth_headers)).json()[0]["years_note"] == "asks for 3+ years"

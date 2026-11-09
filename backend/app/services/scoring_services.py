@@ -18,7 +18,8 @@ class Match:
     score: float
     matched: list[str]                  # skills you have, heaviest first
     missing: list[str]                  # skills you lack, heaviest first
-    years_asked: int | None = None      # set only when the job asks for more than you have
+    years_asked: int | None = None      # what the job asks for, whenever known
+    over_years: bool = False            # True = more than you have + slack (score halved)
 
 
 def idf_weights(job_skill_sets: list[set[str]]) -> dict[str, float]:
@@ -26,6 +27,26 @@ def idf_weights(job_skill_sets: list[set[str]]) -> dict[str, float]:
     n = len(job_skill_sets)
     df = Counter(s for skills in job_skill_sets for s in skills)
     return {s: math.log((1 + n) / (1 + d)) + 1 for s, d in df.items()}
+
+
+# When a posting states no number, the title is the next-best evidence. Checked in this order.
+TITLE_YEARS = [
+    (re.compile(r"(?<!\w)(principal|distinguished)(?!\w)", re.IGNORECASE), 10),
+    (re.compile(r"(?<!\w)staff(?!\w)", re.IGNORECASE), 8),
+    (re.compile(r"(?<!\w)(senior|sr\.?|lead)(?!\w)", re.IGNORECASE), 5),
+]
+
+
+def years_from_title(title: str | None) -> int | None:
+    return next((n for pattern, n in TITLE_YEARS if pattern.search(title or "")), None)
+
+
+def years_note(detail: dict) -> str | None:
+    """One wording for the email and the page."""
+    y = detail.get("years_asked")
+    if y is None:
+        return None
+    return f"senior-level title (~{y}+ years)" if detail.get("years_source") == "title" else f"asks for {y}+ years"
 
 
 def years_required(bullets: list[str]) -> int | None:
@@ -45,11 +66,10 @@ def score_job(job_id, job_skills: set[str], user_skills: set[str], weights: dict
     if avg is None:                                          # prior counts in average skills
         avg = sum(weights.values()) / len(weights) if weights else 1.0
     score = sum(map(w, matched)) / (sum(map(w, ordered)) + prior * avg)
-    flag = None
-    if job_years is not None and user_years is not None and job_years > user_years + YEARS_SLACK:
+    over = job_years is not None and user_years is not None and job_years > user_years + YEARS_SLACK
+    if over:
         score *= YEARS_PENALTY
-        flag = job_years
-    return Match(job_id, round(score, 2), matched, missing, flag)
+    return Match(job_id, round(score, 2), matched, missing, job_years, over)
 
 
 def build_index(jobs: dict[object, set[str]]) -> dict[str, set]:
