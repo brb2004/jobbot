@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    COOKIE_NAME: str = "jobbot_session"
+    COOKIE_SECURE: bool = False     # set True in production (HTTPS only)
 
 
     SMTP_HOST: str = "smtp.gmail.com"

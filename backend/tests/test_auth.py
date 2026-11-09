@@ -64,3 +64,25 @@ async def test_validation_errors_never_echo_what_was_sent(client):
     assert r.status_code == 422
     assert "s3cr" not in r.text
     assert all("input" not in e for e in r.json()["detail"])
+
+
+async def test_login_sets_an_httponly_lax_session_cookie_that_authenticates(client):
+    try:
+        await client.post("/auth/register", json={"email": "cookie@auth.com", "password": "correct-horse"})
+        client.cookies.clear()
+        r = await client.post("/auth/login", json={"email": "cookie@auth.com", "password": "correct-horse"})
+        cookie = r.headers["set-cookie"].lower()
+        assert "jobbot_session=" in cookie and "httponly" in cookie and "samesite=lax" in cookie
+        assert (await client.get("/auth/me")).status_code == 200            # cookie alone, no header
+    finally:
+        client.cookies.clear()
+
+
+async def test_logout_clears_the_session_cookie(client):
+    try:
+        await client.post("/auth/register", json={"email": "bye@auth.com", "password": "correct-horse"})
+        assert (await client.get("/auth/me")).status_code == 200
+        assert (await client.post("/auth/logout")).status_code == 204
+        assert (await client.get("/auth/me")).status_code == 401
+    finally:
+        client.cookies.clear()
