@@ -44,6 +44,7 @@ export function Login({ api, onDone }: { api: Api; onDone: () => void }) {
         <input id="password" type="password" required className={input}
                autoComplete={isLogin ? 'current-password' : 'new-password'}
                value={password} onChange={(e) => setPassword(e.target.value)} />
+        {!isLogin && <p className="text-xs text-slate-500">At least 8 characters.</p>}
 
         {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
 

@@ -66,7 +66,7 @@ describe('requests', () => {
     const body = { detail: [{ loc: ['body', 'password'], msg: 'String should have at least 8 characters' }] }
     const api = createApi(vi.fn().mockResolvedValue(json(body, 422)))
     await expect(api.register('a@b.com', 'short')).rejects.toMatchObject({
-      status: 422, message: 'password: String should have at least 8 characters',
+      status: 422, message: 'Password: String should have at least 8 characters',
     })
   })
 })

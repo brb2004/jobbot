@@ -44,6 +44,9 @@ export class ApiError extends Error {
   }
 }
 
+// 'include_titles' -> 'Include titles' for error messages
+const label = (field: string) => field.charAt(0).toUpperCase() + field.slice(1).replace(/_/g, ' ')
+
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>
 
 export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), base = '/api') {
@@ -65,7 +68,7 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
         if (typeof body.detail === 'string') message = body.detail
         else if (Array.isArray(body.detail))     // FastAPI 422: list of field errors
           message = body.detail.map((d: { loc?: string[]; msg: string }) =>
-            `${d.loc?.at(-1) ?? 'input'}: ${d.msg}`).join('; ')
+            `${label(String(d.loc?.at(-1) ?? 'input'))}: ${d.msg}`).join('; ')
       } catch {
         // not JSON: keep statusText
       }
