@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api } from './api'
 import { Login } from './Login'
 import { Matches } from './Matches'
+import { Preferences } from './Preferences'
 import { Upload } from './Upload'
 
 type Page = 'matches' | 'resume' | 'preferences'
@@ -33,7 +34,7 @@ export default function App() {
       <main className="p-6">
         {page === 'resume' && <Upload api={api} onDone={() => setPage('matches')} />}
         {page === 'matches' && <Matches api={api} />}
-        {page === 'preferences' && <p className="text-slate-600">Coming next.</p>}
+        {page === 'preferences' && <Preferences api={api} onSaved={() => setPage('matches')} />}
       </main>
     </div>
   )
