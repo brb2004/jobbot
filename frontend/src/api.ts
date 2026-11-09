@@ -1,5 +1,5 @@
-// Typed client for the FastAPI backend. The token lives in memory only (not localStorage),
-// so injected scripts can't read it from storage. Next step: httpOnly cookie.
+// Typed client for the FastAPI backend. The session is an httpOnly cookie set by the server:
+// page JavaScript never sees the token, so an injected script can't steal it.
 
 export interface Preferences {
   include_titles: string[]
@@ -36,11 +36,6 @@ export interface ResumeInfo {
   filename: string | null
 }
 
-interface TokenOut {
-  access_token: string
-  token_type: string
-}
-
 export class ApiError extends Error {
   status: number
   constructor(status: number, message: string) {
@@ -52,16 +47,15 @@ export class ApiError extends Error {
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>
 
 export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), base = '/api') {
-  let token: string | null = null
+  let loggedIn = false
   const unauthorized = new Set<() => void>()
 
   async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers)
-    if (token) headers.set('Authorization', `Bearer ${token}`)
     if (init.body && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
-    const res = await fetchFn(`${base}${path}`, { ...init, headers })
-    if (res.status === 401 && token) {      // session expired: forget it and tell the app
-      token = null
+    const res = await fetchFn(`${base}${path}`, { ...init, headers, credentials: 'same-origin' })
+    if (res.status === 401 && loggedIn) {       // session expired: tell the app
+      loggedIn = false
       unauthorized.forEach((fn) => fn())
     }
     if (!res.ok) {
@@ -69,7 +63,7 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
       try {
         const body = await res.json()
         if (typeof body.detail === 'string') message = body.detail
-        else if (Array.isArray(body.detail))                     // FastAPI 422: list of field errors
+        else if (Array.isArray(body.detail))     // FastAPI 422: list of field errors
           message = body.detail.map((d: { loc?: string[]; msg: string }) =>
             `${d.loc?.at(-1) ?? 'input'}: ${d.msg}`).join('; ')
       } catch {
@@ -81,17 +75,28 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
   }
 
   async function authenticate(path: string, email: string, password: string): Promise<void> {
-    const t = await call<TokenOut>(path, { method: 'POST', body: JSON.stringify({ email, password }) })
-    token = t.access_token
+    await call(path, { method: 'POST', body: JSON.stringify({ email, password }) })   // server sets the cookie
+    loggedIn = true
   }
 
   return {
     register: (email: string, password: string) => authenticate('/auth/register', email, password),
     login: (email: string, password: string) => authenticate('/auth/login', email, password),
-    logout: () => { token = null },
-    isLoggedIn: () => token !== null,
+    logout: async () => {
+      loggedIn = false
+      await call('/auth/logout', { method: 'POST' }).catch(() => {})
+    },
+    restore: async () => {                       // on page load: is the cookie still valid?
+      try {
+        await call('/auth/me')
+        loggedIn = true
+      } catch {
+        loggedIn = false
+      }
+      return loggedIn
+    },
+    isLoggedIn: () => loggedIn,
     onUnauthorized: (fn: () => void) => { unauthorized.add(fn); return () => { unauthorized.delete(fn) } },
-    listResumes: () => call<ResumeInfo[]>('/resumes'),
     getPreferences: () => call<Preferences>('/me/preferences'),
     savePreferences: (p: Preferences) => call<Preferences>('/me/preferences', { method: 'PUT', body: JSON.stringify(p) }),
     uploadResume: (file: File) => {
@@ -99,6 +104,7 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
       form.append('file', file)
       return call<unknown>('/resumes', { method: 'POST', body: form })   // no Content-Type: browser adds the boundary
     },
+    listResumes: () => call<ResumeInfo[]>('/resumes'),
     matches: () => call<Match[]>('/dashboard'),
   }
 }
