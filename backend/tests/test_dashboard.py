@@ -4,7 +4,7 @@ from app.db.models_db import Job, Resume, MatchScore
 
 
 async def test_dashboard_shows_only_my_matches_best_first(client, session):
-    me, someone_else = uuid4(), uuid4()
+    me, someone_else = await _user(session), uuid4()
     backend, data, frontend = Job(title="Backend"), Job(title="Data"), Job(title="Frontend")
     my_resume, their_resume = Resume(user_id=me), Resume(user_id=someone_else)
     session.add_all([backend, data, frontend, my_resume, their_resume])
@@ -25,7 +25,7 @@ async def test_dashboard_shows_only_my_matches_best_first(client, session):
 
 
 async def test_dashboard_includes_met_and_missing(client, session):
-    me = uuid4()
+    me = await _user(session)
     job, resume = Job(title="Backend"), Resume(user_id=me)
     session.add_all([job, resume])
     await session.flush()
@@ -38,7 +38,7 @@ async def test_dashboard_includes_met_and_missing(client, session):
     assert r.json()[0]["detail"] == {"met": ["Python"], "missing": ["Go"]}
 
 async def test_dashboard_includes_the_job_link(client, session):
-    me = uuid4()
+    me = await _user(session)
     job, resume = Job(title="Backend", url="https://x/1"), Resume(user_id=me)
     session.add_all([job, resume])
     await session.flush()
@@ -100,3 +100,12 @@ async def test_dashboard_sends_company_and_location(client, auth_headers, sessio
     await session.flush()
     m = (await client.get("/dashboard", headers=auth_headers)).json()[0]
     assert (m["company"], m["location"]) == ("stripe", "Remote, US")
+
+
+async def _user(session):
+    """A real user row: tokens for users that don't exist are now rejected."""
+    from app.db.models_db import User
+    u = User(id=uuid4(), email=f"{uuid4().hex[:12]}@fixture.test", hashed_password="x")
+    session.add(u)
+    await session.flush()
+    return u.id

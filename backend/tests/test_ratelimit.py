@@ -18,10 +18,10 @@ def test_blocks_after_max_hits_until_the_window_slides():
 async def test_login_is_throttled_after_5_failures(client):
     from app.api.routes.auth_routes import LOGIN_FAILS, LOGIN_IP
     LOGIN_FAILS.reset(); LOGIN_IP.reset()
-    await client.post("/auth/register", json={"email": "rl@auth.com", "password": "correct-horse"})
+    await client.post("/auth/register?token=1", json={"email": "rl@auth.com", "password": "correct-horse"})
     for _ in range(5):
-        assert (await client.post("/auth/login", json={"email": "rl@auth.com", "password": "wrong-guess"})).status_code == 401
-    r = await client.post("/auth/login", json={"email": "rl@auth.com", "password": "correct-horse"})
+        assert (await client.post("/auth/login?token=1", json={"email": "rl@auth.com", "password": "wrong-guess"})).status_code == 401
+    r = await client.post("/auth/login?token=1", json={"email": "rl@auth.com", "password": "correct-horse"})
     assert r.status_code == 429                  # even the right password waits out the window
     assert int(r.headers["Retry-After"]) > 0
     LOGIN_FAILS.reset(); LOGIN_IP.reset()

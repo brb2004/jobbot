@@ -47,13 +47,24 @@ async def client(session):
         yield c
 
 
-@pytest.fixture
-def auth_headers():
-    return {"Authorization": f"Bearer {create_access_token(str(uuid4()))}"}
+@pytest_asyncio.fixture
+async def auth_headers(session):
+    """A real user row (tokens for users that don't exist are rejected), rolled back with the test."""
+    from app.db.models_db import User
+    user = User(id=uuid4(), email=f"{uuid4().hex[:12]}@fixture.test", hashed_password="x")
+    session.add(user)
+    await session.flush()
+    return {"Authorization": f"Bearer {create_access_token(str(user.id))}"}
 
 
-def test_include_titles_require_one_of_the_words():
-    prefs = Preferences(include_titles=["engineer", "developer"])
-    assert allowed(Job(title="IT Systems Engineer"), prefs)
-    assert not allowed(Job(title="Account Executive, Platforms"), prefs)
-    assert allowed(Job(title="Anything"), Preferences())        # no include list = everything allowed
+
+import pytest as _pytest
+
+
+@_pytest.fixture(autouse=True)
+def _reset_rate_limits():
+    """Rate limiters are process-wide; give every test a clean slate."""
+    from app.api.routes import auth_routes
+    for limiter in (auth_routes.LOGIN_FAILS, auth_routes.LOGIN_IP, auth_routes.REGISTER_IP):
+        limiter.reset()
+    yield

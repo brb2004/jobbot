@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
+import time
+
 import bcrypt
 import jwt
 
@@ -17,7 +19,7 @@ def verify_password(password: str, hashed: str) -> bool:
 def create_access_token(sub: str) -> str:
     s = get_settings()
     expire = datetime.now(timezone.utc) + timedelta(minutes=s.ACCESS_TOKEN_EXPIRE_MINUTES)
-    return jwt.encode({"sub": sub, "exp": expire}, s.JWT_SECRET_KEY, algorithm=s.JWT_ALGORITHM)
+    return jwt.encode({"sub": sub, "exp": expire, "iat": time.time()}, s.JWT_SECRET_KEY, algorithm=s.JWT_ALGORITHM)
 
 
 def decode_token(token: str) -> dict:

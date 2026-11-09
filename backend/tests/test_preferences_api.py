@@ -1,5 +1,5 @@
 async def register(client, email):
-    r = await client.post("/auth/register", json={"email": email, "password": "correct-horse-battery"})
+    r = await client.post("/auth/register?token=1", json={"email": email, "password": "correct-horse-battery"})
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
 
@@ -58,5 +58,5 @@ async def test_validation_messages_are_plain_english(client):
     r = await client.put("/me/preferences", headers=h, json={"include_titles": ["senior"], "exclude_titles": ["senior"]})
     assert r.status_code == 422
     assert "Value error" not in r.text and "both" in r.text
-    r = await client.post("/auth/register", json={"email": "short@prefs.com", "password": "abc"})
+    r = await client.post("/auth/register?token=1", json={"email": "short@prefs.com", "password": "abc"})
     assert r.json()["detail"][0]["msg"] == "must be at least 8 characters"

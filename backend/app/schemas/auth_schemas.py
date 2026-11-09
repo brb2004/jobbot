@@ -21,7 +21,7 @@ class LoginIn(BaseModel):
 
 
 class TokenOut(BaseModel):
-    access_token: str
+    access_token: str | None = None      # only with ?token=1 (scripts); browsers use the cookie
     token_type: str = "bearer"
 
 

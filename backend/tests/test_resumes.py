@@ -15,8 +15,8 @@ def headers_for(user_id):
     return {"Authorization": f"Bearer {create_access_token(str(user_id))}"}
 
 
-async def test_cannot_see_another_users_resumes(client):
-    alice, bob = headers_for(uuid4()), headers_for(uuid4())
+async def test_cannot_see_another_users_resumes(client, session):
+    alice, bob = headers_for(await _user(session)), headers_for(await _user(session))
     await client.post("/resumes", files={"file": ("alice.txt", b"secret", "text/plain")}, headers=alice)
 
     r = await client.get("/resumes", headers=bob)
@@ -92,3 +92,12 @@ async def test_file_with_no_skills_is_rejected_and_keeps_the_old_resume(client, 
     assert r.status_code == 422
     assert "skills" in r.json()["detail"]
     assert len((await client.get("/dashboard", headers=auth_headers)).json()) == 1
+
+
+async def _user(session):
+    """A real user row: tokens for users that don't exist are now rejected."""
+    from app.db.models_db import User
+    u = User(id=uuid4(), email=f"{uuid4().hex[:12]}@fixture.test", hashed_password="x")
+    session.add(u)
+    await session.flush()
+    return u.id

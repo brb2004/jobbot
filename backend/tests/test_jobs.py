@@ -11,9 +11,8 @@ async def test_get_job_rejects_bad_token(client):
     assert r.status_code == 401
 
 
-async def test_get_missing_job_returns_404(client):
-    token = create_access_token(str(uuid4()))
-    r = await client.get(f"/jobs/{uuid4()}", headers={"Authorization": f"Bearer {token}"})
+async def test_get_missing_job_returns_404(client, auth_headers):
+    r = await client.get(f"/jobs/{uuid4()}", headers=auth_headers)
     assert r.status_code == 404
 
 
