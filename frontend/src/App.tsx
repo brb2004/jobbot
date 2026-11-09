@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from './api'
 import { Login } from './Login'
+import { Matches } from './Matches'
 import { Upload } from './Upload'
 
 type Page = 'matches' | 'resume' | 'preferences'
@@ -31,7 +32,8 @@ export default function App() {
       </nav>
       <main className="p-6">
         {page === 'resume' && <Upload api={api} onDone={() => setPage('matches')} />}
-        {page !== 'resume' && <p className="text-slate-600">Coming next.</p>}
+        {page === 'matches' && <Matches api={api} />}
+        {page === 'preferences' && <p className="text-slate-600">Coming next.</p>}
       </main>
     </div>
   )

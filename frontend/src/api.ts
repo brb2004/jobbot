@@ -22,6 +22,7 @@ export interface Match {
   job_id: string
   title: string
   score: number
+  tier: string
   url: string | null
   detail: MatchDetail | null
 }
