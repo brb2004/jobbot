@@ -38,3 +38,17 @@ def test_no_include_list_defaults_to_engineering_roles():
 def test_hyphenated_remote_locations_still_match():
     prefs = Preferences(locations=["remote"])
     assert allowed(Job(title="Engineer", location="Chicago, US-Remote"), prefs)
+
+
+def test_city_suffixes_collapse():
+    a = role_key("Software Engineer - New Grad (2027 Start) - Aarhus")
+    assert a == role_key("Software Engineer - New Grad (2027 Start) - Berlin")
+    assert a == role_key("Software Engineer - New Grad (2027 Start) - Amsterdam")
+
+
+def test_title_synonyms_collapse_but_teams_stay_apart():
+    assert role_key("Principal Software Developer - Vector Search - Elasticsearch") == \
+           role_key("Principal Software Engineer - Vector Search - Elasticsearch")
+    assert role_key("Sr. Backend Engineer") == role_key("Senior Backend Engineer")
+    assert role_key("Principal Software Engineer - Vector Search - Elasticsearch") != \
+           role_key("Principal Software Engineer - Search Algorithms - Elasticsearch")
