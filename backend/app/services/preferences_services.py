@@ -13,7 +13,8 @@ Word = Annotated[str, Field(min_length=1, max_length=50)]
 DEFAULT_TITLES = ("engineer", "developer", "sre", "devops", "architect", "programmer", "scientist")
 # Sales / pre-sales roles that contain "engineer" or "architect". Hidden unless the user opts in.
 PRESALES_TITLES = ("sales", "presales", "pre-sales", "customer engineer", "solutions architect",
-                   "solution architect", "solutions engineer", "solution engineer", "account executive")
+                   "solution architect", "solutions engineer", "solution engineer", "account executive",
+                   "customer success")
 
 
 class Preferences(BaseModel):

@@ -17,6 +17,7 @@ export function Preferences({ api, onSaved, onDeleted }: { api: Api; onSaved: ()
   const [text, setText] = useState<Record<ListKey, string> | null>(null)
   const [years, setYears] = useState('')
   const [presales, setPresales] = useState(false)
+  const [detected, setDetected] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -30,6 +31,9 @@ export function Preferences({ api, onSaved, onDeleted }: { api: Api; onSaved: ()
         setPresales(p.include_presales)
       })
       .catch(fail)
+    Promise.resolve().then(() => api.listResumes())
+      .then((rs) => setDetected(rs[0]?.years_detected ?? null))
+      .catch(() => {})
   }, [api])
 
   async function deleteAccount() {
@@ -77,12 +81,21 @@ export function Preferences({ api, onSaved, onDeleted }: { api: Api; onSaved: ()
         <input id="years" type="number" min={0} max={60} className={`${input} max-w-32`}
                value={years} onChange={(e) => setYears(e.target.value)} />
         <p className="mt-1 text-xs text-slate-500">Jobs asking for more than this + 1 rank lower. Blank = use the years detected from your resume.</p>
+        {detected !== null && years === '' && (
+          <p className="mt-1 text-xs text-slate-700">Using {detected} from your resume.</p>
+        )}
+        {detected !== null && years !== '' && Number(years) !== detected && (
+          <p className="mt-1 text-xs text-amber-700">
+            Your resume shows {detected}. Your value ({years}) is used instead.{' '}
+            <button type="button" className="underline" onClick={() => setYears('')}>Use resume ({detected})</button>
+          </p>
+        )}
       </div>
       <label className="flex items-start gap-2 text-sm">
         <input type="checkbox" className="mt-1" checked={presales} onChange={(e) => setPresales(e.target.checked)} />
         <span>
           Include sales &amp; pre-sales roles
-          <span className="block text-xs text-slate-500">Sales Engineer, Customer Engineer, Solutions Architect. Hidden by default.</span>
+          <span className="block text-xs text-slate-500">Sales Engineer, Customer Engineer, Customer Success, Solutions Architect. Hidden by default.</span>
         </span>
       </label>
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
