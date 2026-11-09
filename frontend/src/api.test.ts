@@ -42,3 +42,13 @@ describe('api client', () => {
     expect(api.isLoggedIn()).toBe(false)
   })
 })
+
+describe('validation errors', () => {
+  it('turns a FastAPI 422 detail list into a readable message', async () => {
+    const body = { detail: [{ loc: ['body', 'password'], msg: 'String should have at least 8 characters' }] }
+    const api = createApi(vi.fn().mockResolvedValue(json(body, 422)))
+    await expect(api.register('a@b.com', 'short')).rejects.toMatchObject({
+      status: 422, message: 'password: String should have at least 8 characters',
+    })
+  })
+})
