@@ -1,4 +1,6 @@
 """Glue between the database and the pure matcher in scoring_services."""
+from uuid import UUID
+
 from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,10 +41,12 @@ def _extra(prefs: Preferences) -> set[str]:
     return set().union(*(tagger.tag(s) for s in prefs.extra_skills))
 
 
-async def match_all(s: AsyncSession, k: int = 20) -> int:
+async def match_all(s: AsyncSession, k: int = 20, user_id: UUID | None = None) -> int:
     """Recompute every user's top k from scratch. Deterministic and cheap, so no caching needed."""
     tagger = default_tagger()
-    jobs = [j for j in (await s.scalars(select(Job).where(Job.skills.is_not(None), Job.closed_at.is_(None)))).all()
+    # only the columns matching needs: skipping content_html/description is ~100 MB less per run
+    cols = select(Job.id, Job.title, Job.location, Job.skills, Job.requirements)
+    jobs = [j for j in (await s.execute(cols.where(Job.skills.is_not(None), Job.closed_at.is_(None)))).all()
             if j.skills]
     weights = idf_weights([set(j.skills) for j in jobs])                    # weights from ALL jobs
     years = {j.id: years_required(j.requirements or []) for j in jobs}
@@ -50,7 +54,10 @@ async def match_all(s: AsyncSession, k: int = 20) -> int:
     index = build_index(all_jobs)                                           # once per run, shared by every user
     users = {u.id: u for u in (await s.scalars(select(User))).all()}        # one query, not one per resume
     saved = 0
-    for resume in (await s.scalars(select(Resume).where(Resume.skills.is_not(None)))).all():
+    resumes = select(Resume).where(Resume.skills.is_not(None))
+    if user_id is not None:
+        resumes = resumes.where(Resume.user_id == user_id)                 # just this user
+    for resume in (await s.scalars(resumes)).all():
         user = users.get(resume.user_id)
         prefs = Preferences.model_validate((user.preferences if user else None) or {})
         ok = {j.id for j in jobs if allowed(j, prefs)}                      # cheap + selective: filter first

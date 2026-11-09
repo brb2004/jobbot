@@ -101,3 +101,18 @@ async def test_resumes_are_retagged_when_the_taxonomy_changes(session):
     await tag_resumes(session, Tagger.from_text("Go"))
     await tag_resumes(session, Tagger.from_text("Go\nRust"))
     assert r.skills == ["Go", "Rust"]
+
+
+async def test_match_all_for_one_user_leaves_everyone_else_alone(session):
+    job = Job(title="Engineer", skills=["Python"])
+    mine = Resume(user_id=uuid.uuid4(), skills=["Python"])
+    theirs = Resume(user_id=uuid.uuid4(), skills=["Python"])
+    session.add_all([job, mine, theirs])
+    await session.flush()
+    session.add(MatchScore(resume_id=theirs.id, job_id=job.id, score=0.99, detail={}))   # someone else's old row
+    await session.flush()
+    await match_all(session, user_id=mine.user_id)
+    my_rows = (await session.scalars(select(MatchScore).where(MatchScore.resume_id == mine.id))).all()
+    their_rows = (await session.scalars(select(MatchScore).where(MatchScore.resume_id == theirs.id))).all()
+    assert len(my_rows) == 1
+    assert [r.score for r in their_rows] == [0.99]                                        # untouched

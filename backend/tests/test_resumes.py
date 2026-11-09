@@ -59,3 +59,12 @@ async def test_uploading_again_replaces_the_previous_resume_and_its_scores(sessi
     assert [(r.id, r.raw_text) for r in mine] == [(second.id, "Go")]
     assert (await session.scalars(_select(_MatchScore).where(_MatchScore.resume_id == first.id))).all() == []
     assert (await session.get(_Resume, theirs.id)) is not None          # other users untouched
+
+
+async def test_upload_matches_the_user_immediately(session):
+    me = _uuid.uuid4()
+    session.add(_Job(title="Backend Engineer", skills=["Python"]))
+    await session.flush()
+    resume = await _resumes.upload(session, me, "cv.txt", b"Python developer")
+    rows = (await session.scalars(_select(_MatchScore).where(_MatchScore.resume_id == resume.id))).all()
+    assert len(rows) == 1
