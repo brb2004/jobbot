@@ -119,3 +119,11 @@ def test_years_note_wording():
     assert years_note({"years_asked": 3}) == "asks for 3+ years"
     assert years_note({"years_asked": 5, "years_source": "title"}) == "senior-level title (~5+ years)"
     assert years_note({}) is None
+
+
+def test_years_in_education_clauses_are_not_work_experience():
+    assert years_required(["At least 1 year of university education, or equivalent work experience."]) is None
+    assert years_required(["Must be currently enrolled in an accredited Bachelor's degree program or within 1 year of graduation"]) is None
+    assert years_required(["2+ years of coursework in data structures"]) is None
+    assert years_required(["5+ years of auditing experience, including IT/Information Security."]) == 5
+    assert years_required(["Degree in CS, plus 3+ years of industry experience"]) == 3

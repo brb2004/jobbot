@@ -49,8 +49,19 @@ def years_note(detail: dict) -> str | None:
     return f"senior-level title (~{y}+ years)" if detail.get("years_source") == "title" else f"asks for {y}+ years"
 
 
+EDUCATION = re.compile(r"\b(?:degree|universit|college|education|graduat|coursework|enrolled|student|school|"
+                       r"bachelor|master'?s|ph\.?d|semester)", re.IGNORECASE)
+
+
 def years_required(bullets: list[str]) -> int | None:
-    asks = [int(m.group(1)) for b in bullets for m in YEARS.finditer(b)]
+    """Largest 'N+ years' ask. A clause about school ('1 year of university', 'within 1 year of graduation')
+    isn't work experience, unless it says 'experience' itself."""
+    asks = []
+    for b in bullets:
+        for clause in re.split(r"[;,]|\.\s", b):
+            if EDUCATION.search(clause) and "experience" not in clause.lower():
+                continue
+            asks += [int(m.group(1)) for m in YEARS.finditer(clause)]
     return max(asks) if asks else None
 
 
