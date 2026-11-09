@@ -46,3 +46,21 @@ async def test_password_is_never_stored_in_plain_text(client, session):
 
     assert user.hashed_password != "correct-horse-battery"
     assert user.hashed_password.startswith("$2")  
+
+async def test_long_multibyte_passwords_are_rejected_cleanly_not_500(client):
+    r = await client.post("/auth/register", json={"email": "utf@auth.com", "password": "é" * 40})   # 40 chars, 80 bytes
+    assert r.status_code == 422
+    assert "72 bytes" in r.text
+
+
+async def test_login_with_oversized_password_is_401_not_500(client):
+    await client.post("/auth/register", json={"email": "big@auth.com", "password": "correct-horse"})
+    r = await client.post("/auth/login", json={"email": "big@auth.com", "password": "😀" * 36})
+    assert r.status_code == 401
+
+
+async def test_validation_errors_never_echo_what_was_sent(client):
+    r = await client.post("/auth/register", json={"email": "echo@auth.com", "password": "s3cr"})
+    assert r.status_code == 422
+    assert "s3cr" not in r.text
+    assert all("input" not in e for e in r.json()["detail"])

@@ -26,8 +26,8 @@ async def register(s: AsyncSession, email: str, password: str) -> User:
 
 async def authenticate(s: AsyncSession, email: str, password: str) -> User | None:
     user = (await s.execute(select(User).where(User.email == email.lower()))).scalar_one_or_none()
-    if user is None:
-        verify_password(password, _DUMMY_HASH)     # burn the same time as a real check
+    if user is None or len(password.encode()) > 72:   # >72 bytes can't match (and would make bcrypt raise)
+        verify_password("x", _DUMMY_HASH)               # burn the same time as a real check
         return None
     return user if verify_password(password, user.hashed_password) else None
 
