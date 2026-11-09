@@ -71,4 +71,6 @@ async def save_for(s: AsyncSession, user_id: UUID, prefs: Preferences) -> Prefer
         return None
     user.preferences = prefs.model_dump()
     await s.commit()
+    from app.services.matching_services import match_all   # local import: matching imports this module
+    await match_all(s, user_id=user_id)                     # new filters show up now, not at the next cron run
     return prefs

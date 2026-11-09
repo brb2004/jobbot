@@ -39,3 +39,15 @@ async def test_unknown_fields_are_rejected(client):
 
 async def test_requires_a_token(client):
     assert (await client.get("/me/preferences")).status_code == 401
+
+
+async def test_saving_preferences_rematches_immediately(client, session):
+    from app.db.models_db import Job
+    h = await register(client, "rematch@prefs.com")
+    session.add_all([Job(title="Senior Engineer", skills=["Python"]), Job(title="Engineer", skills=["Python"])])
+    await session.flush()
+    await client.post("/resumes", headers=h, files={"file": ("cv.txt", b"Python", "text/plain")})
+    assert len((await client.get("/dashboard", headers=h)).json()) == 2
+
+    await client.put("/me/preferences", headers=h, json={"exclude_titles": ["senior"]})
+    assert [m["title"] for m in (await client.get("/dashboard", headers=h)).json()] == ["Engineer"]
