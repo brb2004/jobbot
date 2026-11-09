@@ -52,3 +52,15 @@ def test_title_synonyms_collapse_but_teams_stay_apart():
     assert role_key("Sr. Backend Engineer") == role_key("Senior Backend Engineer")
     assert role_key("Principal Software Engineer - Vector Search - Elasticsearch") != \
            role_key("Principal Software Engineer - Search Algorithms - Elasticsearch")
+
+
+def test_presales_roles_are_excluded_unless_opted_in():
+    default = Preferences()
+    for title in ("Enterprise Sales Engineer", "Presales Customer Engineer", "Senior Solutions Architect",
+                  "Major Account Executive, France"):
+        assert not allowed(Job(title=title), default), title
+    assert allowed(Job(title="Salesforce Developer"), default)          # whole words: not "sales"
+    assert allowed(Job(title="Backend Engineer"), default)
+    opted = Preferences(include_presales=True)
+    assert allowed(Job(title="Enterprise Sales Engineer"), opted)
+    assert allowed(Job(title="Senior Solutions Architect"), opted)

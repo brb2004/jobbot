@@ -11,6 +11,9 @@ from app.db.models_db import Job, User
 Word = Annotated[str, Field(min_length=1, max_length=50)]
 # Tech-only product: with no include list, show engineering roles. Users can override with their own list.
 DEFAULT_TITLES = ("engineer", "developer", "sre", "devops", "architect", "programmer", "scientist")
+# Sales / pre-sales roles that contain "engineer" or "architect". Hidden unless the user opts in.
+PRESALES_TITLES = ("sales", "presales", "pre-sales", "customer engineer", "solutions architect",
+                   "solution architect", "solutions engineer", "solution engineer", "account executive")
 
 
 class Preferences(BaseModel):
@@ -21,6 +24,7 @@ class Preferences(BaseModel):
     remote_regions: list[Word] = Field(default=[], max_length=50)   # a remote location must also name one (if set)
     years_experience: int | None = Field(default=None, ge=0, le=60)  # jobs asking > this + 1 sink
     extra_skills: list[Word] = Field(default=[], max_length=50)     # skills not on the resume
+    include_presales: bool = False                                   # opt in to PRESALES_TITLES
 
     @field_validator("include_titles", "exclude_titles", "locations", "remote_regions", "extra_skills")
     @classmethod
@@ -79,6 +83,8 @@ def location_ok(location: str | None, prefs: Preferences) -> bool:
 def allowed(job: Job, prefs: Preferences) -> bool:
     title = job.title or ""
     if has_any(title, prefs.exclude_titles, hyphen_joins=True):
+        return False
+    if not prefs.include_presales and has_any(title, PRESALES_TITLES, hyphen_joins=True):
         return False
     if not has_any(title, prefs.include_titles or DEFAULT_TITLES, hyphen_joins=True):
         return False

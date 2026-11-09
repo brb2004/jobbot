@@ -5,7 +5,7 @@ async def register(client, email):
 
 async def test_put_then_get_returns_what_was_saved(client):
     h = await register(client, "put@prefs.com")
-    body = {"include_titles": ["engineer"], "exclude_titles": ["senior"], "locations": ["remote"], "remote_regions": ["us"], "years_experience": 2, "extra_skills": ["Go"]}
+    body = {"include_titles": ["engineer"], "exclude_titles": ["senior"], "locations": ["remote"], "remote_regions": ["us"], "years_experience": 2, "extra_skills": ["Go"], "include_presales": False}
 
     assert (await client.put("/me/preferences", json=body, headers=h)).status_code == 200
     assert (await client.get("/me/preferences", headers=h)).json() == body
@@ -13,7 +13,7 @@ async def test_put_then_get_returns_what_was_saved(client):
 
 async def test_new_users_have_empty_preferences(client):
     h = await register(client, "new@prefs.com")
-    assert (await client.get("/me/preferences", headers=h)).json() == {"include_titles": [], "exclude_titles": [], "locations": [], "remote_regions": [], "years_experience": None, "extra_skills": []}
+    assert (await client.get("/me/preferences", headers=h)).json() == {"include_titles": [], "exclude_titles": [], "locations": [], "remote_regions": [], "years_experience": None, "extra_skills": [], "include_presales": False}
 
 
 async def test_users_only_see_their_own_preferences(client):
@@ -22,7 +22,7 @@ async def test_users_only_see_their_own_preferences(client):
 
     await client.put("/me/preferences", json={"exclude_titles": ["senior"]}, headers=alice)
 
-    assert (await client.get("/me/preferences", headers=bob)).json() == {"include_titles": [], "exclude_titles": [], "locations": [], "remote_regions": [], "years_experience": None, "extra_skills": []}
+    assert (await client.get("/me/preferences", headers=bob)).json() == {"include_titles": [], "exclude_titles": [], "locations": [], "remote_regions": [], "years_experience": None, "extra_skills": [], "include_presales": False}
 
 
 async def test_wrong_shape_is_rejected(client):
