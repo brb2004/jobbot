@@ -15,15 +15,16 @@ def test_matches_whole_words_only():
     assert allowed(Job(title="Internal Tools Engineer"), PREFS)              # "intern" inside "Internal"
 
 
-def test_no_preferences_allows_everything():
-    assert allowed(Job(title="Senior Staff Principal Intern"), Preferences())
+def test_no_preferences_means_engineering_roles_only():
+    assert allowed(Job(title="Senior Staff Principal Engineer"), Preferences())
+    assert not allowed(Job(title="Senior Staff Principal Intern"), Preferences())
 
 
 def test_include_titles_require_one_of_the_words():
     prefs = Preferences(include_titles=["engineer", "developer"])
     assert allowed(Job(title="IT Systems Engineer"), prefs)
     assert not allowed(Job(title="Account Executive, Platforms"), prefs)
-    assert allowed(Job(title="Anything"), Preferences())          # no include list = everything allowed
+    assert not allowed(Job(title="Anything"), Preferences())      # no include list = engineering default
 
 
 def test_exclude_wins_over_include():
@@ -42,11 +43,11 @@ def test_locations_require_one_of_the_words():
 
 def test_remote_jobs_must_be_in_an_allowed_region():
     prefs = Preferences(locations=["remote", "dallas"], remote_regions=["us", "usa", "united states"])
-    assert allowed(Job(title="E", location="Remote - United States"), prefs)
-    assert allowed(Job(title="E", location="Remote- USA"), prefs)
-    assert allowed(Job(title="E", location="San Francisco, CA, US; Remote, US"), prefs)
-    assert allowed(Job(title="E", location="Remote, Canada; Remote, United States"), prefs)
-    assert allowed(Job(title="E", location="Dallas, TX"), prefs)
-    assert allowed(Job(title="E", location="Remote"), prefs)
-    assert not allowed(Job(title="E", location="Remote - Mexico"), prefs)
-    assert not allowed(Job(title="E", location="Remote, Poland"), prefs)
+    assert allowed(Job(title="Engineer", location="Remote - United States"), prefs)
+    assert allowed(Job(title="Engineer", location="Remote- USA"), prefs)
+    assert allowed(Job(title="Engineer", location="San Francisco, CA, US; Remote, US"), prefs)
+    assert allowed(Job(title="Engineer", location="Remote, Canada; Remote, United States"), prefs)
+    assert allowed(Job(title="Engineer", location="Dallas, TX"), prefs)
+    assert allowed(Job(title="Engineer", location="Remote"), prefs)
+    assert not allowed(Job(title="Engineer", location="Remote - Mexico"), prefs)
+    assert not allowed(Job(title="Engineer", location="Remote, Poland"), prefs)

@@ -41,8 +41,8 @@ async def test_failed_board_fetch_closes_nothing(session):
 
 
 async def test_match_all_skips_closed_jobs(session):
-    open_job = Job(title="Open", skills=["Python"])
-    gone = Job(title="Gone", skills=["Python"], closed_at=datetime.now(timezone.utc))
+    open_job = Job(title="Open Engineer", skills=["Python"])
+    gone = Job(title="Gone Engineer", skills=["Python"], closed_at=datetime.now(timezone.utc))
     resume = Resume(user_id=uuid.uuid4(), skills=["Python"])
     session.add_all([open_job, gone, resume])
     await session.flush()

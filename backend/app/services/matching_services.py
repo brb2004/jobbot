@@ -8,6 +8,7 @@ from app.db.models_db import Job, MatchScore, Resume, User
 from app.services.preferences_services import Preferences, allowed
 from app.services.scoring_services import build_index, idf_weights, top_matches, years_from_title, years_required
 from app.services.skills_services import default_tagger
+from app.services.titles_services import role_key
 
 
 def _stale(model, tagger):
@@ -54,7 +55,7 @@ async def match_all(s: AsyncSession, k: int = 20, user_id: UUID | None = None) -
         stated = years_required(j.requirements or [])
         years[j.id] = stated if stated is not None else years_from_title(j.title)
         years_src[j.id] = "requirements" if stated is not None else "title"
-    roles = {j.id: (j.board, (j.title or '').strip().lower()) for j in jobs}  # one per company + title
+    roles = {j.id: (j.board, role_key(j.title)) for j in jobs}  # one per company + title
     all_jobs = {j.id: set(j.skills) for j in jobs}
     index = build_index(all_jobs)                                           # once per run, shared by every user
     users = {u.id: u for u in (await s.scalars(select(User))).all()}        # one query, not one per resume
