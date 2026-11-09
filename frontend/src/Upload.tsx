@@ -6,9 +6,12 @@ export function Upload({ api, onDone }: { api: Api; onDone: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [current, setCurrent] = useState<string | null>(null)
+  const [years, setYears] = useState<number | null>(null)
 
   useEffect(() => {
-    api.listResumes().then((rs) => setCurrent(rs[0]?.filename ?? null)).catch(() => {})
+    api.listResumes()
+      .then((rs) => { setCurrent(rs[0]?.filename ?? null); setYears(rs[0]?.years_detected ?? null) })
+      .catch(() => {})
   }, [api])
 
   async function submit(e: FormEvent) {
@@ -31,6 +34,11 @@ export function Upload({ api, onDone }: { api: Api; onDone: () => void }) {
       <h2 className="text-xl font-semibold">Your resume</h2>
       <p className="text-sm text-slate-600">Matches are built from the skills in your resume. Upload a new one any time.</p>
       {current && <p className="text-sm">Current: {current}</p>}
+      {years !== null && (
+        <p className="text-sm text-slate-600">
+          Detected experience: {years} years. Used when "Years of experience" in Preferences is blank.
+        </p>
+      )}
       <label htmlFor="resume" className="block text-sm font-medium">Resume (PDF, Word .docx, or plain text)</label>
       <input id="resume" type="file" accept=".pdf,.docx,.txt"
              onChange={(e) => setFile(e.target.files?.[0] ?? null)}

@@ -74,7 +74,7 @@ export function Preferences({ api, onSaved, onDeleted }: { api: Api; onSaved: ()
         <label htmlFor="years" className="block text-sm font-medium">Years of experience</label>
         <input id="years" type="number" min={0} max={60} className={`${input} max-w-32`}
                value={years} onChange={(e) => setYears(e.target.value)} />
-        <p className="mt-1 text-xs text-slate-500">Jobs asking for more than this + 1 rank lower. Blank = don't check.</p>
+        <p className="mt-1 text-xs text-slate-500">Jobs asking for more than this + 1 rank lower. Blank = use the years detected from your resume.</p>
       </div>
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       <button type="submit" disabled={busy}

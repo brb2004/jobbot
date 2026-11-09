@@ -41,3 +41,11 @@ describe('current resume', () => {
     expect(await screen.findByText('Current: cv.pdf')).toBeTruthy()
   })
 })
+
+describe('detected experience', () => {
+  it('shows the years read from the resume', async () => {
+    const listResumes = vi.fn().mockResolvedValue([{ id: 'r1', filename: 'cv.pdf', years_detected: 3 }])
+    render(<Upload api={fakeApi({ listResumes })} onDone={vi.fn()} />)
+    expect(await screen.findByText(/Detected experience: 3 years/)).toBeTruthy()
+  })
+})

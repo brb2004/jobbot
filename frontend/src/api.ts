@@ -34,6 +34,7 @@ export interface Match {
 export interface ResumeInfo {
   id: string
   filename: string | null
+  years_detected?: number | null
 }
 
 export class ApiError extends Error {
