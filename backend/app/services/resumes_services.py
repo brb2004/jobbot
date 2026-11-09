@@ -3,7 +3,7 @@ from uuid import UUID
 
 from docx import Document
 from pypdf import PdfReader
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Resume
@@ -46,6 +46,8 @@ async def create(s: AsyncSession, user_id: UUID, filename: str, data: bytes) -> 
     if len(data) > MAX_BYTES:
         raise TooLarge
     text = extract_text(data).replace("\x00", "")  # belt and braces: Postgres rejects NUL in text
+    # one resume per user: replace, don't pile up. ON DELETE CASCADE drops its old match scores.
+    await s.execute(delete(Resume).where(Resume.user_id == user_id))
     resume = Resume(user_id=user_id, filename=filename, raw_text=text)
     s.add(resume)
     await s.commit()
