@@ -11,7 +11,7 @@ router = APIRouter(prefix="/resumes", tags=["resumes"])
 async def upload(file: UploadFile = File(...), s=Depends(get_session), user_id=Depends(get_current_user)):
     data = await file.read(resumes_service.MAX_BYTES + 1)      # never read more than limit + 1
     try:
-        return await resumes_service.create(s, user_id, file.filename or "", data)
+        return await resumes_service.upload(s, user_id, file.filename or "", data)
     except resumes_service.UnsupportedType:
         raise HTTPException(415, "Upload a .pdf, .docx, or .txt file")
     except resumes_service.TooLarge:
