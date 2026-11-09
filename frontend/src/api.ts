@@ -112,6 +112,9 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
       return call<unknown>('/resumes', { method: 'POST', body: form })   // no Content-Type: browser adds the boundary
     },
     listResumes: () => call<ResumeInfo[]>('/resumes'),
+    forgotPassword: (email: string) => call<unknown>('/auth/forgot', { method: 'POST', body: JSON.stringify({ email }) }),
+    resetPassword: (token: string, password: string) =>
+      call<void>('/auth/reset', { method: 'POST', body: JSON.stringify({ token, password }) }),
     deleteAccount: async () => {
       await call('/me', { method: 'DELETE' })
       loggedIn = false

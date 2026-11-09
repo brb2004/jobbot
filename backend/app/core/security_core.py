@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
+import hashlib
+import hmac
 import time
 
 import bcrypt
@@ -25,3 +27,33 @@ def create_access_token(sub: str) -> str:
 def decode_token(token: str) -> dict:
     s = get_settings()
     return jwt.decode(token, s.JWT_SECRET_KEY, algorithms=[s.JWT_ALGORITHM])
+
+
+# Password reset links: stateless and single-use. The signature covers the user's current password
+# hash, so changing the password (by this link or any other way) kills every outstanding link.
+RESET_TTL_S = 30 * 60
+
+
+def _reset_sig(user_id: str, exp: int, password_hash: str) -> str:
+    msg = f"pwreset|{user_id}|{exp}|{password_hash}".encode()   # "pwreset|": can't pass for any other signed value
+    return hmac.new(get_settings().JWT_SECRET_KEY.encode(), msg, hashlib.sha256).hexdigest()
+
+
+def make_reset_token(user_id: str, password_hash: str, now: float | None = None) -> str:
+    exp = int((time.time() if now is None else now) + RESET_TTL_S)
+    return f"{user_id}.{exp}.{_reset_sig(user_id, exp, password_hash)}"
+
+
+def reset_token_user(token: str) -> str | None:
+    """The user id the token claims. Unverified until reset_token_valid says so."""
+    parts = token.split(".")
+    return parts[0] if len(parts) == 3 and parts[1].isdigit() else None
+
+
+def reset_token_valid(token: str, password_hash: str, now: float | None = None) -> bool:
+    if reset_token_user(token) is None:
+        return False
+    user_id, exp, sig = token.split(".")
+    if int(exp) < (time.time() if now is None else now):
+        return False
+    return hmac.compare_digest(sig, _reset_sig(user_id, int(exp), password_hash))   # constant-time compare

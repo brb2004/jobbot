@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""        # set in .env, never in code
     EMAIL_FROM: str = ""
+    APP_URL: str = "https://jobmatch.bbenard.dev"   # links in emails; never built from the Host header
 
 
 @lru_cache

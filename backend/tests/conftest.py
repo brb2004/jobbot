@@ -65,6 +65,7 @@ import pytest as _pytest
 def _reset_rate_limits():
     """Rate limiters are process-wide; give every test a clean slate."""
     from app.api.routes import auth_routes
-    for limiter in (auth_routes.LOGIN_FAILS, auth_routes.LOGIN_IP, auth_routes.REGISTER_IP):
+    for limiter in (auth_routes.LOGIN_FAILS, auth_routes.LOGIN_IP, auth_routes.REGISTER_IP,
+                    auth_routes.FORGOT_IP, auth_routes.FORGOT_EMAIL):
         limiter.reset()
     yield

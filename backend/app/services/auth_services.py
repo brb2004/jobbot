@@ -1,9 +1,11 @@
 import asyncio
+from datetime import datetime, timezone
 from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.security_core import hash_password, verify_password
+from app.core.security_core import (hash_password, make_reset_token, reset_token_user,
+                                    reset_token_valid, verify_password)
 from app.db.models_db import Resume, User
 
 # Checked against when the email doesn't exist, so both failures take the same time.
@@ -44,3 +46,23 @@ async def delete_account(s: AsyncSession, user_id: UUID) -> None:
     await s.execute(delete(Resume).where(Resume.user_id == user_id))
     await s.execute(delete(User).where(User.id == user_id))
     await s.commit()
+
+
+async def reset_link_token(s: AsyncSession, email: str) -> tuple[User, str] | None:
+    user = (await s.execute(select(User).where(User.email == email.lower()))).scalar_one_or_none()
+    return None if user is None else (user, make_reset_token(str(user.id), user.hashed_password))
+
+
+async def reset_password(s: AsyncSession, token: str, new_password: str) -> bool:
+    claimed = reset_token_user(token)
+    try:
+        user_id = UUID(claimed) if claimed else None
+    except ValueError:
+        user_id = None
+    user = await s.get(User, user_id) if user_id else None
+    if user is None or not reset_token_valid(token, user.hashed_password):
+        return False
+    user.hashed_password = await asyncio.to_thread(hash_password, new_password)
+    user.tokens_valid_after = datetime.now(timezone.utc)          # sign out every existing session
+    await s.commit()
+    return True

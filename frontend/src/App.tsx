@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Navigate, NavLink, Route, Routes, useNavigate } from 'react-router'
+import { BrowserRouter, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router'
 import { api } from './api'
 import { Login } from './Login'
 import { Matches } from './Matches'
 import { Preferences } from './Preferences'
+import { Reset } from './Reset'
 import { Upload } from './Upload'
 
 const PAGES = [
@@ -24,12 +25,16 @@ function Shell() {
   const [status, setStatus] = useState<'checking' | 'in' | 'out'>('checking')
   const [flash, setFlash] = useState<string | null>(null)
   const navigate = useNavigate()
+  const location = useLocation()
 
   useEffect(() => { api.restore().then((ok) => setStatus(ok ? 'in' : 'out')) }, [])   // survives refresh
   useEffect(() => api.onUnauthorized(() => setStatus('out')), [])                      // expired -> login
 
   const go = (path: string, message: string | null = null) => { setFlash(message); navigate(path) }
 
+  if (location.pathname === '/reset')      // the emailed link: token after '#', works logged in or out
+    return <Reset api={api} token={location.hash.slice(1)}
+                  onDone={() => { setStatus('out'); navigate('/matches', { replace: true }) }} />
   if (status === 'checking') return <p className="p-6 text-slate-600">Loading…</p>
   if (status === 'out') return <Login api={api} onDone={() => setStatus('in')} />   // stays on the URL you asked for
 

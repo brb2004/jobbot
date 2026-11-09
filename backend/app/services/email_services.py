@@ -40,3 +40,15 @@ def smtp_transport(host: str, port: int, username: str, password: str):
                 smtp.send_message(msg)
         await asyncio.to_thread(_send)
     return send
+
+
+def reset_email(from_addr: str, to: str, link: str) -> EmailMessage:
+    msg = EmailMessage()
+    msg["From"] = from_addr
+    msg["To"] = to
+    msg["Subject"] = "Reset your JobBot password"
+    msg.set_content(
+        "Someone asked to reset the password for this JobBot account.\n\n"
+        f"Set a new password here. The link works once, for 30 minutes:\n{link}\n\n"
+        "If this wasn't you, ignore this email. Your password hasn't changed.\n")
+    return msg
