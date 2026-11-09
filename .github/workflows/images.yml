@@ -1,0 +1,45 @@
+name: images
+
+on: [push, pull_request]
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    env:
+      PGPASS: ci-only-password
+      JWT: ci-only-secret-key-that-is-at-least-32-bytes
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build images
+        run: |
+          docker build -t jobbot-api backend
+          docker build -t jobbot-web frontend
+
+      - name: Start Postgres, API and web on one private network
+        run: |
+          docker network create jb
+          docker run -d --name db --network jb -e POSTGRES_USER=jobbot -e POSTGRES_PASSWORD=$PGPASS -e POSTGRES_DB=jobbot postgres:16
+          for i in $(seq 1 30); do docker exec db pg_isready -U jobbot -q && break; sleep 1; done
+          APP_ENV="-e DATABASE_URL=postgresql+asyncpg://jobbot:$PGPASS@db:5432/jobbot -e JWT_SECRET_KEY=$JWT -e DOCS_ENABLED=false"
+          docker run --rm --network jb $APP_ENV jobbot-api alembic upgrade head
+          docker run -d --name api --network jb $APP_ENV --health-interval=2s jobbot-api
+          docker run -d --name web --network jb -p 8080:8080 jobbot-web
+          for i in $(seq 1 30); do [ "$(docker inspect -f '{{.State.Health.Status}}' api)" = healthy ] && break; sleep 1; done
+          docker inspect -f '{{.State.Health.Status}}' api | grep -qx healthy
+
+      - name: Smoke test through nginx (like a real visitor)
+        run: |
+          set -e
+          curl -fsS localhost:8080/          | grep -q '<div id="root">'     # SPA served
+          curl -fsS localhost:8080/matches   | grep -q '<div id="root">'     # deep link -> SPA fallback
+          curl -fsS localhost:8080/api/health | grep -q '"ok":true'          # nginx -> API proxy
+          curl -sI  localhost:8080/          | grep -qi 'content-security-policy'
+          test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8080/api/docs)" = 404      # docs off in prod mode
+          test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8080/api/auth/me)" = 401   # auth enforced
+
+      - name: Container logs (only on failure)
+        if: failure()
+        run: |
+          docker logs api || true
+          docker logs web || true
