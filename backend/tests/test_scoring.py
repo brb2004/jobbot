@@ -80,3 +80,12 @@ def test_allow_is_only_checked_until_k_matches_pass():
     result = top_matches({"Python"}, jobs, {"Python": 1.0}, k=2, allow=allow)
     assert [m.job_id for m in result] == ["j2", "j3"]
     assert seen == ["j1", "j2", "j3"]                           # stopped once 2 passed; j4, j5 never checked
+
+
+def test_allow_is_only_checked_until_k_matches_pass():
+    jobs = {f"j{i}": {"Python"} for i in range(1, 6)}          # all tie; heap pops j1, j2, j3...
+    seen = []
+    allow = lambda j: seen.append(j) or j != "j1"
+    result = top_matches({"Python"}, jobs, {"Python": 1.0}, k=2, allow=allow)
+    assert [m.job_id for m in result] == ["j2", "j3"]
+    assert seen == ["j1", "j2", "j3"]                           # stopped once 2 passed; j4, j5 never checked
