@@ -1,5 +1,5 @@
 // Shared helpers for list fields: split typed text, dedupe, map any alias to its canonical name.
-export type Named = { name: string; aliases?: string[] }
+export type Named = { name: string; aliases?: string[]; kind?: string | null; detail?: string }
 
 export const toList = (s: string) => s.split(/[,\n]/).map((x) => x.trim()).filter(Boolean)
 

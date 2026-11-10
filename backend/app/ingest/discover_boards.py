@@ -12,6 +12,7 @@ import random
 import re
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -28,15 +29,18 @@ BOARDS = Path(__file__).resolve().parents[2] / "boards.txt"
 REPORT = Path("/tmp/discovered_boards.csv")
 
 
-def get(url: str, tries: int = 4) -> str:
+def get(url: str, tries: int = 6) -> str:
     for i in range(tries):
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60) as r:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=120) as r:
                 return r.read().decode()
+        except urllib.error.HTTPError as e:
+            if e.code < 500 or i == tries - 1:
+                raise                                       # 4xx is an answer (e.g. past the last page)
         except Exception:
             if i == tries - 1:
                 raise
-            time.sleep(2 ** i * 2)                          # the index is often busy: back off and retry
+        time.sleep(3 * 2 ** i)                              # busy server: 3, 6, 12, 24, 48 s
 
 
 def slug_of(url: str) -> str | None:
@@ -48,18 +52,32 @@ def slug_of(url: str) -> str | None:
 
 
 def from_common_crawl(indexes: int, pages: int) -> set[str]:
+    """Read up to `pages` index pages per host from the newest crawls. A crawl whose index stays down is
+    skipped and the next-older one is tried, until `indexes` crawls have answered."""
     found: set[str] = set()
-    for info in json.loads(get("https://index.commoncrawl.org/collinfo.json"))[:indexes]:
-        for host in HOSTS:
-            base = f"{info['cdx-api']}?url={host}/*&output=json&fl=url"
-            total = int(json.loads(get(base + "&showNumPages=true"))["pages"])
-            for page in range(min(pages, total)):
-                for line in get(f"{info['cdx-api']}?url={host}/*&fl=url&page={page}").splitlines():  # plain text
-                    if line.strip() and (s := slug_of(line.strip())):                         # skip cut-off lines
-                        found.add(s)
-                print(f"  {info['id']} {host}: page {page + 1}/{min(pages, total)} (of {total}), "
-                      f"{len(found)} companies so far", file=sys.stderr)
-                time.sleep(1)                               # be gentle with a free service
+    answered = 0
+    for info in json.loads(get("https://index.commoncrawl.org/collinfo.json"))[: indexes + 3]:
+        if answered == indexes:
+            break
+        try:
+            for host in HOSTS:
+                for page in range(pages):
+                    try:
+                        text = get(f"{info['cdx-api']}?url={host}/*&fl=url&page={page}")   # plain text, one URL per line
+                    except urllib.error.HTTPError as e:
+                        if e.code in (400, 404):
+                            break                           # past the last page
+                        raise
+                    for line in text.splitlines():
+                        if line.strip() and (s := slug_of(line.strip())):
+                            found.add(s)
+                    print(f"  {info['id']} {host}: page {page + 1}, {len(found)} companies so far", file=sys.stderr)
+                    time.sleep(1)                           # be gentle with a free service
+            answered += 1
+        except Exception as e:
+            print(f"  {info['id']}: index unavailable ({e}); trying an older crawl", file=sys.stderr)
+    if not found:
+        raise SystemExit("Common Crawl's index didn't answer. It's busy on their end; try again in a while.")
     return found
 
 

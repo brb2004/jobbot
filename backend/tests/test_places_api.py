@@ -21,3 +21,9 @@ async def test_skills_are_public_and_carry_their_aliases(client):
 async def test_asia_pacific_is_spelled_out(client):
     by_name = {p["name"]: p["aliases"] for p in (await client.get("/places")).json()}
     assert "apac" in by_name["Asia-Pacific"]
+
+
+async def test_places_say_what_kind_they_are(client):
+    kind = {p["name"]: p["kind"] for p in (await client.get("/places")).json()}
+    assert (kind["Dallas-Fort Worth"], kind["Canada"], kind["Europe"]) == ("metro", "country", "region")
+    assert "Tel Aviv" not in kind

@@ -20,6 +20,12 @@ const SALES = ['customer engineer', 'solutions architect', 'solution architect',
 const salesWord = (t: string) => /(^|[\s-])(pre-?)?sales([\s-]|$)/i.test(t) || SALES.includes(t.toLowerCase())
 
 const YEARS_OK = /^\d{1,2}$/
+// "includes Plano, Richardson, Frisco" for a metro: real place names only, not abbreviations like dfw
+const includes = (aliases: string[]) => {
+  const names = aliases.filter((a) => a.length > 3 && !a.includes('.'))
+    .map((a) => a.replace(/\b\w/g, (c) => c.toUpperCase())).slice(0, 3)
+  return names.length ? `includes ${names.join(', ')}` : undefined
+}
 const input = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-slate-900 focus:outline-none'
 const chip = 'inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-800'
 
@@ -54,6 +60,7 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
   }, [api])
 
   const placeOf = useMemo(() => canonFrom(places), [places])
+  const placeOptions = useMemo(() => (places ?? []).map((p) => ({ ...p, detail: p.kind === 'metro' ? includes(p.aliases) : undefined })), [places])
   const skillOf = useMemo(() => canonFrom(skills), [skills])
   const regionOf = (v: string) => placeOf(v) ?? REGIONS.find((r) => r.toLowerCase() === v.toLowerCase())
 
@@ -150,7 +157,7 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
 
       <ChipInput id="locations" label="Locations" values={placesPicked}
                  onValues={(v) => setList('locations', remoteOn ? [REMOTE, ...v] : v)} {...typed('locations')}
-                 options={places ?? []} canon={placeOf} placeholder="Add a city, metro or country"
+                 options={placeOptions} canon={placeOf} placeholder="Add a city, metro or country"
                  unknown={(v) => (places && !placeOf(v) ? 'not a known place, matched as text' : null)}
                  hint="Dallas-Fort Worth also covers Plano, Richardson and Frisco; a country covers all its cities. Nothing picked = anywhere.">
         <label className="mt-2 flex items-center gap-2 text-sm">
@@ -162,7 +169,7 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
 
       <fieldset aria-describedby="regions-hint">
         <legend className="text-sm font-medium">Remote regions</legend>
-        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+        <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
           {REGIONS.map((r) => (
             <label key={r} className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={regions.some((v) => regionOf(v) === r)} onChange={() => toggleRegion(r)} />

@@ -36,6 +36,7 @@ export interface Match {
 
 export interface Place {
   name: string
+  kind?: 'metro' | 'country' | 'region' | null
   aliases: string[]
 }
 
