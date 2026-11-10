@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, type Api } from './api'
 import { CheckEmail } from './CheckEmail'
 import { Verify } from './Verify'
 
-afterEach(cleanup)
+afterEach(() => { cleanup(); vi.useRealTimers() })
 
 describe('confirmation link', () => {
   it('confirms the token from the link', async () => {
@@ -30,16 +30,25 @@ describe('check your email page', () => {
     const resendVerification = vi.fn().mockResolvedValue(undefined)
     page({ resendVerification })
     screen.getByText('a@b.co')
+    expect(screen.queryByRole('button', { name: /i've confirmed/i })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /send a new link/i }))
     await screen.findByText(/on its way/i)
     expect(resendVerification).toHaveBeenCalled()
   })
 
-  it('re-checks, and says so when still unconfirmed', async () => {
+  it('checks again on its own every few seconds', () => {
+    vi.useFakeTimers()
     const onConfirmed = vi.fn().mockResolvedValue(undefined)
     page({}, onConfirmed)
-    fireEvent.click(screen.getByRole('button', { name: /i've confirmed/i }))
-    await screen.findByText(/not confirmed yet/i)
+    expect(onConfirmed).not.toHaveBeenCalled()
+    act(() => { vi.advanceTimersByTime(5000) })
+    expect(onConfirmed).toHaveBeenCalledTimes(1)
+  })
+
+  it('checks right away when you come back to the tab', () => {
+    const onConfirmed = vi.fn().mockResolvedValue(undefined)
+    page({}, onConfirmed)
+    fireEvent.focus(window)
     expect(onConfirmed).toHaveBeenCalled()
   })
 })

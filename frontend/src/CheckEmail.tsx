@@ -1,28 +1,32 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Api } from './api'
+
+const POLL_MS = 5000
 
 export function CheckEmail({ api, email, onConfirmed, onLogout }:
   { api: Api; email: string; onConfirmed: () => Promise<void>; onLogout: () => void }) {
   const [sent, setSent] = useState(false)
-  const [note, setNote] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Moves on by itself once the link is clicked: instantly when the link opens in this browser
+  // (the confirmation page broadcasts), within POLL_MS from another device, or on returning to this tab.
+  useEffect(() => {
+    const check = () => { if (!document.hidden) onConfirmed().catch(() => {}) }
+    const timer = setInterval(check, POLL_MS)
+    window.addEventListener('focus', check)
+    const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('jobbot') : null
+    if (channel) channel.onmessage = (e) => { if (e.data === 'email-confirmed') onConfirmed().catch(() => {}) }
+    return () => { clearInterval(timer); window.removeEventListener('focus', check); channel?.close() }
+  }, [onConfirmed])
 
   async function resend() {
-    setNote(null)
+    setError(null)
     try {
       await api.resendVerification()
       setSent(true)
     } catch {
-      setNote('Could not reach the server')
+      setError('Could not reach the server')
     }
-  }
-
-  async function check() {
-    setBusy(true)
-    setNote(null)
-    await onConfirmed()                     // if confirmed, the app moves on and this page goes away
-    setBusy(false)
-    setNote('Not confirmed yet. Click the link in the email first.')
   }
 
   return (
@@ -33,11 +37,8 @@ export function CheckEmail({ api, email, onConfirmed, onLogout }:
           We sent a confirmation link to <span className="font-medium text-slate-900">{email}</span>.
           Click it to finish setting up your account. It works for 7 days. If it's not there, check spam.
         </p>
-        {note && <p role="alert" className="text-sm text-amber-800">{note}</p>}
-        <button type="button" onClick={check} disabled={busy}
-                className="w-full rounded-md bg-slate-900 py-2 font-medium text-white disabled:opacity-50">
-          I've confirmed, continue
-        </button>
+        <p className="text-sm text-slate-500">This page continues on its own once you've clicked the link.</p>
+        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
         {sent
           ? <p role="status" className="text-center text-sm text-green-800">A new link is on its way.</p>
           : <button type="button" onClick={resend} className="w-full text-sm text-slate-600 underline">Send a new link</button>}
