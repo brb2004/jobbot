@@ -34,6 +34,11 @@ export interface Match {
   detail: MatchDetail | null
 }
 
+export interface Place {
+  name: string
+  aliases: string[]
+}
+
 export interface ResumeInfo {
   id: string
   filename: string | null
@@ -114,6 +119,7 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
       return call<unknown>('/resumes', { method: 'POST', body: form })   // no Content-Type: browser adds the boundary
     },
     listResumes: () => call<ResumeInfo[]>('/resumes'),
+    listPlaces: () => call<Place[]>('/places'),
     me: () => call<{ id: string; email: string; email_verified_at: string | null }>('/auth/me'),
     verifyEmail: (token: string) => call<void>('/auth/verify', { method: 'POST', body: JSON.stringify({ token }) }),
     resendVerification: () => call<unknown>('/auth/verify/resend', { method: 'POST' }),
