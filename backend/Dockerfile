@@ -13,7 +13,7 @@ COPY --from=build /wheels /wheels
 RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
 COPY --chown=app:app app ./app
 COPY --chown=app:app migrations ./migrations
-COPY --chown=app:app alembic.ini boards.txt skills.txt ./
+COPY --chown=app:app alembic.ini boards.txt skills.txt places.txt ./
 USER 10001:10001
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s \

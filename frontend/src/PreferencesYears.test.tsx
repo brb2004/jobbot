@@ -22,7 +22,7 @@ describe('years of experience vs. the resume', () => {
     await screen.findByText(/your resume shows 3/i)
     fireEvent.click(screen.getByRole('button', { name: /use resume/i }))
     expect((screen.getByLabelText(/years of experience/i) as HTMLInputElement).value).toBe('')
-    screen.getByText(/using 3 from your resume/i)
+    screen.getByText(/using 3 years of relevant experience from your resume/i)
   })
 
   it('stays quiet when they agree', async () => {

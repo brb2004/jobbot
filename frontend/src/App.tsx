@@ -31,6 +31,7 @@ function Shell() {
   const [status, setStatus] = useState<Status>('checking')
   const [email, setEmail] = useState('')
   const [flash, setFlash] = useState<string | null>(null)
+  const [dirty, setDirty] = useState(false)                 // unsaved edits on Preferences
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -42,6 +43,11 @@ function Shell() {
   useEffect(() => { api.restore().then((ok) => (ok ? refresh() : setStatus('out'))) }, [])   // survives refresh
   useEffect(() => api.onUnauthorized(() => setStatus('out')), [])                              // expired -> login
 
+  const leaveOk = () => {
+    if (dirty && !window.confirm('You have unsaved changes on Preferences. Leave without saving?')) return false
+    setDirty(false)
+    return true
+  }
   const go = (path: string, message: string | null = null) => { setFlash(message); navigate(path) }
   const logout = async () => { await api.logout(); setStatus('out'); navigate('/', { replace: true }) }
 
@@ -67,12 +73,12 @@ function Shell() {
       <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b bg-white px-4 py-3 sm:px-6">
         <span className="font-semibold">JobMatch</span>
         {PAGES.map((p) => (
-          <NavLink key={p.path} to={p.path} onClick={() => setFlash(null)}
+          <NavLink key={p.path} to={p.path} onClick={(e) => { if (!leaveOk()) { e.preventDefault(); return } setFlash(null) }}
                    className={({ isActive }) => (isActive ? 'font-medium underline' : 'text-slate-600')}>
             {p.label}
           </NavLink>
         ))}
-        <button onClick={logout} className="ml-auto whitespace-nowrap text-sm text-slate-600">
+        <button onClick={() => { if (leaveOk()) logout() }} className="ml-auto whitespace-nowrap text-sm text-slate-600">
           Log out
         </button>
       </nav>
@@ -81,7 +87,7 @@ function Shell() {
         <Routes>
           <Route path="/matches" element={<Matches api={api} onUpload={() => go('/resume')} onPreferences={() => go('/preferences')} />} />
           <Route path="/resume" element={<Upload api={api} onDone={() => go('/matches', 'Resume uploaded. Your matches are updated.')} />} />
-          <Route path="/preferences" element={<Preferences api={api} onSaved={() => go('/matches', 'Preferences saved. Your matches are updated.')}
+          <Route path="/preferences" element={<Preferences api={api} onDirty={setDirty} onSaved={() => go('/matches', 'Preferences saved. Your matches are updated.')}
                                                      onDeleted={() => setStatus('out')} />} />
           <Route path="*" element={<Navigate to="/matches" replace />} />
         </Routes>

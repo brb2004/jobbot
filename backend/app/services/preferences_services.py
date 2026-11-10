@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Job, User
+from app.services.places_services import place_of, places_in
 
 Word = Annotated[str, Field(min_length=1, max_length=50)]
 # Tech-only product: with no include list, show engineering roles. Users can override with their own list.
@@ -72,16 +73,40 @@ def has_any(text: str, words, hyphen_joins: bool = False) -> bool:
     return bool(words) and _any_word(tuple(words), hyphen_joins).search(text) is not None
 
 
+REMOTE = ("remote", "distributed")
+
+
+@lru_cache(maxsize=4096)
+def _wants(entries: tuple[str, ...]) -> tuple[frozenset[str], tuple[str, ...]]:
+    """User entries -> (known places, leftover words). Leftovers keep the old word matching."""
+    ids, words = set(), []
+    for e in entries:
+        p = place_of(e)
+        if p:
+            ids.add(p)
+        else:
+            words.append(e)
+    if "remote" in words:
+        words.append("distributed")                         # "Distributed" postings are remote too
+    return frozenset(ids), tuple(words)
+
+
 def location_ok(location: str | None, prefs: Preferences) -> bool:
     if not prefs.locations:
         return True
-    for place in re.split(r"[;|]", location or ""):           # "SF, CA; Remote, US" is two places
-        place = place.strip()
-        if not place or not has_any(place, prefs.locations):
+    want_ids, want_words = _wants(tuple(prefs.locations))
+    region_ids, region_words = _wants(tuple(prefs.remote_regions))
+    for piece in re.split(r"[;|\u2022]", location or ""):     # "SF, CA; Remote, US" is two places
+        piece = piece.strip()
+        if not piece:
             continue
-        is_remote_elsewhere = (prefs.remote_regions and has_any(place, ("remote",)) and place.lower() != "remote"
-                               and not has_any(place, prefs.remote_regions))
-        if is_remote_elsewhere:
+        here = places_in(piece)
+        if not (here & want_ids or has_any(piece, want_words)):
+            continue
+        remote = has_any(piece, REMOTE)
+        bare = not re.sub(r"(?i)remote|distributed|[\W_]", "", piece)       # just "Remote"
+        if (prefs.remote_regions and remote and not bare
+                and not (here & region_ids or has_any(piece, region_words))):
             continue                                            # e.g. "Remote - Mexico" for a US-only user
         return True
     return False
