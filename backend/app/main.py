@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from app.api.routes import preferences_routes, auth_routes, jobs_routes, matches_routes, resumes_routes
+from app.api.deps_api import require_verified
 
 from app.core.config_core import get_settings  # noqa: E402
 
@@ -12,8 +13,8 @@ app = FastAPI(**docs_kwargs(get_settings().DOCS_ENABLED), )
 app.include_router(preferences_routes.router)
 app.include_router(auth_routes.router)
 app.include_router(jobs_routes.router)
-app.include_router(matches_routes.router)
-app.include_router(resumes_routes.router)
+app.include_router(matches_routes.router, dependencies=[Depends(require_verified)])   # confirmed emails only
+app.include_router(resumes_routes.router, dependencies=[Depends(require_verified)])
 
 from fastapi import Request  # noqa: E402
 from fastapi.encoders import jsonable_encoder  # noqa: E402

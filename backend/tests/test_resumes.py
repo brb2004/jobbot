@@ -96,8 +96,10 @@ async def test_file_with_no_skills_is_rejected_and_keeps_the_old_resume(client, 
 
 async def _user(session):
     """A real user row: tokens for users that don't exist are now rejected."""
+    from datetime import datetime, timezone
     from app.db.models_db import User
-    u = User(id=uuid4(), email=f"{uuid4().hex[:12]}@fixture.test", hashed_password="x")
+    u = User(id=uuid4(), email=f"{uuid4().hex[:12]}@fixture.test", hashed_password="x",
+             email_verified_at=datetime.now(timezone.utc))        # confirmed: can use resumes and matches
     session.add(u)
     await session.flush()
     return u.id

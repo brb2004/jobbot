@@ -44,6 +44,9 @@ async def test_requires_a_token(client):
 async def test_saving_preferences_rematches_immediately(client, session):
     from app.db.models_db import Job
     h = await register(client, "rematch@prefs.com")
+    from sqlalchemy import func, update
+    from app.db.models_db import User
+    await session.execute(update(User).where(User.email == "rematch@prefs.com").values(email_verified_at=func.now()))   # sign-ups start unconfirmed
     session.add_all([Job(title="Senior Engineer", skills=["Python"]), Job(title="Engineer", skills=["Python"])])
     await session.flush()
     await client.post("/resumes", headers=h, files={"file": ("cv.txt", b"Python", "text/plain")})

@@ -50,8 +50,10 @@ async def client(session):
 @pytest_asyncio.fixture
 async def auth_headers(session):
     """A real user row (tokens for users that don't exist are rejected), rolled back with the test."""
+    from datetime import datetime, timezone
     from app.db.models_db import User
-    user = User(id=uuid4(), email=f"{uuid4().hex[:12]}@fixture.test", hashed_password="x")
+    user = User(id=uuid4(), email=f"{uuid4().hex[:12]}@fixture.test", hashed_password="x",
+                email_verified_at=datetime.now(timezone.utc))
     session.add(user)
     await session.flush()
     return {"Authorization": f"Bearer {create_access_token(str(user.id))}"}

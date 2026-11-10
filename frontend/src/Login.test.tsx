@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, type Api } from './api'
 import { Login } from './Login'
+import { Signup } from './Signup'
 
 afterEach(cleanup)
 const fakeApi = (o: Partial<Api>) => ({ login: vi.fn(), register: vi.fn(), ...o }) as unknown as Api
@@ -33,11 +34,28 @@ describe('Login', () => {
     expect(onDone).not.toHaveBeenCalled()
   })
 
-  it('switches to sign up and registers', async () => {
-    const register = vi.fn().mockResolvedValue(undefined)
-    render(<Login api={fakeApi({ register })} onDone={vi.fn()} />)
+  it('sends you to the sign-up page', async () => {
+    const onSignup = vi.fn()
+    render(<Login api={fakeApi({})} onDone={vi.fn()} onSignup={onSignup} />)
     await userEvent.click(screen.getByRole('button', { name: 'Create an account' }))
+    expect(onSignup).toHaveBeenCalled()
+  })
+})
+
+describe('Signup', () => {
+  it('registers and reports success', async () => {
+    const register = vi.fn().mockResolvedValue(undefined)
+    const onDone = vi.fn()
+    render(<Signup api={fakeApi({ register })} onDone={onDone} onLogin={vi.fn()} />)
     await fillAndSubmit('Sign up')
     expect(register).toHaveBeenCalledWith('a@b.com', 'pw123456')
+    expect(onDone).toHaveBeenCalled()
+  })
+
+  it('links back to log in', async () => {
+    const onLogin = vi.fn()
+    render(<Signup api={fakeApi({})} onDone={vi.fn()} onLogin={onLogin} />)
+    await userEvent.click(screen.getByRole('button', { name: 'I already have an account' }))
+    expect(onLogin).toHaveBeenCalled()
   })
 })

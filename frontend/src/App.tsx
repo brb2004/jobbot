@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router'
 import { api } from './api'
+import { CheckEmail } from './CheckEmail'
 import { Login } from './Login'
 import { Matches } from './Matches'
 import { Preferences } from './Preferences'
 import { Reset } from './Reset'
-import { Verify } from './Verify'
-import { VerifyBanner } from './VerifyBanner'
+import { Signup } from './Signup'
 import { Upload } from './Upload'
+import { Verify } from './Verify'
 
 const PAGES = [
   { path: '/matches', label: 'Matches' },
@@ -23,24 +24,41 @@ export default function App() {
   )
 }
 
+type Status = 'checking' | 'in' | 'unconfirmed' | 'out'
+
 function Shell() {
-  const [status, setStatus] = useState<'checking' | 'in' | 'out'>('checking')
+  const [status, setStatus] = useState<Status>('checking')
+  const [email, setEmail] = useState('')
   const [flash, setFlash] = useState<string | null>(null)
   const navigate = useNavigate()
   const location = useLocation()
 
-  useEffect(() => { api.restore().then((ok) => setStatus(ok ? 'in' : 'out')) }, [])   // survives refresh
-  useEffect(() => api.onUnauthorized(() => setStatus('out')), [])                      // expired -> login
+  // Logged in, but is the address confirmed? Unconfirmed accounts only see the check-your-email page.
+  const refresh = () => api.me()
+    .then((u) => { setEmail(u.email); setStatus(u.email_verified_at ? 'in' : 'unconfirmed') })
+    .catch(() => setStatus('out'))
+
+  useEffect(() => { api.restore().then((ok) => (ok ? refresh() : setStatus('out'))) }, [])   // survives refresh
+  useEffect(() => api.onUnauthorized(() => setStatus('out')), [])                              // expired -> login
 
   const go = (path: string, message: string | null = null) => { setFlash(message); navigate(path) }
+  const logout = async () => { await api.logout(); setStatus('out'); navigate('/', { replace: true }) }
 
-  if (location.pathname === '/verify')     // the emailed confirmation link: token after '#'
-    return <Verify api={api} token={location.hash.slice(1)} onDone={() => navigate('/matches', { replace: true })} />
-  if (location.pathname === '/reset')      // the emailed link: token after '#', works logged in or out
+  // Emailed links work logged in or out; the token rides after '#'.
+  if (location.pathname === '/verify')
+    return <Verify api={api} token={location.hash.slice(1)}
+                   onDone={() => { navigate('/matches', { replace: true }); refresh() }} />
+  if (location.pathname === '/reset')
     return <Reset api={api} token={location.hash.slice(1)}
-                  onDone={() => { setStatus('out'); navigate('/matches', { replace: true }) }} />
+                  onDone={() => { setStatus('out'); navigate('/', { replace: true }) }} />
+
   if (status === 'checking') return <p className="p-6 text-slate-600">Loading…</p>
-  if (status === 'out') return <Login api={api} onDone={() => setStatus('in')} />   // stays on the URL you asked for
+  if (status === 'out')
+    return location.pathname === '/signup'
+      ? <Signup api={api} onDone={refresh} onLogin={() => navigate('/')} />
+      : <Login api={api} onDone={refresh} onSignup={() => navigate('/signup')} />
+  if (status === 'unconfirmed')
+    return <CheckEmail api={api} email={email} onConfirmed={refresh} onLogout={logout} />
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -52,13 +70,11 @@ function Shell() {
             {p.label}
           </NavLink>
         ))}
-        <button onClick={async () => { await api.logout(); setStatus('out') }}
-                className="ml-auto whitespace-nowrap text-sm text-slate-600">
+        <button onClick={logout} className="ml-auto whitespace-nowrap text-sm text-slate-600">
           Log out
         </button>
       </nav>
       <main className="p-6">
-        <VerifyBanner api={api} />
         {flash && <p role="status" className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">{flash}</p>}
         <Routes>
           <Route path="/matches" element={<Matches api={api} onUpload={() => go('/resume')} onPreferences={() => go('/preferences')} />} />

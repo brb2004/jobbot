@@ -1,18 +1,14 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, type Api } from './api'
 
-type Mode = 'login' | 'register' | 'forgot'
-
-export function Login({ api, onDone }: { api: Api; onDone: () => void }) {
-  const [mode, setMode] = useState<Mode>('login')
+export function Login({ api, onDone, onSignup }: { api: Api; onDone: () => void; onSignup?: () => void }) {
+  const [forgot, setForgot] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
-  const isLogin = mode === 'login'
-  const forgot = mode === 'forgot'
-  const switchTo = (m: Mode) => { setMode(m); setError(null); setSent(false) }
+  const switchTo = (f: boolean) => { setForgot(f); setError(null); setSent(false) }
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -23,7 +19,7 @@ export function Login({ api, onDone }: { api: Api; onDone: () => void }) {
         await api.forgotPassword(email)
         setSent(true)
       } else {
-        await (isLogin ? api.login : api.register)(email, password)
+        await api.login(email, password)
         onDone()
       }
     } catch (err) {
@@ -33,15 +29,15 @@ export function Login({ api, onDone }: { api: Api; onDone: () => void }) {
     }
   }
 
-  const subtitle = forgot ? "Enter your email and we'll send a link to set a new password."
-    : isLogin ? 'Log in to see your matches.' : 'Create an account to get weekly matches.'
   const input = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-slate-900 focus:outline-none'
   return (
     <main className="grid min-h-screen place-items-center bg-slate-50 px-4">
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-xl bg-white p-6 shadow">
         <div>
           <h1 className="text-2xl font-semibold">JobBot</h1>
-          <p className="text-sm text-slate-600">{subtitle}</p>
+          <p className="text-sm text-slate-600">
+            {forgot ? "Enter your email and we'll send a link to set a new password." : 'Log in to see your matches.'}
+          </p>
         </div>
 
         <label htmlFor="email" className="block text-sm font-medium">Email</label>
@@ -51,10 +47,8 @@ export function Login({ api, onDone }: { api: Api; onDone: () => void }) {
         {!forgot && (
           <>
             <label htmlFor="password" className="block text-sm font-medium">Password</label>
-            <input id="password" type="password" required className={input}
-                   autoComplete={isLogin ? 'current-password' : 'new-password'}
+            <input id="password" type="password" required autoComplete="current-password" className={input}
                    value={password} onChange={(e) => setPassword(e.target.value)} />
-            {!isLogin && <p className="text-xs text-slate-500">At least 8 characters.</p>}
           </>
         )}
 
@@ -67,16 +61,16 @@ export function Login({ api, onDone }: { api: Api; onDone: () => void }) {
 
         <button type="submit" disabled={busy}
                 className="w-full rounded-md bg-slate-900 py-2 font-medium text-white disabled:opacity-50">
-          {forgot ? 'Send reset link' : isLogin ? 'Log in' : 'Sign up'}
+          {forgot ? 'Send reset link' : 'Log in'}
         </button>
-        {isLogin && (
-          <button type="button" onClick={() => switchTo('forgot')} className="w-full text-sm text-slate-600 underline">
+        {!forgot && (
+          <button type="button" onClick={() => switchTo(true)} className="w-full text-sm text-slate-600 underline">
             Forgot password?
           </button>
         )}
-        <button type="button" onClick={() => switchTo(isLogin ? 'register' : 'login')}
+        <button type="button" onClick={() => (forgot ? switchTo(false) : onSignup?.())}
                 className="w-full text-sm text-slate-600 underline">
-          {forgot ? 'Back to log in' : isLogin ? 'Create an account' : 'I already have an account'}
+          {forgot ? 'Back to log in' : 'Create an account'}
         </button>
       </form>
     </main>

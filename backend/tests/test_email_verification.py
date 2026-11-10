@@ -90,3 +90,13 @@ async def test_digest_skips_unconfirmed_addresses(session):
 
     assert await send_weekly(session, Sender(), now) == 1
     assert sent == [ids["yes"]]
+
+
+async def test_unconfirmed_accounts_cannot_use_resumes_or_matches(client, outbox):
+    await register(client)
+    for path in ("/resumes", "/dashboard"):
+        r = await client.get(path)
+        assert r.status_code == 403 and "confirm" in r.json()["detail"].lower(), path
+    await client.post("/auth/verify", json={"token": link_token(outbox[0])})
+    for path in ("/resumes", "/dashboard"):
+        assert (await client.get(path)).status_code != 403, path

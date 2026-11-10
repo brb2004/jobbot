@@ -2,8 +2,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, type Api } from './api'
+import { CheckEmail } from './CheckEmail'
 import { Verify } from './Verify'
-import { VerifyBanner } from './VerifyBanner'
 
 afterEach(cleanup)
 
@@ -22,20 +22,24 @@ describe('confirmation link', () => {
   })
 })
 
-describe('banner', () => {
-  it('shows for an unconfirmed address and re-sends', async () => {
+describe('check your email page', () => {
+  const page = (api: Partial<Api>, onConfirmed = vi.fn().mockResolvedValue(undefined)) =>
+    render(<CheckEmail api={api as Api} email="a@b.co" onConfirmed={onConfirmed} onLogout={() => {}} />)
+
+  it('shows where the link went and re-sends it', async () => {
     const resendVerification = vi.fn().mockResolvedValue(undefined)
-    const me = vi.fn().mockResolvedValue({ id: 'u', email: 'a@b.co', email_verified_at: null })
-    render(<VerifyBanner api={{ me, resendVerification } as unknown as Api} />)
-    fireEvent.click(await screen.findByRole('button', { name: /send a new link/i }))
+    page({ resendVerification })
+    screen.getByText('a@b.co')
+    fireEvent.click(screen.getByRole('button', { name: /send a new link/i }))
     await screen.findByText(/on its way/i)
     expect(resendVerification).toHaveBeenCalled()
   })
 
-  it('stays hidden once confirmed', async () => {
-    const me = vi.fn().mockResolvedValue({ id: 'u', email: 'a@b.co', email_verified_at: '2026-11-10T00:00:00Z' })
-    render(<VerifyBanner api={{ me } as unknown as Api} />)
-    await new Promise((r) => setTimeout(r, 0))
-    expect(screen.queryByText(/confirm your email/i)).toBeNull()
+  it('re-checks, and says so when still unconfirmed', async () => {
+    const onConfirmed = vi.fn().mockResolvedValue(undefined)
+    page({}, onConfirmed)
+    fireEvent.click(screen.getByRole('button', { name: /i've confirmed/i }))
+    await screen.findByText(/not confirmed yet/i)
+    expect(onConfirmed).toHaveBeenCalled()
   })
 })

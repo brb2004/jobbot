@@ -42,3 +42,16 @@ def client_ip(request: Request) -> str:
     if get_settings().TRUST_CF_CONNECTING_IP and (ip := request.headers.get("cf-connecting-ip")):
         return ip
     return request.client.host if request.client else "unknown"
+
+
+NOT_CONFIRMED = HTTPException(403, "Confirm your email first. Check your inbox for the link.")
+
+
+async def require_verified(user_id: UUID = Depends(get_current_user),
+                           s: AsyncSession = Depends(get_session)) -> UUID:
+    """Gate for resume and match endpoints. The row is already in the session's identity map
+    (get_current_user loaded it), so this costs no extra query."""
+    user = await s.get(User, user_id)
+    if user.email_verified_at is None:
+        raise NOT_CONFIRMED
+    return user_id
