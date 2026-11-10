@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { addAll, toList, type Named } from './lists'
 
 const box = 'w-full rounded-md border border-slate-300 px-3 py-2 focus:border-slate-900 focus:outline-none'
@@ -34,15 +34,18 @@ export function ChipInput({ id, label, hint, values, onValues, pending, onPendin
   const chosen = new Set(chips.map((c) => c.toLowerCase()))
 
   const q = pending.trim().toLowerCase()
-  const matches = !q ? [] : options
-    .filter((o) => !chosen.has(o.name.toLowerCase())
-      && (o.name.toLowerCase().includes(q) || (o.label ?? '').toLowerCase().includes(q)
-          || (o.aliases ?? []).some((a) => a.toLowerCase().startsWith(q))))
+  const shown = (o: Named) => (o.label ?? o.name).toLowerCase()
+  const available = options.filter((o) => !chosen.has(o.name.toLowerCase()))
+  const matches = (q ? available.filter((o) => o.name.toLowerCase().includes(q) || shown(o).includes(q)
+                                         || (o.aliases ?? []).some((a) => a.toLowerCase().startsWith(q)))
+                     : available)                                     // empty box: the whole list
     .sort((a, b) => group(a) - group(b)
-      || Number(!a.name.toLowerCase().startsWith(q)) - Number(!b.name.toLowerCase().startsWith(q))
-      || a.name.localeCompare(b.name))
-    .slice(0, 8)
+      || Number(!shown(a).startsWith(q)) - Number(!shown(b).startsWith(q))
+      || shown(a).localeCompare(shown(b)))
   const showList = open && matches.length > 0
+  useEffect(() => {                                   // keep the highlighted row in view while arrowing
+    if (active >= 0) document.getElementById(`${id}-opt-${active}`)?.scrollIntoView?.({ block: 'nearest' })
+  }, [active, id])
 
   const commit = (raw: string) => {
     const items = (splitOnComma ? toList(raw) : [raw.trim()].filter(Boolean)).map(keyOf)
@@ -91,7 +94,7 @@ export function ChipInput({ id, label, hint, values, onValues, pending, onPendin
                aria-activedescendant={showList && active >= 0 ? `${id}-opt-${active}` : undefined}
                aria-describedby={`${id}-hint`} placeholder={placeholder} autoComplete="off" className={box}
                value={pending} onChange={(e) => change(e.target.value)} onKeyDown={onKey}
-               onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} />
+               onFocus={() => setOpen(true)} onClick={() => setOpen(true)} onBlur={() => setOpen(false)} />
         <button type="button" aria-label={`Add to ${label}`} onClick={add}
                 className="rounded-md border border-slate-300 px-3 text-sm">Add</button>
         {showList && (

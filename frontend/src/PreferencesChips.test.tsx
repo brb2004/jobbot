@@ -33,7 +33,7 @@ describe('chip lists', () => {
     render(<Preferences api={fakeApi() as unknown as Api} onSaved={() => {}} />)
     fireEvent.change(await screen.findByLabelText('Job titles to exclude'), { target: { value: 'senior,' } })
     fireEvent.click(screen.getByRole('button', { name: 'Remove senior' }))
-    expect(screen.queryByText('senior')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Remove senior' })).toBeNull()   // chip gone (it may still be a suggestion)
   })
 
   it('names skills properly and flags unknown ones', async () => {

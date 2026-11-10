@@ -90,3 +90,22 @@ describe('places with City, State labels', () => {
     screen.getByText('Vancouver, WA')
   })
 })
+
+describe('dropdown', () => {
+  it('opens with the whole list on click and narrows as you type', () => {
+    render(<Harness />)
+    const box = screen.getByLabelText('Locations')
+    fireEvent.click(box)
+    fireEvent.focus(box)
+    expect(screen.getAllByRole('option')).toHaveLength(3)              // everything, grouped
+    screen.getByText('Countries')
+    fireEvent.change(box, { target: { value: 'can' } })
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Canada'])
+  })
+
+  it('leaves out what you already picked', () => {
+    render(<Harness start={['Europe']} />)
+    fireEvent.focus(screen.getByLabelText('Locations'))
+    expect(screen.queryByRole('option', { name: 'Europe' })).toBeNull()
+  })
+})
