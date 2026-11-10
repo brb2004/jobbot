@@ -17,6 +17,12 @@ PRESALES_TITLES = ("sales", "presales", "pre-sales", "customer engineer", "solut
                    "customer success")
 
 
+# Titles with "engineer"/"developer" that aren't software-building roles. Hidden unless the user lists
+# one of these phrases in include titles (a generic "engineer" doesn't reopen them).
+NON_DEV_TITLES = ("support engineer", "technical support", "customer support", "curriculum",
+                  "creative engineer", "enterprise engineer", "help desk", "helpdesk")
+
+
 class Preferences(BaseModel):
     model_config = ConfigDict(extra="forbid")
     include_titles: list[Word] = Field(default=[], max_length=50)   # title must contain one (empty = DEFAULT_TITLES)
@@ -86,6 +92,9 @@ def allowed(job: Job, prefs: Preferences) -> bool:
     if has_any(title, prefs.exclude_titles, hyphen_joins=True):
         return False
     if not prefs.include_presales and has_any(title, PRESALES_TITLES, hyphen_joins=True):
+        return False
+    if has_any(title, NON_DEV_TITLES, hyphen_joins=True) and \
+            not any(has_any(t, NON_DEV_TITLES, hyphen_joins=True) for t in prefs.include_titles):
         return False
     if not has_any(title, prefs.include_titles or DEFAULT_TITLES, hyphen_joins=True):
         return False

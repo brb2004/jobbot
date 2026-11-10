@@ -7,11 +7,11 @@ def test_rare_skills_weigh_more():
 
 
 def test_score_is_weighted_coverage_of_the_job():
-    w = {"Python": 1.0, "Kubernetes": 3.0}
-    job = {"Python", "Kubernetes"}
-    assert score_job("j", job, {"Python"}, w, prior=0).score == 0.25
+    w = {"SQL": 1.0, "Kubernetes": 3.0}
+    job = {"SQL", "Kubernetes"}
+    assert score_job("j", job, {"SQL"}, w, prior=0).score == 0.25
     assert score_job("j", job, {"Kubernetes"}, w, prior=0).score == 0.75
-    assert score_job("j", job, {"Python", "Kubernetes", "Rust"}, w, prior=0).score == 1.0
+    assert score_job("j", job, {"SQL", "Kubernetes", "Rust"}, w, prior=0).score == 1.0
 
 
 def test_explanation_lists_heaviest_skills_first():
@@ -56,10 +56,10 @@ def test_years_required_uses_each_asks_floor_and_the_max_across_bullets():
 
 def test_over_asking_jobs_are_halved_and_flagged():
     w = {"Python": 1.0}
-    asked = score_job("j", {"Python"}, {"Python"}, w, prior=0, job_years=5, user_years=1)
+    asked = score_job("j", {"Python"}, {"Python"}, w, prior=0, job_years=4, user_years=1)
     close = score_job("j", {"Python"}, {"Python"}, w, prior=0, job_years=2, user_years=1)
     unknown = score_job("j", {"Python"}, {"Python"}, w, prior=0, job_years=5, user_years=None)
-    assert (asked.score, asked.years_asked, asked.over_years) == (0.5, 5, True)
+    assert (asked.score, asked.years_asked, asked.over_years) == (0.5, 4, True)
     assert (close.score, close.years_asked, close.over_years) == (1.0, 2, False)       # within 1 year: no penalty
     assert (unknown.score, unknown.years_asked, unknown.over_years) == (1.0, 5, False) # user never said: no penalty
 

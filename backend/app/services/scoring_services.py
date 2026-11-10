@@ -8,6 +8,12 @@ from dataclasses import dataclass
 PRIOR = 2.0            # imaginary unmet skills (in average-weight units): thin jobs can't hit 100%
 YEARS_SLACK = 1        # asking for 1 more year than you have is still worth applying
 YEARS_PENALTY = 0.5    # over-asking jobs sink, but stay visible
+YEARS_HIDE = 3         # asking for more than you have + 3: not shown at all
+# A job that names languages, none of which you have, can't be a strong match (capped below Strong).
+LANGUAGES = frozenset({"Python", "Go", "Java", "Ruby", "JavaScript", "TypeScript", "C", "C++", "C#",
+                       "Rust", "Kotlin", "Swift", "Scala", "PHP", "Elixir"})
+CLEARANCE = re.compile(r"(?<!\w)(?:clearance|u\.?\s?s\.?\s+citizen(?:ship)?|public trust|itar|ts/sci)(?!\w)", re.IGNORECASE)
+GOV_TITLE = re.compile(r"(?<!\w)(?:government|federal|public sector)(?!\w)", re.IGNORECASE)
 # "5+ years", "3-5 yrs", "2–12+ years": group 1 is the floor of the ask
 YEARS = re.compile(r"(?<!\d)(\d{1,2})\s*\+?\s*(?:(?:-|–|—|to)\s*\d{1,2}\s*\+?\s*)?(?:years?|yrs)\b", re.IGNORECASE)
 
@@ -20,6 +26,7 @@ class Match:
     missing: list[str]                  # skills you lack, heaviest first
     years_asked: int | None = None      # what the job asks for, whenever known
     over_years: bool = False            # True = more than you have + slack (score halved)
+    no_language: bool = False           # job names languages and you have none (tier capped)
 
 
 def idf_weights(job_skill_sets: list[set[str]]) -> dict[str, float]:
@@ -77,10 +84,16 @@ def score_job(job_id, job_skills: set[str], user_skills: set[str], weights: dict
     if avg is None:                                          # prior counts in average skills
         avg = sum(weights.values()) / len(weights) if weights else 1.0
     score = sum(map(w, matched)) / (sum(map(w, ordered)) + prior * avg)
+    if job_years is not None and user_years is not None and job_years > user_years + YEARS_HIDE:
+        return None                                          # far above your level
     over = job_years is not None and user_years is not None and job_years > user_years + YEARS_SLACK
     if over:
         score *= YEARS_PENALTY
-    return Match(job_id, round(score, 2), matched, missing, job_years, over)
+    named = job_skills & LANGUAGES
+    no_language = bool(named) and not (named & user_skills)
+    if no_language:
+        score = min(score, LANG_CAP)
+    return Match(job_id, round(score, 2), matched, missing, job_years, over, no_language)
 
 
 def build_index(jobs: dict[object, set[str]]) -> dict[str, set]:
@@ -127,3 +140,10 @@ TIERS = [(0.45, "Strong match"), (0.30, "Worth applying"), (0.0, "Stretch")]
 
 def tier(score: float) -> str:
     return next(label for cut, label in TIERS if score >= cut)
+
+LANG_CAP = round(TIERS[0][0] - 0.01, 2)   # just under Strong
+
+
+def needs_clearance(title: str | None, bullets: list[str]) -> bool:
+    """Flag (never filter): government titles, or requirements asking for clearance or citizenship."""
+    return bool(GOV_TITLE.search(title or "")) or any(CLEARANCE.search(b) for b in bullets)

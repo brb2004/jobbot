@@ -47,7 +47,7 @@ weight(s) = log((1 + N) / (1 + jobs_with(s))) + 1                 # smoothed IDF
 score     = Σ weight(have) / (Σ weight(all) + PRIOR · avg_weight)  # PRIOR = 2
 ```
 
-The prior adds two imaginary unmet skills of average weight, so a posting that names one skill can't outrank one that names six. Because it's measured in average-skill units, scaling every weight by the same factor leaves every score unchanged. Jobs asking for more than your years of experience + 1 are halved and flagged ("asks for 5+ years"), never hidden.
+The prior adds two imaginary unmet skills of average weight, so a posting that names one skill can't outrank one that names six. Because it's measured in average-skill units, scaling every weight by the same factor leaves every score unchanged. Jobs asking for more than your years of experience + 1 are halved and flagged ("asks for 5+ years"), and jobs asking for more than your years + 3 aren't shown at all.
 
 Years of experience come from the resume: a stated claim ("5+ years of experience") wins; otherwise date ranges in the Experience section are merged so overlapping jobs count once, and only roles whose entry names a technical skill count (a warehouse job isn't engineering experience). Users can override the number.
 

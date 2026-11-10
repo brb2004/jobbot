@@ -77,14 +77,13 @@ SSO: single sign-on
 PyTorch
 TensorFlow
 Machine Learning: ml
-LLM: llms, large language models
+LLMs & Generative AI: llm, llms, large language models, genai, gen ai, generative ai, =AI, artificial intelligence
 # concepts
 Distributed Systems
 Microservices
 Data Structures
 Algorithms
 # ai / ml (from coverage round 1)
-=AI: artificial intelligence
 =RAG: retrieval-augmented generation, retrieval augmented generation
 =MCP: model context protocol
 MLOps
@@ -92,7 +91,6 @@ AI Coding Tools: claude code, github copilot, copilot, =Cursor, =Claude
 # apis / web
 APIs: =API, =APIs, api design
 =SDK: =SDKs
-=HTTP
 =TLS: =SSL
 =DNS
 # data / analytics
@@ -105,7 +103,6 @@ Statistics
 =Excel: microsoft excel
 A/B Testing: a/b tests, a/b testing, ab testing
 # infra / security
-DevOps
 =IAM: identity and access management
 Okta
 Zero Trust
@@ -136,7 +133,6 @@ Rate Limiting
 =SRE: site reliability engineering
 Pulumi
 =GPU: =GPUs, cuda
-Generative AI: genai, gen ai, generative ai
 # languages / data
 C: =C/C++, c programming, c language
 Ruby on Rails: =Rails
@@ -145,10 +141,7 @@ Solr
 Hadoop
 Lua
 # implications: left > right means "having left implies having right" (expands YOUR skills only)
-RAG > LLM
-LLM > Generative AI
-Generative AI > AI
-Machine Learning > AI
+RAG > LLMs & Generative AI
 PyTorch > Machine Learning
 TensorFlow > Machine Learning
 Kubernetes > Docker

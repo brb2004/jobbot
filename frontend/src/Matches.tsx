@@ -68,6 +68,9 @@ export function Matches({ api, onUpload, onPreferences }:
             {m.years_note && (
               <span className={`text-xs ${m.detail?.over_years ? 'text-amber-700' : 'text-slate-600'}`}>{m.years_note}</span>
             )}
+            {m.detail?.clearance && (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">May require clearance or U.S. citizenship</span>
+            )}
           </div>
           {(m.company || m.location) && (
             <p className="text-sm text-slate-500">{[company(m.company), m.location].filter(Boolean).join(' · ')}</p>

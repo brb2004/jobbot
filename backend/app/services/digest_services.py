@@ -29,6 +29,8 @@ def render(matches: list[MatchOut], top_n: int) -> str:
         head = f"{i}. {m.title} — {tier(m.score)}"
         if d.get("over_years") and (note := years_note(d)):
             head += f" · {note}"                     # email: only flag when it's over your level
+        if d.get("clearance"):
+            head += " · may require clearance or U.S. citizenship"
         lines = [head]
         if d.get("met"):
             lines.append(f"   You have: {_short(d['met'])}")

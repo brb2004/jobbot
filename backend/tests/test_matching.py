@@ -45,18 +45,18 @@ async def test_match_all_respects_preferences_and_replaces_old_scores(session):
 
 
 async def test_match_all_credits_implied_skills(session):
-    job = Job(title="AI Engineer", skills=["AI"])
-    resume = Resume(user_id=uuid.uuid4(), skills=["LLM"])           # skills.txt: LLM > ... > AI
+    job = Job(title="AI Engineer", skills=["LLMs & Generative AI"])
+    resume = Resume(user_id=uuid.uuid4(), skills=["RAG"])           # skills.txt: LLM > ... > AI
     session.add_all([job, resume])
     await session.flush()
     await match_all(session)
     row = (await session.scalars(select(MatchScore).where(MatchScore.resume_id == resume.id))).one()
-    assert row.detail["met"] == ["AI"]
+    assert row.detail["met"] == ["LLMs & Generative AI"]
 
 
 async def test_match_all_sinks_jobs_asking_for_too_many_years(session):
     user = User(id=uuid.uuid4(), email="y@match.com", hashed_password="x", preferences={"years_experience": 1})
-    senior_ask = Job(title="Engineer A", skills=["Python"], requirements=["5+ years of Python"])
+    senior_ask = Job(title="Engineer A", skills=["Python"], requirements=["4+ years of Python"])
     fair_ask = Job(title="Engineer B", skills=["Python"], requirements=["Python"])
     resume = Resume(user_id=user.id, skills=["Python"])
     session.add_all([user, senior_ask, fair_ask, resume])
@@ -65,7 +65,7 @@ async def test_match_all_sinks_jobs_asking_for_too_many_years(session):
     rows = (await session.scalars(select(MatchScore).where(MatchScore.resume_id == resume.id)
                                   .order_by(MatchScore.score.desc()))).all()
     assert [r.job_id for r in rows] == [fair_ask.id, senior_ask.id]   # still shown, just lower
-    assert rows[1].detail["years_asked"] == 5
+    assert rows[1].detail["years_asked"] == 4
 
 
 async def test_extra_skills_from_preferences_count_like_resume_skills(session):
@@ -130,7 +130,7 @@ async def test_same_role_posted_per_location_shows_once(session):
 
 
 async def test_senior_title_without_a_number_counts_as_5_years(session):
-    user = User(id=uuid.uuid4(), email="sr@match.com", hashed_password="x", preferences={"years_experience": 0})
+    user = User(id=uuid.uuid4(), email="sr@match.com", hashed_password="x", preferences={"years_experience": 2})
     job = Job(title="Senior Backend Engineer", skills=["Python"], requirements=["Python"])
     resume = Resume(user_id=user.id, skills=["Python"])
     session.add_all([user, job, resume])
@@ -143,7 +143,7 @@ async def test_senior_title_without_a_number_counts_as_5_years(session):
 async def test_detected_years_apply_when_the_user_left_years_blank(session):
     user = User(id=uuid.uuid4(), email="det@match.com", hashed_password="x", preferences={})
     job = Job(title="Backend Engineer", skills=["Python"], requirements=["5+ years of Python"])
-    resume = Resume(user_id=user.id, skills=["Python"], years_detected=1)
+    resume = Resume(user_id=user.id, skills=["Python"], years_detected=2)
     session.add_all([user, job, resume])
     await session.flush()
     await match_all(session)

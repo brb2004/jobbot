@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Job, MatchScore, Resume, User
 from app.services.preferences_services import Preferences, allowed
-from app.services.scoring_services import build_index, idf_weights, top_matches, years_from_title, years_required
+from app.services.scoring_services import build_index, idf_weights, needs_clearance, top_matches, years_from_title, years_required
 from app.services.skills_services import default_tagger
 from app.services.titles_services import role_key
 
@@ -55,6 +55,7 @@ async def match_all(s: AsyncSession, k: int = 20, user_id: UUID | None = None) -
         stated = years_required(j.requirements or [])
         years[j.id] = stated if stated is not None else years_from_title(j.title)
         years_src[j.id] = "requirements" if stated is not None else "title"
+    by_id = {j.id: j for j in jobs}
     roles = {j.id: (j.board, role_key(j.title)) for j in jobs}  # one per company + title
     all_jobs = {j.id: set(j.skills) for j in jobs}
     index = build_index(all_jobs)                                           # once per run, shared by every user
@@ -73,7 +74,10 @@ async def match_all(s: AsyncSession, k: int = 20, user_id: UUID | None = None) -
             s.add(MatchScore(resume_id=resume.id, job_id=m.job_id, score=m.score,
                              detail={"met": m.matched, "partial": [], "missing": m.missing, "soft": [],
                                      "years_asked": m.years_asked,
-                                     "years_source": years_src.get(m.job_id), "over_years": m.over_years}))
+                                     "years_source": years_src.get(m.job_id), "over_years": m.over_years,
+                                     "no_language": m.no_language,
+                                     "clearance": needs_clearance(by_id[m.job_id].title,
+                                                                  by_id[m.job_id].requirements or [])}))
             saved += 1
     await s.commit()                                                        # one commit for the whole run
     return saved

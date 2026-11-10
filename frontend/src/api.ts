@@ -18,6 +18,8 @@ export interface MatchDetail {
   soft: string[]
   years_asked?: number | null
   over_years?: boolean
+  no_language?: boolean
+  clearance?: boolean
 }
 
 export interface Match {
