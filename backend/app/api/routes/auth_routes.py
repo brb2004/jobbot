@@ -7,10 +7,10 @@ from app.api.deps_api import client_ip, get_current_user
 from app.core.db_core import get_session
 from app.core.config_core import get_settings
 from app.core.ratelimit_core import RateLimiter
-from app.core.security_core import create_access_token
-from app.schemas.auth_schemas import ForgotIn, LoginIn, RegisterIn, ResetIn, TokenOut, UserOut
+from app.core.security_core import create_access_token, make_verify_token
+from app.schemas.auth_schemas import ForgotIn, LoginIn, RegisterIn, ResetIn, TokenOut, UserOut, VerifyIn
 from app.services import auth_services as auth_service
-from app.services.email_services import reset_email, smtp_transport
+from app.services.email_services import reset_email, smtp_transport, verify_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -18,8 +18,21 @@ LOGIN_FAILS = RateLimiter(max_hits=5, window_s=900)    # per (ip, email): stops 
 LOGIN_IP = RateLimiter(max_hits=30, window_s=900)      # per ip: tarpit only, never a hard block (shared NAT)
 REGISTER_IP = RateLimiter(max_hits=5, window_s=3600)   # per ip: new accounts per hour
 FORGOT_IP = RateLimiter(max_hits=10, window_s=3600)    # per ip: reset requests per hour
+VERIFY_RESEND = RateLimiter(max_hits=3, window_s=3600) # per user: confirmation re-sends
 FORGOT_EMAIL = RateLimiter(max_hits=3, window_s=3600)  # per address: nobody can mail-bomb an inbox
 TARPIT_S = 2.0                                         # delay for a noisy ip; asyncio.sleep doesn't block others
+
+
+def get_mailer():
+    """Overridden in tests to capture messages instead of sending them."""
+    st = get_settings()
+    return smtp_transport(st.SMTP_HOST, st.SMTP_PORT, st.SMTP_USER, st.SMTP_PASSWORD)
+
+
+def _queue_verify(tasks: BackgroundTasks, send, user) -> None:
+    st = get_settings()
+    link = f"{st.APP_URL}/verify#{make_verify_token(str(user.id), user.email)}"
+    tasks.add_task(send, verify_email(st.EMAIL_FROM, user.email, link))
 
 
 def _start_session(response: Response, user_id, include_token: bool = False) -> TokenOut:
@@ -32,8 +45,8 @@ def _start_session(response: Response, user_id, include_token: bool = False) -> 
 
 
 @router.post("/register", response_model=TokenOut, status_code=201)
-async def register(body: RegisterIn, request: Request, response: Response, token: bool = False,
-                   s=Depends(get_session)):
+async def register(body: RegisterIn, request: Request, response: Response, tasks: BackgroundTasks,
+                   token: bool = False, s=Depends(get_session), send=Depends(get_mailer)):
     ip = client_ip(request)
     if wait := REGISTER_IP.blocked(ip):
         raise HTTPException(429, "Too many sign-ups from this network. Try again later.",
@@ -43,6 +56,7 @@ async def register(body: RegisterIn, request: Request, response: Response, token
     except auth_service.EmailTaken:
         raise HTTPException(409, "Email already registered")
     REGISTER_IP.hit(ip)                                          # count accounts created per ip
+    _queue_verify(tasks, send, user)                             # digests wait until this is clicked
     return _start_session(response, user.id, token)
 
 
@@ -81,11 +95,6 @@ async def logout(response: Response, s=Depends(get_session), user_id=Depends(get
     response.delete_cookie(get_settings().COOKIE_NAME, path="/")      # JS can't delete an httpOnly cookie
 
 
-def get_mailer():
-    """Overridden in tests to capture messages instead of sending them."""
-    st = get_settings()
-    return smtp_transport(st.SMTP_HOST, st.SMTP_PORT, st.SMTP_USER, st.SMTP_PASSWORD)
-
 
 FORGOT_REPLY = {"detail": "If that account exists, we sent a reset link."}
 
@@ -115,3 +124,21 @@ async def forgot(body: ForgotIn, request: Request, tasks: BackgroundTasks,
 async def reset(body: ResetIn, s=Depends(get_session)):
     if not await auth_service.reset_password(s, body.token, body.password):
         raise HTTPException(400, "This reset link is invalid or has expired. Request a new one.")
+
+
+@router.post("/verify", status_code=204)
+async def verify(body: VerifyIn, s=Depends(get_session)):
+    if not await auth_service.confirm_email(s, body.token):
+        raise HTTPException(400, "This confirmation link is invalid or has expired. Log in and send a new one.")
+
+
+@router.post("/verify/resend", status_code=202)
+async def resend_verification(tasks: BackgroundTasks, s=Depends(get_session),
+                              user_id=Depends(get_current_user), send=Depends(get_mailer)):
+    user = await auth_service.get(s, user_id)
+    if user is None:
+        raise HTTPException(401, "Not authenticated")
+    if user.email_verified_at is None and not VERIFY_RESEND.blocked(str(user.id)):
+        VERIFY_RESEND.hit(str(user.id))
+        _queue_verify(tasks, send, user)
+    return {"detail": "If your email isn't confirmed yet, a new link is on its way."}

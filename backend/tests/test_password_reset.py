@@ -19,7 +19,8 @@ def outbox(client):
     sent = []
 
     async def capture(msg):
-        sent.append(msg)
+        if msg["Subject"].startswith("Reset"):       # sign-up also sends a confirmation email
+            sent.append(msg)
 
     app.dependency_overrides[auth_routes.get_mailer] = lambda: capture
     yield sent

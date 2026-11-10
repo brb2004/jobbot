@@ -57,3 +57,27 @@ def reset_token_valid(token: str, password_hash: str, now: float | None = None) 
     if int(exp) < (time.time() if now is None else now):
         return False
     return hmac.compare_digest(sig, _reset_sig(user_id, int(exp), password_hash))   # constant-time compare
+
+
+# Email confirmation links: same token shape as resets, different purpose prefix ("verify|"), so a reset
+# token can never confirm an email or vice versa. Signed over the address, so it only confirms that address.
+VERIFY_TTL_S = 7 * 24 * 3600
+
+
+def _verify_sig(user_id: str, exp: int, email: str) -> str:
+    msg = f"verify|{user_id}|{exp}|{email.lower()}".encode()
+    return hmac.new(get_settings().JWT_SECRET_KEY.encode(), msg, hashlib.sha256).hexdigest()
+
+
+def make_verify_token(user_id: str, email: str, now: float | None = None) -> str:
+    exp = int((time.time() if now is None else now) + VERIFY_TTL_S)
+    return f"{user_id}.{exp}.{_verify_sig(user_id, exp, email)}"
+
+
+def verify_token_valid(token: str, email: str, now: float | None = None) -> bool:
+    if reset_token_user(token) is None:
+        return False
+    user_id, exp, sig = token.split(".")
+    if int(exp) < (time.time() if now is None else now):
+        return False
+    return hmac.compare_digest(sig, _verify_sig(user_id, int(exp), email))

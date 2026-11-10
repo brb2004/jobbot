@@ -66,6 +66,20 @@ def _reset_rate_limits():
     """Rate limiters are process-wide; give every test a clean slate."""
     from app.api.routes import auth_routes
     for limiter in (auth_routes.LOGIN_FAILS, auth_routes.LOGIN_IP, auth_routes.REGISTER_IP,
-                    auth_routes.FORGOT_IP, auth_routes.FORGOT_EMAIL):
+                    auth_routes.FORGOT_IP, auth_routes.FORGOT_EMAIL,
+                    auth_routes.VERIFY_RESEND):
         limiter.reset()
     yield
+
+
+@_pytest.fixture(autouse=True)
+def _no_real_email():
+    """.envrc holds real SMTP credentials: tests must never send mail. Tests that check mail swap in an outbox."""
+    from app.api.routes import auth_routes
+
+    async def drop(msg):
+        pass
+
+    app.dependency_overrides[auth_routes.get_mailer] = lambda: drop
+    yield
+    app.dependency_overrides.pop(auth_routes.get_mailer, None)

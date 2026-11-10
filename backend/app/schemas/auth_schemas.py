@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
@@ -29,6 +30,7 @@ class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
     email: str
+    email_verified_at: datetime | None = None
 
 
 class ForgotIn(BaseModel):
@@ -45,3 +47,7 @@ class ResetIn(BaseModel):
         if len(v.encode()) > 72:
             raise ValueError("must be at most 72 bytes (accented letters and emoji count as 2-4 each)")
         return v
+
+
+class VerifyIn(BaseModel):
+    token: str = Field(max_length=200)

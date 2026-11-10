@@ -17,6 +17,7 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255))
     preferences: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
     tokens_valid_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # logout = revoke older tokens
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # None = no digests
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

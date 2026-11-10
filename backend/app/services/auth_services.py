@@ -5,7 +5,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security_core import (hash_password, make_reset_token, reset_token_user,
-                                    reset_token_valid, verify_password)
+                                    reset_token_valid, verify_password, verify_token_valid)
 from app.db.models_db import Resume, User
 
 # Checked against when the email doesn't exist, so both failures take the same time.
@@ -65,4 +65,22 @@ async def reset_password(s: AsyncSession, token: str, new_password: str) -> bool
     user.hashed_password = await asyncio.to_thread(hash_password, new_password)
     user.tokens_valid_after = datetime.now(timezone.utc)          # sign out every existing session
     await s.commit()
+    return True
+
+
+async def _claimed_user(s: AsyncSession, token: str) -> User | None:
+    claimed = reset_token_user(token)                 # resets and confirmations share the token shape
+    try:
+        return await s.get(User, UUID(claimed)) if claimed else None
+    except ValueError:
+        return None
+
+
+async def confirm_email(s: AsyncSession, token: str) -> bool:
+    user = await _claimed_user(s, token)
+    if user is None or not verify_token_valid(token, user.email):
+        return False
+    if user.email_verified_at is None:                # clicking the link twice is fine
+        user.email_verified_at = datetime.now(timezone.utc)
+        await s.commit()
     return True

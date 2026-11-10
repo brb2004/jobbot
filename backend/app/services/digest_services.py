@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models_db import Job, MatchScore, Resume
+from app.db.models_db import Job, MatchScore, Resume, User
 from app.schemas.matches_schemas import MatchOut
 from app.services.scoring_services import TIERS, tier, years_note  # noqa: F401  (re-exported)
 
@@ -57,7 +57,8 @@ async def matches_for(s: AsyncSession, user_id: UUID, since: datetime):
 
 async def send_weekly(s: AsyncSession, sender, now: datetime, top_n: int = 20) -> int:
     since = now - timedelta(days=7)
-    user_ids = (await s.execute(select(Resume.user_id).distinct())).scalars().all()
+    unconfirmed = exists().where(User.id == Resume.user_id, User.email_verified_at.is_(None))
+    user_ids = (await s.execute(select(Resume.user_id).distinct().where(~unconfirmed))).scalars().all()
 
     sent = 0
     for user_id in user_ids:

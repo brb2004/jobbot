@@ -5,6 +5,8 @@ import { Login } from './Login'
 import { Matches } from './Matches'
 import { Preferences } from './Preferences'
 import { Reset } from './Reset'
+import { Verify } from './Verify'
+import { VerifyBanner } from './VerifyBanner'
 import { Upload } from './Upload'
 
 const PAGES = [
@@ -32,6 +34,8 @@ function Shell() {
 
   const go = (path: string, message: string | null = null) => { setFlash(message); navigate(path) }
 
+  if (location.pathname === '/verify')     // the emailed confirmation link: token after '#'
+    return <Verify api={api} token={location.hash.slice(1)} onDone={() => navigate('/matches', { replace: true })} />
   if (location.pathname === '/reset')      // the emailed link: token after '#', works logged in or out
     return <Reset api={api} token={location.hash.slice(1)}
                   onDone={() => { setStatus('out'); navigate('/matches', { replace: true }) }} />
@@ -54,6 +58,7 @@ function Shell() {
         </button>
       </nav>
       <main className="p-6">
+        <VerifyBanner api={api} />
         {flash && <p role="status" className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">{flash}</p>}
         <Routes>
           <Route path="/matches" element={<Matches api={api} onUpload={() => go('/resume')} onPreferences={() => go('/preferences')} />} />
