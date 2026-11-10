@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Job, User
-from app.services.places_services import place_of, places_in
+from app.services.places_services import place_of, places_in, places_named
 
 Word = Annotated[str, Field(min_length=1, max_length=50)]
 # Tech-only product: with no include list, show engineering roles. Users can override with their own list.
@@ -29,12 +29,13 @@ class Preferences(BaseModel):
     include_titles: list[Word] = Field(default=[], max_length=50)   # title must contain one (empty = DEFAULT_TITLES)
     exclude_titles: list[Word] = Field(default=[], max_length=50)   # title must contain none
     locations: list[Word] = Field(default=[], max_length=50)        # a job location must contain one (if set)
-    remote_regions: list[Word] = Field(default=[], max_length=50)   # a remote location must also name one (if set)
+    remote: bool = True                                              # show remote jobs open to your locations
+    onsite: bool = True                                              # show on-site/hybrid jobs in your locations
     years_experience: int | None = Field(default=None, ge=0, le=60)  # jobs asking > this + 1 sink
     extra_skills: list[Word] = Field(default=[], max_length=50)     # skills not on the resume
     include_presales: bool = False                                   # opt in to PRESALES_TITLES
 
-    @field_validator("include_titles", "exclude_titles", "locations", "remote_regions", "extra_skills")
+    @field_validator("include_titles", "exclude_titles", "locations", "extra_skills")
     @classmethod
     def _clean(cls, words: list[str], info) -> list[str]:
         keep_case = info.field_name == "extra_skills"          # "Go", "REST" are case-sensitive skills
@@ -49,8 +50,30 @@ class Preferences(BaseModel):
                 out.append(w)
         return out
 
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy_locations(cls, data):
+        """Old shape: "remote" as a location word plus a remote_regions list. New: places + two switches.
+        Converted on read, so saved preferences keep matching the same jobs."""
+        if not isinstance(data, dict):
+            return data
+        old = list(data.get("locations") or [])
+        if "remote_regions" not in data and not any(str(l).strip().lower() == "remote" for l in old):
+            return data
+        data = dict(data)
+        regions = data.pop("remote_regions", None) or []
+        places = [l for l in old if str(l).strip().lower() != "remote"]
+        wants_remote = len(places) != len(old)
+        if wants_remote and not places:                 # remote-only: the regions said where
+            data.update(locations=list(regions), remote=True, onsite=False)
+        else:
+            data.update(locations=places, remote=wants_remote or not old, onsite=True)
+        return data
+
     @model_validator(mode="after")
     def _no_contradictions(self):
+        if not (self.remote or self.onsite):
+            raise ValueError("pick on-site, remote, or both")
         both = sorted(set(self.include_titles) & set(self.exclude_titles))
         if both:
             raise ValueError(f"'{both[0]}' is in both include and exclude titles")
@@ -103,24 +126,32 @@ def _wants(entries: tuple[str, ...]) -> tuple[frozenset[str], tuple[str, ...]]:
     return frozenset(ids), tuple(words)
 
 
+@lru_cache(maxsize=4096)
+def _around(ids: frozenset[str]) -> frozenset[str]:
+    """Your places plus everything that contains them: Dallas-Fort Worth -> United States -> North America."""
+    return frozenset().union(*(places_in(i) for i in ids)) if ids else frozenset()
+
+
 def location_ok(location: str | None, prefs: Preferences) -> bool:
-    if not prefs.locations:
-        return True
+    """On-site/hybrid jobs: inside a place you picked. Remote jobs: open to where you are ("Remote - US" fits
+    Dallas-Fort Worth; "Remote - Mexico" doesn't; plain "Remote" fits everyone). Nothing picked = anywhere."""
     want_ids, want_words = _wants(tuple(prefs.locations))
-    region_ids, region_words = _wants(tuple(prefs.remote_regions))
-    for piece in re.split(r"[;|\u2022]", location or ""):     # "SF, CA; Remote, US" is two places
-        piece = piece.strip()
-        if not piece or _blocked(piece):
-            continue
-        here = places_in(piece)
-        if not (here & want_ids or has_any(piece, want_words)):
+    anywhere = not want_ids and not want_words
+    pieces = [p.strip() for p in re.split(r"[;|\u2022]", location or "") if p.strip()]   # "SF, CA; Remote, US" = 2
+    if not pieces:
+        return anywhere                                     # unknown location: only with no place filter
+    near = _around(want_ids)
+    for piece in pieces:
+        if _blocked(piece):
             continue
         remote = has_any(piece, REMOTE)
+        if (remote and not prefs.remote) or (not remote and not prefs.onsite):
+            continue
+        if anywhere or places_in(piece) & want_ids or has_any(piece, want_words):
+            return True                                     # in (or inside) a place you picked
         bare = not re.sub(r"(?i)remote|distributed|[\W_]", "", piece)       # just "Remote"
-        if (prefs.remote_regions and remote and not bare
-                and not (here & region_ids or has_any(piece, region_words))):
-            continue                                            # e.g. "Remote - Mexico" for a US-only user
-        return True
+        if remote and (bare or places_named(piece) & near):
+            return True                                     # remote, open to where you are
     return False
 
 

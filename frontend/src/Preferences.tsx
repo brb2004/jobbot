@@ -4,11 +4,9 @@ import { ChipInput } from './ChipInput'
 import { addAll, canonFrom, toList } from './lists'
 
 type ListKey = 'include_titles' | 'exclude_titles' | 'locations' | 'extra_skills'
-type Draft = { lists: Record<ListKey, string[]>; regions: string[]; years: string; presales: boolean }
+type Draft = { lists: Record<ListKey, string[]>; remote: boolean; onsite: boolean; years: string; presales: boolean }
 const NO_PENDING: Record<ListKey, string> = { include_titles: '', exclude_titles: '', locations: '', extra_skills: '' }
 
-const REGIONS = ['United States', 'Canada', 'United Kingdom', 'Europe', 'Latin America', 'Asia-Pacific']
-const REMOTE = 'remote'
 const INCLUDE_TIPS = ['software engineer', 'backend', 'frontend', 'full stack', 'platform', 'infrastructure', 'sre',
   'devops', 'data engineer', 'machine learning', 'security', 'mobile', 'cloud'].map((name) => ({ name }))
 const EXCLUDE_TIPS = ['senior', 'staff', 'principal', 'lead', 'manager', 'director', 'intern', 'contract', 'sr.',
@@ -27,7 +25,6 @@ const includes = (label: string, aliases: string[]) => {
   return names.length ? `includes ${names.join(', ')}` : undefined
 }
 const input = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-slate-900 focus:outline-none'
-const chip = 'inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-800'
 
 export function Preferences({ api, onSaved, onDeleted, onDirty }:
   { api: Api; onSaved: () => void; onDeleted?: () => void; onDirty?: (dirty: boolean) => void }) {
@@ -48,7 +45,8 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
         const d: Draft = {
           lists: { include_titles: p.include_titles, exclude_titles: p.exclude_titles, locations: p.locations,
                    extra_skills: p.extra_skills },
-          regions: p.remote_regions, years: p.years_experience?.toString() ?? '', presales: p.include_presales,
+          remote: p.remote ?? true, onsite: p.onsite ?? true,
+          years: p.years_experience?.toString() ?? '', presales: p.include_presales,
         }
         setDraft(d)
         setSaved(JSON.stringify(d))
@@ -60,10 +58,10 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
   }, [api])
 
   const placeOf = useMemo(() => canonFrom(places), [places])
-  const labelOf = useMemo(() => new Map((places ?? []).map((p) => [p.name, p.label ?? p.name])), [places])
-  const placeOptions = useMemo(() => (places ?? []).map((p) => ({ ...p, detail: p.kind === 'metro' ? includes(p.label ?? p.name, p.aliases) : undefined })), [places])
   const skillOf = useMemo(() => canonFrom(skills), [skills])
-  const regionOf = (v: string) => placeOf(v) ?? REGIONS.find((r) => r.toLowerCase() === v.toLowerCase())
+  const labelOf = useMemo(() => new Map((places ?? []).map((p) => [p.name, p.label ?? p.name])), [places])
+  const placeOptions = useMemo(() => (places ?? []).map((p) => (
+    { ...p, detail: p.kind === 'metro' ? includes(p.label ?? p.name, p.aliases) : undefined })), [places])
 
   const dirty = draft !== null && (JSON.stringify(draft) !== saved || Object.values(pending).some((v) => v.trim() !== ''))
   useEffect(() => { onDirty?.(dirty) }, [dirty, onDirty])
@@ -92,6 +90,10 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
       setError('Years of experience: enter a whole number from 0 to 60, or leave it blank.')
       return
     }
+    if (!draft.remote && !draft.onsite) {
+      setError('Work setup: pick on-site, remote, or both.')
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -102,7 +104,7 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
         [k, addAll(draft.lists[k], (k === 'locations' ? [pending[k].trim()].filter(Boolean) : toList(pending[k]))
           .map((v) => canonFor[k](v) ?? v))])) as Record<ListKey, string[]>
       const final = { ...draft, lists }
-      await api.savePreferences({ ...lists, remote_regions: final.regions,
+      await api.savePreferences({ ...lists, remote: final.remote, onsite: final.onsite,
         years_experience: years === '' ? null : Number(years), include_presales: final.presales } satisfies Prefs)
       setDraft(final)
       setPending(NO_PENDING)
@@ -119,17 +121,11 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
   if (error && !draft) return <p role="alert" className="text-red-600">{error}</p>
   if (!draft) return <p className="text-slate-600">Loading…</p>
 
-  const { lists, regions, years, presales } = draft
+  const { lists, remote, onsite, years, presales } = draft
   const set = (patch: Partial<Draft>) => setDraft({ ...draft, ...patch })
   const setList = (k: ListKey, v: string[]) => set({ lists: { ...lists, [k]: v } })
   const typed = (k: ListKey) => ({ pending: pending[k], onPending: (v: string) => setPending({ ...pending, [k]: v }) })
   const clash = presales ? lists.exclude_titles.filter(salesWord) : []
-  const remoteOn = lists.locations.some((l) => l.toLowerCase() === REMOTE)
-  const placesPicked = lists.locations.filter((l) => l.toLowerCase() !== REMOTE)
-  const otherRegions = regions.filter((r) => !REGIONS.includes(regionOf(r) ?? ''))
-  const toggleRegion = (r: string) => set({
-    regions: regions.some((v) => regionOf(v) === r) ? regions.filter((v) => regionOf(v) !== r) : [...regions, r],
-  })
 
   return (
     <form onSubmit={submit} className="max-w-xl space-y-5">
@@ -157,41 +153,29 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
         )}
       </ChipInput>
 
-      <ChipInput id="locations" label="Locations" values={placesPicked}
-                 onValues={(v) => setList('locations', remoteOn ? [REMOTE, ...v] : v)} {...typed('locations')}
-                 options={placeOptions} canon={placeOf} display={(n) => labelOf.get(n) ?? n} splitOnComma={false} placeholder="Add a city, metro or country"
-                 unknown={(v) => (places && !placeOf(v) ? 'not a known place, matched as text' : null)}
-                 hint="Dallas-Fort Worth also covers Plano, Richardson and Frisco; a country covers all its cities. Nothing picked = anywhere.">
-        <label className="mt-2 flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={remoteOn}
-                 onChange={() => setList('locations', remoteOn ? placesPicked : [REMOTE, ...placesPicked])} />
-          Remote
-        </label>
-      </ChipInput>
-
-      <fieldset aria-describedby="regions-hint">
-        <legend className="text-sm font-medium">Remote regions</legend>
-        <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
-          {REGIONS.map((r) => (
-            <label key={r} className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={regions.some((v) => regionOf(v) === r)} onChange={() => toggleRegion(r)} />
-              {r}
-            </label>
-          ))}
+      <fieldset aria-describedby="setup-hint">
+        <legend className="text-sm font-medium">Work setup</legend>
+        <div className="mt-1 flex flex-wrap gap-x-6 gap-y-1">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={onsite} onChange={() => set({ onsite: !onsite })} />
+            On-site or hybrid
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={remote} onChange={() => set({ remote: !remote })} />
+            Remote
+          </label>
         </div>
-        {otherRegions.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {otherRegions.map((r) => (
-              <span key={r} className={chip}>
-                <span>{r}</span>
-                <button type="button" aria-label={`Remove ${r}`} className="text-slate-500"
-                        onClick={() => set({ regions: regions.filter((x) => x !== r) })}>×</button>
-              </span>
-            ))}
-          </div>
-        )}
-        <p id="regions-hint" className="mt-1 text-xs text-slate-500">Only applies to remote jobs. None checked = remote jobs from anywhere.</p>
+        <p id="setup-hint" className="mt-1 text-xs text-slate-500">
+          Remote jobs count when they're open to your locations: "Remote - US" fits Dallas-Fort Worth.
+        </p>
       </fieldset>
+
+      <ChipInput id="locations" label="Locations" values={lists.locations}
+                 onValues={(v) => setList('locations', v)} {...typed('locations')}
+                 options={placeOptions} canon={placeOf} display={(n) => labelOf.get(n) ?? n} splitOnComma={false}
+                 placeholder="Add a city, metro, country or region"
+                 unknown={(v) => (places && !placeOf(v) ? 'not a known place, matched as text' : null)}
+                 hint="Where you'd work on-site, and where you're based for remote. A country covers its cities. Nothing picked = anywhere." />
 
       <ChipInput id="extra_skills" label="Extra skills" values={lists.extra_skills}
                  onValues={(v) => setList('extra_skills', v)} {...typed('extra_skills')}

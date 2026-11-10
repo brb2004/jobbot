@@ -5,7 +5,8 @@ export interface Preferences {
   include_titles: string[]
   exclude_titles: string[]
   locations: string[]
-  remote_regions: string[]
+  remote: boolean          // show remote jobs open to your locations
+  onsite: boolean          // show on-site/hybrid jobs in your locations
   years_experience: number | null
   extra_skills: string[]
   include_presales: boolean

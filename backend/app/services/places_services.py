@@ -32,3 +32,9 @@ def place_of(entry: str) -> str | None:
     """A user's entry -> one canonical place (not expanded: "dallas" means DFW, not all of the US)."""
     found = places().tag(_flat(entry))
     return next(iter(found)) if len(found) == 1 else None
+
+
+@lru_cache(maxsize=65536)
+def places_named(text: str) -> frozenset[str]:
+    """Only the places a text names, not what contains them: "Remote - Mexico" -> {Mexico}, never North America."""
+    return frozenset(places().tag(_flat(text)))

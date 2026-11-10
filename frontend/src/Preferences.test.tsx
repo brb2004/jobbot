@@ -7,8 +7,8 @@ import { Preferences } from './Preferences'
 
 afterEach(cleanup)
 const saved: Prefs = {
-  include_titles: ['engineer'], exclude_titles: ['senior'], locations: ['remote'],
-  remote_regions: ['us'], years_experience: 1, extra_skills: [], include_presales: false,
+  include_titles: ['engineer'], exclude_titles: ['senior'], locations: ['us'],
+  remote: true, onsite: false, years_experience: 1, extra_skills: [], include_presales: false,
 }
 const fakeApi = (o: Partial<Api> = {}) =>
   ({ getPreferences: vi.fn().mockResolvedValue(saved), savePreferences: vi.fn(async (p: Prefs) => p), ...o }) as unknown as Api
