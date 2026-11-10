@@ -74,6 +74,18 @@ def has_any(text: str, words, hyphen_joins: bool = False) -> bool:
 
 
 REMOTE = ("remote", "distributed")
+# Product decision: locations JobMatch doesn't list. A job whose only locations are here is never shown,
+# and a blocked location is never the reason a job matches.
+BLOCKED_PLACES = ("tel aviv",)
+
+
+def _blocked(piece: str) -> bool:
+    return has_any(piece, BLOCKED_PLACES)
+
+
+def location_blocked(location: str | None) -> bool:
+    pieces = [p.strip() for p in re.split(r"[;|\u2022]", location or "") if p.strip()]
+    return bool(pieces) and all(_blocked(p) for p in pieces)
 
 
 @lru_cache(maxsize=4096)
@@ -98,7 +110,7 @@ def location_ok(location: str | None, prefs: Preferences) -> bool:
     region_ids, region_words = _wants(tuple(prefs.remote_regions))
     for piece in re.split(r"[;|\u2022]", location or ""):     # "SF, CA; Remote, US" is two places
         piece = piece.strip()
-        if not piece:
+        if not piece or _blocked(piece):
             continue
         here = places_in(piece)
         if not (here & want_ids or has_any(piece, want_words)):
@@ -113,6 +125,8 @@ def location_ok(location: str | None, prefs: Preferences) -> bool:
 
 
 def allowed(job: Job, prefs: Preferences) -> bool:
+    if location_blocked(job.location):
+        return False
     title = job.title or ""
     if has_any(title, prefs.exclude_titles, hyphen_joins=True):
         return False
