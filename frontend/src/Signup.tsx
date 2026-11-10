@@ -48,6 +48,7 @@ export function Signup({ api, onDone, onLogin }: { api: Api; onDone: () => void;
         <button type="button" onClick={onLogin} className="w-full text-sm text-slate-600 underline">
           I already have an account
         </button>
+        <a href="/privacy" className="block text-center text-xs text-slate-500 underline">Privacy</a>
       </form>
     </main>
   )

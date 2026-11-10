@@ -5,6 +5,7 @@ import { CheckEmail } from './CheckEmail'
 import { Login } from './Login'
 import { Matches } from './Matches'
 import { Preferences } from './Preferences'
+import { Privacy } from './Privacy'
 import { Reset } from './Reset'
 import { Signup } from './Signup'
 import { Upload } from './Upload'
@@ -45,6 +46,7 @@ function Shell() {
   const logout = async () => { await api.logout(); setStatus('out'); navigate('/', { replace: true }) }
 
   // Emailed links work logged in or out; the token rides after '#'.
+  if (location.pathname === '/privacy') return <Privacy />
   if (location.pathname === '/verify')
     return <Verify api={api} token={location.hash.slice(1)}
                    onDone={() => { navigate('/matches', { replace: true }); refresh() }} />
@@ -63,7 +65,7 @@ function Shell() {
   return (
     <div className="min-h-screen bg-slate-50">
       <nav className="flex items-center gap-4 border-b bg-white px-6 py-3">
-        <span className="font-semibold">JobBot</span>
+        <span className="font-semibold">JobMatch</span>
         {PAGES.map((p) => (
           <NavLink key={p.path} to={p.path} onClick={() => setFlash(null)}
                    className={({ isActive }) => (isActive ? 'font-medium underline' : 'text-slate-600')}>
