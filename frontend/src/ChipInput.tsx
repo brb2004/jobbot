@@ -18,13 +18,15 @@ type Props = {
   canon?: (v: string) => string | undefined           // any alias -> canonical name
   unknown?: (v: string) => string | null              // note shown on a chip, or null
   placeholder?: string
+  display?: (name: string) => string             // canonical name -> what to show ("Vancouver, BC")
+  splitOnComma?: boolean                          // false for places: "Vancouver, WA" is one entry
   children?: ReactNode
 }
 
 // One list field: chips (one per canonical name), a box that turns Enter or commas into chips,
 // and a grouped suggestion list with arrow-key navigation.
 export function ChipInput({ id, label, hint, values, onValues, pending, onPending, options = [], canon,
-                            unknown, placeholder, children }: Props) {
+                            unknown, placeholder, display = (n) => n, splitOnComma = true, children }: Props) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(-1)
   const keyOf = (v: string) => canon?.(v) ?? v
@@ -34,7 +36,8 @@ export function ChipInput({ id, label, hint, values, onValues, pending, onPendin
   const q = pending.trim().toLowerCase()
   const matches = !q ? [] : options
     .filter((o) => !chosen.has(o.name.toLowerCase())
-      && (o.name.toLowerCase().includes(q) || (o.aliases ?? []).some((a) => a.toLowerCase().startsWith(q))))
+      && (o.name.toLowerCase().includes(q) || (o.label ?? '').toLowerCase().includes(q)
+          || (o.aliases ?? []).some((a) => a.toLowerCase().startsWith(q))))
     .sort((a, b) => group(a) - group(b)
       || Number(!a.name.toLowerCase().startsWith(q)) - Number(!b.name.toLowerCase().startsWith(q))
       || a.name.localeCompare(b.name))
@@ -42,7 +45,7 @@ export function ChipInput({ id, label, hint, values, onValues, pending, onPendin
   const showList = open && matches.length > 0
 
   const commit = (raw: string) => {
-    const items = toList(raw).map(keyOf)
+    const items = (splitOnComma ? toList(raw) : [raw.trim()].filter(Boolean)).map(keyOf)
     if (items.length) onValues(addAll(values, items))
   }
   const add = () => { commit(pending); onPending(''); setActive(-1) }
@@ -50,7 +53,7 @@ export function ChipInput({ id, label, hint, values, onValues, pending, onPendin
   const change = (v: string) => {
     setOpen(true)
     setActive(-1)
-    if (!/[,\n]/.test(v)) {
+    if (!splitOnComma || !/[,\n]/.test(v)) {
       onPending(v)
       return
     }
@@ -74,9 +77,9 @@ export function ChipInput({ id, label, hint, values, onValues, pending, onPendin
             const note = unknown?.(c)
             return (
               <span key={c} className={chip}>
-                <span>{c}</span>
+                <span>{display(c)}</span>
                 {note && <span className="text-amber-700">({note})</span>}
-                <button type="button" aria-label={`Remove ${c}`} className="text-slate-500"
+                <button type="button" aria-label={`Remove ${display(c)}`} className="text-slate-500"
                         onClick={() => onValues(values.filter((x) => keyOf(x).toLowerCase() !== c.toLowerCase()))}>×</button>
               </span>
             )
@@ -105,7 +108,7 @@ export function ChipInput({ id, label, hint, values, onValues, pending, onPendin
                 <li key={o.name} id={`${id}-opt-${i}`} role="option" aria-selected={i === active}
                     onMouseDown={(e) => { e.preventDefault(); pick(o.name) }} onMouseEnter={() => setActive(i)}
                     className={`flex cursor-pointer items-baseline justify-between gap-3 px-3 py-1.5 text-sm ${i === active ? 'bg-slate-100' : ''}`}>
-                  <span>{o.name}</span>
+                  <span>{o.label ?? o.name}</span>
                   {o.detail && <span className="truncate text-xs text-slate-500">{o.detail}</span>}
                 </li>,
               ]

@@ -45,3 +45,9 @@ def test_distributed_counts_as_remote():
 
 def test_unknown_words_still_match_like_before():
     assert allowed(job("Springfield, IL"), Preferences(locations=["springfield"]))
+
+
+def test_vancouver_wa_is_not_vancouver_bc():
+    assert {"Vancouver WA", "United States"} <= places_in("Vancouver, WA") and "Canada" not in places_in("Vancouver, WA")
+    assert "Canada" in places_in("Vancouver, British Columbia, Canada")
+    assert place_of("vancouver, wa") == "Vancouver WA"

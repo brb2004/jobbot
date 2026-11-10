@@ -27,3 +27,9 @@ async def test_places_say_what_kind_they_are(client):
     kind = {p["name"]: p["kind"] for p in (await client.get("/places")).json()}
     assert (kind["Dallas-Fort Worth"], kind["Canada"], kind["Europe"]) == ("metro", "country", "region")
     assert "Tel Aviv" not in kind
+
+
+async def test_places_carry_city_state_labels(client):
+    label = {p["name"]: p["label"] for p in (await client.get("/places")).json()}
+    assert (label["Vancouver"], label["Vancouver WA"], label["London"]) == ("Vancouver, BC", "Vancouver, WA", "London, United Kingdom")
+    assert label["Canada"] == "Canada"

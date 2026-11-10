@@ -21,8 +21,8 @@ const salesWord = (t: string) => /(^|[\s-])(pre-?)?sales([\s-]|$)/i.test(t) || S
 
 const YEARS_OK = /^\d{1,2}$/
 // "includes Plano, Richardson, Frisco" for a metro: real place names only, not abbreviations like dfw
-const includes = (aliases: string[]) => {
-  const names = aliases.filter((a) => a.length > 3 && !a.includes('.'))
+const includes = (label: string, aliases: string[]) => {
+  const names = aliases.filter((a) => a.length > 3 && !a.includes('.') && !label.toLowerCase().includes(a))
     .map((a) => a.replace(/\b\w/g, (c) => c.toUpperCase())).slice(0, 3)
   return names.length ? `includes ${names.join(', ')}` : undefined
 }
@@ -60,7 +60,8 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
   }, [api])
 
   const placeOf = useMemo(() => canonFrom(places), [places])
-  const placeOptions = useMemo(() => (places ?? []).map((p) => ({ ...p, detail: p.kind === 'metro' ? includes(p.aliases) : undefined })), [places])
+  const labelOf = useMemo(() => new Map((places ?? []).map((p) => [p.name, p.label ?? p.name])), [places])
+  const placeOptions = useMemo(() => (places ?? []).map((p) => ({ ...p, detail: p.kind === 'metro' ? includes(p.label ?? p.name, p.aliases) : undefined })), [places])
   const skillOf = useMemo(() => canonFrom(skills), [skills])
   const regionOf = (v: string) => placeOf(v) ?? REGIONS.find((r) => r.toLowerCase() === v.toLowerCase())
 
@@ -98,7 +99,8 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
         include_titles: () => undefined, exclude_titles: () => undefined, locations: placeOf, extra_skills: skillOf,
       }
       const lists = Object.fromEntries((Object.keys(draft.lists) as ListKey[]).map((k) =>   // typed but not added: keep it
-        [k, addAll(draft.lists[k], toList(pending[k]).map((v) => canonFor[k](v) ?? v))])) as Record<ListKey, string[]>
+        [k, addAll(draft.lists[k], (k === 'locations' ? [pending[k].trim()].filter(Boolean) : toList(pending[k]))
+          .map((v) => canonFor[k](v) ?? v))])) as Record<ListKey, string[]>
       const final = { ...draft, lists }
       await api.savePreferences({ ...lists, remote_regions: final.regions,
         years_experience: years === '' ? null : Number(years), include_presales: final.presales } satisfies Prefs)
@@ -157,7 +159,7 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
 
       <ChipInput id="locations" label="Locations" values={placesPicked}
                  onValues={(v) => setList('locations', remoteOn ? [REMOTE, ...v] : v)} {...typed('locations')}
-                 options={placeOptions} canon={placeOf} placeholder="Add a city, metro or country"
+                 options={placeOptions} canon={placeOf} display={(n) => labelOf.get(n) ?? n} splitOnComma={false} placeholder="Add a city, metro or country"
                  unknown={(v) => (places && !placeOf(v) ? 'not a known place, matched as text' : null)}
                  hint="Dallas-Fort Worth also covers Plano, Richardson and Frisco; a country covers all its cities. Nothing picked = anywhere.">
         <label className="mt-2 flex items-center gap-2 text-sm">

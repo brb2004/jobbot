@@ -1,5 +1,5 @@
 // Shared helpers for list fields: split typed text, dedupe, map any alias to its canonical name.
-export type Named = { name: string; aliases?: string[]; kind?: string | null; detail?: string }
+export type Named = { name: string; aliases?: string[]; kind?: string | null; detail?: string; label?: string }
 
 export const toList = (s: string) => s.split(/[,\n]/).map((x) => x.trim()).filter(Boolean)
 
@@ -9,10 +9,12 @@ export const addAll = (list: string[], items: string[]) => {
 }
 
 export const canonFrom = (items: Named[] | null) => {
+  const flat = (v: string) => v.toLowerCase().replace(/[\s,]+/g, ' ').trim()   // "Vancouver, WA" = "vancouver wa"
   const m = new Map<string, string>()
   for (const it of items ?? []) {
-    m.set(it.name.toLowerCase(), it.name)
-    for (const a of it.aliases ?? []) m.set(a.toLowerCase(), it.name)
+    m.set(flat(it.name), it.name)
+    if (it.label) m.set(flat(it.label), it.name)
+    for (const a of it.aliases ?? []) m.set(flat(a), it.name)
   }
-  return (v: string) => m.get(v.toLowerCase())
+  return (v: string) => m.get(flat(v))
 }

@@ -54,3 +54,39 @@ describe('chip input', () => {
     expect(screen.getByTestId('saved').textContent).toBe('["Europe"]')
   })
 })
+
+describe('places with City, State labels', () => {
+  const PLACES = [
+    { name: 'Vancouver', label: 'Vancouver, BC', kind: 'metro', aliases: [] },
+    { name: 'Vancouver WA', label: 'Vancouver, WA', kind: 'metro', aliases: ['vancouver washington'] },
+  ]
+  const placeCanon = (v: string) => PLACES.find((p) => [p.name, p.label].some((x) =>
+    x.toLowerCase().replace(/[\s,]+/g, ' ') === v.toLowerCase().replace(/[\s,]+/g, ' ').trim()))?.name
+
+  function Places() {
+    const [values, setValues] = useState<string[]>([])
+    const [pending, setPending] = useState('')
+    const label = (n: string) => PLACES.find((p) => p.name === n)?.label ?? n
+    return (
+      <>
+        <ChipInput id="p" label="Locations" hint="" values={values} onValues={setValues} pending={pending}
+                   onPending={setPending} options={PLACES} canon={placeCanon} display={label} splitOnComma={false} />
+        <output data-testid="saved">{JSON.stringify(values)}</output>
+      </>
+    )
+  }
+
+  it('lists both Vancouvers by City, State and keeps a typed comma in one entry', () => {
+    render(<Places />)
+    const box = screen.getByLabelText('Locations')
+    fireEvent.focus(box)
+    fireEvent.change(box, { target: { value: 'vanc' } })
+    screen.getByRole('option', { name: 'Vancouver, BC' })
+    screen.getByRole('option', { name: /Vancouver, WA/ })
+    fireEvent.change(box, { target: { value: 'Vancouver, WA' } })
+    fireEvent.keyDown(box, { key: 'Escape' })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(screen.getByTestId('saved').textContent).toBe('["Vancouver WA"]')
+    screen.getByText('Vancouver, WA')
+  })
+})
