@@ -16,7 +16,7 @@ const fakeApi = (o: Partial<Api> = {}) =>
 describe('Preferences', () => {
   it('loads saved preferences into the form', async () => {
     render(<Preferences api={fakeApi()} onSaved={vi.fn()} />)
-    expect(await screen.findByDisplayValue('engineer')).toBeTruthy()
+    expect(await screen.findByText('engineer')).toBeTruthy()          // saved entries are chips now
     expect((screen.getByLabelText('Years of experience') as HTMLInputElement).value).toBe('1')
   })
 

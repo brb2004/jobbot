@@ -1,5 +1,5 @@
 from fastapi import Depends, FastAPI
-from app.api.routes import preferences_routes, auth_routes, jobs_routes, matches_routes, resumes_routes, places_routes
+from app.api.routes import preferences_routes, auth_routes, jobs_routes, matches_routes, resumes_routes, places_routes, skills_routes
 from app.api.deps_api import require_verified
 
 from app.core.config_core import get_settings  # noqa: E402
@@ -13,6 +13,7 @@ app = FastAPI(**docs_kwargs(get_settings().DOCS_ENABLED), )
 app.include_router(preferences_routes.router)
 app.include_router(auth_routes.router)
 app.include_router(jobs_routes.router)
+app.include_router(skills_routes.router)        # public: skill names for autocomplete
 app.include_router(places_routes.router)        # public: place names for the pickers
 app.include_router(matches_routes.router, dependencies=[Depends(require_verified)])   # confirmed emails only
 app.include_router(resumes_routes.router, dependencies=[Depends(require_verified)])

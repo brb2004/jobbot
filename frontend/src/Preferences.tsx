@@ -1,27 +1,24 @@
-import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { ApiError, type Api, type Place, type Preferences as Prefs } from './api'
+import { ChipInput } from './ChipInput'
+import { addAll, canonFrom, toList } from './lists'
 
-const TEXT = {
-  include_titles: ['Job titles to include', 'Only titles containing one of these. Leave empty to use the defaults (engineer, developer, SRE, DevOps, architect, scientist). Anything you enter replaces them.'],
-  exclude_titles: ['Job titles to exclude', 'Hide titles containing any of these, e.g. senior, staff. Excluded titles always win.'],
-  extra_skills: ['Extra skills', "Skills you have that aren't on your resume."],
-} as const
-type TextKey = keyof typeof TEXT
-type Draft = { text: Record<TextKey, string>; locations: string[]; regions: string[]; years: string; presales: boolean }
+type ListKey = 'include_titles' | 'exclude_titles' | 'locations' | 'extra_skills'
+type Draft = { lists: Record<ListKey, string[]>; regions: string[]; years: string; presales: boolean }
+const NO_PENDING: Record<ListKey, string> = { include_titles: '', exclude_titles: '', locations: '', extra_skills: '' }
 
-const REGIONS = ['United States', 'Canada', 'United Kingdom', 'Europe', 'Latin America', 'APAC']
+const REGIONS = ['United States', 'Canada', 'United Kingdom', 'Europe', 'Latin America', 'Asia-Pacific']
 const REMOTE = 'remote'
+const INCLUDE_TIPS = ['software engineer', 'backend', 'frontend', 'full stack', 'platform', 'infrastructure', 'sre',
+  'devops', 'data engineer', 'machine learning', 'security', 'mobile', 'cloud'].map((name) => ({ name }))
+const EXCLUDE_TIPS = ['senior', 'staff', 'principal', 'lead', 'manager', 'director', 'intern', 'contract', 'sr.',
+  'head of'].map((name) => ({ name }))
 
 // Mirrors PRESALES_TITLES on the server: warn when the exclude list cancels the sales checkbox.
 const SALES = ['customer engineer', 'solutions architect', 'solution architect', 'solutions engineer',
   'solution engineer', 'account executive', 'customer success']
 const salesWord = (t: string) => /(^|[\s-])(pre-?)?sales([\s-]|$)/i.test(t) || SALES.includes(t.toLowerCase())
 
-const toList = (s: string) => s.split(/[,\n]/).map((x) => x.trim()).filter(Boolean)
-const addAll = (list: string[], items: string[]) => {
-  const seen = new Set(list.map((x) => x.toLowerCase()))
-  return [...list, ...items.filter((i) => !seen.has(i.toLowerCase()) && !!seen.add(i.toLowerCase()))]
-}
 const YEARS_OK = /^\d{1,2}$/
 const input = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-slate-900 focus:outline-none'
 const chip = 'inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-800'
@@ -30,8 +27,9 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
   { api: Api; onSaved: () => void; onDeleted?: () => void; onDirty?: (dirty: boolean) => void }) {
   const [draft, setDraft] = useState<Draft | null>(null)
   const [saved, setSaved] = useState('')                       // the last loaded or saved draft, as JSON
-  const [pending, setPending] = useState('')                   // typed in the location box, not added yet
+  const [pending, setPending] = useState(NO_PENDING)
   const [places, setPlaces] = useState<Place[] | null>(null)
+  const [skills, setSkills] = useState<Place[] | null>(null)
   const [detected, setDetected] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -42,10 +40,9 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
     api.getPreferences()
       .then((p) => {
         const d: Draft = {
-          text: { include_titles: p.include_titles.join(', '), exclude_titles: p.exclude_titles.join(', '),
-                  extra_skills: p.extra_skills.join(', ') },
-          locations: p.locations, regions: p.remote_regions,
-          years: p.years_experience?.toString() ?? '', presales: p.include_presales,
+          lists: { include_titles: p.include_titles, exclude_titles: p.exclude_titles, locations: p.locations,
+                   extra_skills: p.extra_skills },
+          regions: p.remote_regions, years: p.years_experience?.toString() ?? '', presales: p.include_presales,
         }
         setDraft(d)
         setSaved(JSON.stringify(d))
@@ -53,20 +50,14 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
       .catch(fail)
     Promise.resolve().then(() => api.listResumes()).then((rs) => setDetected(rs[0]?.years_detected ?? null)).catch(() => {})
     Promise.resolve().then(() => api.listPlaces()).then(setPlaces).catch(() => {})
+    Promise.resolve().then(() => api.listSkills()).then(setSkills).catch(() => {})
   }, [api])
 
-  // any spelling -> canonical place name ("usa" -> "United States")
-  const canonOf = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const p of places ?? []) {
-      m.set(p.name.toLowerCase(), p.name)
-      for (const a of p.aliases) m.set(a.toLowerCase(), p.name)
-    }
-    return m
-  }, [places])
-  const canon = (v: string) => canonOf.get(v.toLowerCase()) ?? REGIONS.find((r) => r.toLowerCase() === v.toLowerCase())
+  const placeOf = useMemo(() => canonFrom(places), [places])
+  const skillOf = useMemo(() => canonFrom(skills), [skills])
+  const regionOf = (v: string) => placeOf(v) ?? REGIONS.find((r) => r.toLowerCase() === v.toLowerCase())
 
-  const dirty = draft !== null && (JSON.stringify(draft) !== saved || pending.trim() !== '')
+  const dirty = draft !== null && (JSON.stringify(draft) !== saved || Object.values(pending).some((v) => v.trim() !== ''))
   useEffect(() => { onDirty?.(dirty) }, [dirty, onDirty])
   useEffect(() => () => onDirty?.(false), [onDirty])           // leaving the page clears the flag
   useEffect(() => {
@@ -96,14 +87,16 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
     setBusy(true)
     setError(null)
     try {
-      const final = { ...draft, locations: addAll(draft.locations, toList(pending)) }   // typed but not added: keep it
-      await api.savePreferences({
-        include_titles: toList(final.text.include_titles), exclude_titles: toList(final.text.exclude_titles),
-        extra_skills: toList(final.text.extra_skills), locations: final.locations, remote_regions: final.regions,
-        years_experience: years === '' ? null : Number(years), include_presales: final.presales,
-      } satisfies Prefs)
+      const canonFor: Record<ListKey, (v: string) => string | undefined> = {
+        include_titles: () => undefined, exclude_titles: () => undefined, locations: placeOf, extra_skills: skillOf,
+      }
+      const lists = Object.fromEntries((Object.keys(draft.lists) as ListKey[]).map((k) =>   // typed but not added: keep it
+        [k, addAll(draft.lists[k], toList(pending[k]).map((v) => canonFor[k](v) ?? v))])) as Record<ListKey, string[]>
+      const final = { ...draft, lists }
+      await api.savePreferences({ ...lists, remote_regions: final.regions,
+        years_experience: years === '' ? null : Number(years), include_presales: final.presales } satisfies Prefs)
       setDraft(final)
-      setPending('')
+      setPending(NO_PENDING)
       setSaved(JSON.stringify(final))
       onDirty?.(false)
       onSaved()
@@ -117,85 +110,62 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
   if (error && !draft) return <p role="alert" className="text-red-600">{error}</p>
   if (!draft) return <p className="text-slate-600">Loading…</p>
 
-  const { text, years, presales, locations, regions } = draft
+  const { lists, regions, years, presales } = draft
   const set = (patch: Partial<Draft>) => setDraft({ ...draft, ...patch })
-  const clash = presales ? toList(text.exclude_titles).filter(salesWord) : []
-  const remoteOn = locations.some((l) => l.toLowerCase() === REMOTE)
-  const places_ = locations.filter((l) => l.toLowerCase() !== REMOTE)
-  const otherRegions = regions.filter((r) => !REGIONS.includes(canon(r) ?? ''))
-
-  const addPending = () => {
-    if (!toList(pending).length) return
-    set({ locations: addAll(locations, toList(pending).map((p) => canon(p) ?? p)) })
-    setPending('')
-  }
-  const onAddKey = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') { e.preventDefault(); addPending() }
-  }
+  const setList = (k: ListKey, v: string[]) => set({ lists: { ...lists, [k]: v } })
+  const typed = (k: ListKey) => ({ pending: pending[k], onPending: (v: string) => setPending({ ...pending, [k]: v }) })
+  const clash = presales ? lists.exclude_titles.filter(salesWord) : []
+  const remoteOn = lists.locations.some((l) => l.toLowerCase() === REMOTE)
+  const placesPicked = lists.locations.filter((l) => l.toLowerCase() !== REMOTE)
+  const otherRegions = regions.filter((r) => !REGIONS.includes(regionOf(r) ?? ''))
   const toggleRegion = (r: string) => set({
-    regions: regions.some((v) => canon(v) === r) ? regions.filter((v) => canon(v) !== r) : [...regions, r],
+    regions: regions.some((v) => regionOf(v) === r) ? regions.filter((v) => regionOf(v) !== r) : [...regions, r],
   })
 
-  const textField = (key: TextKey) => (
-    <div key={key}>
-      <label htmlFor={key} className="block text-sm font-medium">{TEXT[key][0]}</label>
-      <textarea id={key} rows={2} aria-describedby={`${key}-hint`} className={`${input} resize-y`}
-                value={text[key]} onChange={(e) => set({ text: { ...text, [key]: e.target.value } })} />
-      <p id={`${key}-hint`} className="mt-1 text-xs text-slate-500">{TEXT[key][1]}</p>
-      {key === 'exclude_titles' && (text.include_titles.trim() !== '' || text.exclude_titles.trim() !== '') && (
-        <button type="button" className="mt-1 text-xs text-slate-600 underline"
-                onClick={() => set({ text: { ...text, include_titles: '', exclude_titles: '' } })}>
-          Reset job titles to defaults
-        </button>
-      )}
-    </div>
-  )
-
   return (
-    <form onSubmit={submit} className="max-w-xl space-y-4">
+    <form onSubmit={submit} className="max-w-xl space-y-5">
       <h2 className="text-xl font-semibold">Preferences</h2>
-      <p className="text-sm text-slate-600">Separate title and skill entries with commas or new lines. Saving updates your matches right away.</p>
-      {textField('include_titles')}
-      {textField('exclude_titles')}
+      <p className="text-sm text-slate-600">
+        Type an entry and press Enter (or type a comma) to add it. Saving updates your matches right away.
+      </p>
 
-      <fieldset aria-describedby="locations-hint">
-        <legend className="text-sm font-medium">Locations</legend>
-        <label className="mt-1 flex items-center gap-2 text-sm">
+      <ChipInput id="include_titles" label="Job titles to include" values={lists.include_titles}
+                 onValues={(v) => setList('include_titles', v)} {...typed('include_titles')} options={INCLUDE_TIPS}
+                 placeholder="e.g. backend, platform"
+                 hint="Only titles containing one of these. Leave empty to use the defaults (engineer, developer, SRE, DevOps, architect, scientist). Anything you add replaces them." />
+      <ChipInput id="exclude_titles" label="Job titles to exclude" values={lists.exclude_titles}
+                 onValues={(v) => setList('exclude_titles', v)} {...typed('exclude_titles')} options={EXCLUDE_TIPS}
+                 placeholder="e.g. senior, staff"
+                 hint="Hide titles containing any of these. Excluded titles always win.">
+        {(lists.include_titles.length > 0 || lists.exclude_titles.length > 0) && (
+          <button type="button" className="mt-1 text-xs text-slate-600 underline"
+                  onClick={() => {
+                    set({ lists: { ...lists, include_titles: [], exclude_titles: [] } })
+                    setPending({ ...pending, include_titles: '', exclude_titles: '' })
+                  }}>
+            Reset job titles to defaults
+          </button>
+        )}
+      </ChipInput>
+
+      <ChipInput id="locations" label="Locations" values={placesPicked}
+                 onValues={(v) => setList('locations', remoteOn ? [REMOTE, ...v] : v)} {...typed('locations')}
+                 options={places ?? []} canon={placeOf} placeholder="Add a city, metro or country"
+                 unknown={(v) => (places && !placeOf(v) ? 'not a known place, matched as text' : null)}
+                 hint="Dallas-Fort Worth also covers Plano, Richardson and Frisco; a country covers all its cities. Nothing picked = anywhere.">
+        <label className="mt-2 flex items-center gap-2 text-sm">
           <input type="checkbox" checked={remoteOn}
-                 onChange={() => set({ locations: remoteOn ? places_ : [REMOTE, ...places_] })} />
+                 onChange={() => setList('locations', remoteOn ? placesPicked : [REMOTE, ...placesPicked])} />
           Remote
         </label>
-        {places_.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {places_.map((l) => (
-              <span key={l} className={chip}>
-                {canon(l) ?? l}
-                {places && !canon(l) && <span className="text-amber-700">(not a known place)</span>}
-                <button type="button" aria-label={`Remove ${l}`} className="text-slate-500"
-                        onClick={() => set({ locations: locations.filter((x) => x !== l) })}>×</button>
-              </span>
-            ))}
-          </div>
-        )}
-        <div className="mt-2 flex gap-2">
-          <input id="location-add" aria-label="Add a location" list="place-options" placeholder="Add a city, metro or country"
-                 className={input.replace('mt-1 ', '')} value={pending} onChange={(e) => setPending(e.target.value)} onKeyDown={onAddKey} />
-          <button type="button" onClick={addPending} className="rounded-md border border-slate-300 px-3 text-sm">Add</button>
-        </div>
-        <datalist id="place-options">
-          {(places ?? []).map((p) => <option key={p.name} value={p.name} label={p.aliases.slice(0, 5).join(', ')} />)}
-        </datalist>
-        <p id="locations-hint" className="mt-1 text-xs text-slate-500">
-          Dallas-Fort Worth also covers Plano, Richardson and Frisco; a country covers all its cities. Nothing picked = anywhere.
-        </p>
-      </fieldset>
+      </ChipInput>
 
       <fieldset aria-describedby="regions-hint">
         <legend className="text-sm font-medium">Remote regions</legend>
         <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
           {REGIONS.map((r) => (
             <label key={r} className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={regions.some((v) => canon(v) === r)} onChange={() => toggleRegion(r)} />
+              <input type="checkbox" checked={regions.some((v) => regionOf(v) === r)} onChange={() => toggleRegion(r)} />
               {r}
             </label>
           ))}
@@ -204,19 +174,21 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
           <div className="mt-2 flex flex-wrap gap-2">
             {otherRegions.map((r) => (
               <span key={r} className={chip}>
-                {r}
+                <span>{r}</span>
                 <button type="button" aria-label={`Remove ${r}`} className="text-slate-500"
                         onClick={() => set({ regions: regions.filter((x) => x !== r) })}>×</button>
               </span>
             ))}
           </div>
         )}
-        <p id="regions-hint" className="mt-1 text-xs text-slate-500">
-          Only applies to remote jobs. None checked = remote jobs from anywhere.
-        </p>
+        <p id="regions-hint" className="mt-1 text-xs text-slate-500">Only applies to remote jobs. None checked = remote jobs from anywhere.</p>
       </fieldset>
 
-      {textField('extra_skills')}
+      <ChipInput id="extra_skills" label="Extra skills" values={lists.extra_skills}
+                 onValues={(v) => setList('extra_skills', v)} {...typed('extra_skills')}
+                 options={skills ?? []} canon={skillOf} placeholder="e.g. Kubernetes, Go"
+                 unknown={(v) => (skills && !skillOf(v) ? "not a known skill: won't affect matching" : null)}
+                 hint="Skills you have that aren't on your resume. Known aliases become the proper name (k8s → Kubernetes)." />
 
       <div>
         <label htmlFor="years" className="block text-sm font-medium">Years of experience</label>
@@ -260,7 +232,7 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
         {dirty && (
           <>
             <span className="text-sm text-amber-800">Unsaved changes</span>
-            <button type="button" onClick={() => { setDraft(JSON.parse(saved)); setPending('') }}
+            <button type="button" onClick={() => { setDraft(JSON.parse(saved)); setPending(NO_PENDING) }}
                     className="text-sm text-slate-600 underline">Discard</button>
           </>
         )}
