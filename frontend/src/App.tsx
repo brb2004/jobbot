@@ -64,7 +64,7 @@ function Shell() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <nav className="flex items-center gap-4 border-b bg-white px-6 py-3">
+      <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b bg-white px-4 py-3 sm:px-6">
         <span className="font-semibold">JobMatch</span>
         {PAGES.map((p) => (
           <NavLink key={p.path} to={p.path} onClick={() => setFlash(null)}
@@ -76,7 +76,7 @@ function Shell() {
           Log out
         </button>
       </nav>
-      <main className="p-6">
+      <main className="p-4 sm:p-6">
         {flash && <p role="status" className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">{flash}</p>}
         <Routes>
           <Route path="/matches" element={<Matches api={api} onUpload={() => go('/resume')} onPreferences={() => go('/preferences')} />} />

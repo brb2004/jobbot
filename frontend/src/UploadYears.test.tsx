@@ -19,7 +19,7 @@ describe('detected experience note', () => {
 
   it('drops the note when you set your own years', async () => {
     render(<Upload api={fakeApi(2)} onDone={() => {}} />)
-    await screen.findByText(/detected experience: 3 years/i)
+    await screen.findByText(/relevant experience detected: 3 years/i)
     await new Promise((r) => setTimeout(r, 0))
     expect(screen.queryByText(/used when/i)).toBeNull()
   })

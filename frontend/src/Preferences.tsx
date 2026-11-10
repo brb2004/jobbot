@@ -10,7 +10,7 @@ const LISTS = [
 ] as const
 type ListKey = (typeof LISTS)[number][0]
 
-const toList = (s: string) => s.split(',').map((x) => x.trim()).filter(Boolean)
+const toList = (s: string) => s.split(/[,\n]/).map((x) => x.trim()).filter(Boolean)
 const input = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-slate-900 focus:outline-none'
 
 export function Preferences({ api, onSaved, onDeleted }: { api: Api; onSaved: () => void; onDeleted?: () => void }) {
@@ -71,8 +71,8 @@ export function Preferences({ api, onSaved, onDeleted }: { api: Api; onSaved: ()
       {LISTS.map(([key, label, hint]) => (
         <div key={key}>
           <label htmlFor={key} className="block text-sm font-medium">{label}</label>
-          <input id={key} className={input} value={text[key]}
-                 onChange={(e) => setText({ ...text, [key]: e.target.value })} />
+          <textarea id={key} rows={2} className={`${input} resize-y`} value={text[key]}
+                    onChange={(e) => setText({ ...text, [key]: e.target.value })} />
           <p className="mt-1 text-xs text-slate-500">{hint}</p>
         </div>
       ))}
@@ -86,7 +86,7 @@ export function Preferences({ api, onSaved, onDeleted }: { api: Api; onSaved: ()
         )}
         {detected !== null && years !== '' && Number(years) !== detected && (
           <p className="mt-1 text-xs text-amber-700">
-            Your resume shows {detected}. Your value ({years}) is used instead.{' '}
+            Your resume shows {detected} years of relevant experience. Your value ({years}) is used instead.{' '}
             <button type="button" className="underline" onClick={() => setYears('')}>Use resume ({detected})</button>
           </p>
         )}

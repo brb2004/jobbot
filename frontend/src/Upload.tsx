@@ -40,7 +40,7 @@ export function Upload({ api, onDone }: { api: Api; onDone: () => void }) {
       {current && <p className="text-sm">Current: {current}</p>}
       {years !== null && (
         <p className="text-sm text-slate-600">
-          Detected experience: {years} years.
+          Relevant experience detected: {years} years.
           {ownYears === null && ' Used when "Years of experience" in Preferences is blank.'}
         </p>
       )}

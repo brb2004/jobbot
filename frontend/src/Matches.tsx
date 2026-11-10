@@ -58,10 +58,12 @@ export function Matches({ api, onUpload, onPreferences }:
       {matches.map((m, i) => (
         <li key={m.job_id} className="rounded-lg bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-slate-400">#{i + 1}</span>
-            {m.url
-              ? <a href={m.url} target="_blank" rel="noreferrer" className="font-medium underline">{m.title}</a>
-              : <span className="font-medium">{m.title}</span>}
+            <span className="min-w-0">
+              <span className="mr-1 text-sm text-slate-400">#{i + 1}</span>
+              {m.url
+                ? <a href={m.url} target="_blank" rel="noreferrer" className="font-medium underline">{m.title}</a>
+                : <span className="font-medium">{m.title}</span>}
+            </span>
             <span className={`rounded-full px-2 py-0.5 text-xs ${BADGE[m.tier] ?? BADGE.Stretch}`}>{m.tier}</span>
             {m.years_note && (
               <span className={`text-xs ${m.detail?.over_years ? 'text-amber-700' : 'text-slate-600'}`}>{m.years_note}</span>
