@@ -2,6 +2,8 @@
 
 ![tests](https://github.com/brb2004/jobbot/actions/workflows/tests.yml/badge.svg)
 
+**Live:** https://jobmatch.bbenard.dev
+
 Crawls Greenhouse job boards, matches every posting against each user's resume, and emails each user their top 20 every week. **Matching is fully deterministic: no AI in the decision path.** Every score traces back to named skills and their weights, and the same input always gives the same output.
 
 ## Pipeline
@@ -47,6 +49,8 @@ score     = Σ weight(have) / (Σ weight(all) + PRIOR · avg_weight)  # PRIOR = 
 
 The prior adds two imaginary unmet skills of average weight, so a posting that names one skill can't outrank one that names six. Because it's measured in average-skill units, scaling every weight by the same factor leaves every score unchanged. Jobs asking for more than your years of experience + 1 are halved and flagged ("asks for 5+ years"), never hidden.
 
+Years of experience come from the resume: a stated claim ("5+ years of experience") wins; otherwise date ranges in the Experience section are merged so overlapping jobs count once, and only roles whose entry names a technical skill count (a warehouse job isn't engineering experience). Users can override the number.
+
 **4. Retrieval.** One inverted index (`skill → job ids`) is built per run. For each user, the cheap and highly selective preference filter runs first, then only jobs that share a skill *and* pass the filter are scored, and a heap keeps the best 20.
 
 **5. Output.** Tiers instead of percentages ("Strong match / Worth applying / Stretch"), so a 30% doesn't scare anyone off. Soft skills are never scored.
@@ -74,9 +78,31 @@ Measured with `python -m app.services.bench_matching`: 7.4k real jobs, seeded fa
 - **Uploads:** file type comes from magic bytes, not the extension.
 - **Polite crawling:** bounded concurrency and an identifying User-Agent.
 
+## Security
+
+- **Sessions:** JWT in an `httpOnly`, `SameSite=Lax`, `Secure` cookie, so page JavaScript never sees it. Logout and password reset revoke every outstanding token (`tokens_valid_after`).
+- **Passwords:** bcrypt, run off the event loop. Wrong email and wrong password give the same response in the same time (a dummy hash is checked for unknown emails).
+- **Rate limits:** login is hard-blocked per (IP, email) and only *slowed* per IP, so a shared network never locks out a correct password. Sign-ups are limited per IP, and reset emails per IP and per address. The client IP comes from `CF-Connecting-IP` only because traffic can arrive solely through the tunnel.
+- **Password reset:** the token is an HMAC over (user, expiry, *current password hash*), so it's single-use with no table: the first reset changes the hash and kills every outstanding link. The token rides in the URL fragment (`#`), which browsers never send to servers, so it stays out of proxy logs. The link is built from configured `APP_URL`, never the `Host` header, and the endpoint never reveals whether an account exists.
+- **Uploads:** type from magic bytes, `.docx` zip-bomb check, size cap, sanitized filenames, validated before the old resume is replaced. Validation errors never echo input back.
+- **Browser:** strict CSP (`script-src 'self'`, `frame-ancestors 'none'`), `nosniff`, `no-referrer`.
+- **Containers:** non-root numeric UID, read-only root filesystem, all Linux capabilities dropped, no privilege escalation. Default-deny NetworkPolicies; secrets created with `kubectl`, never in git; API docs off in production.
+
+## Deployment
+
+```
+Cloudflare (TLS + tunnel) → ingress-nginx → web (nginx: SPA + /api proxy) → api (FastAPI) → Postgres (StatefulSet)
+CronJobs: crawl + match every 2 days · weekly digest email · nightly pg_dump
+```
+
+- Helm chart in `deploy/jobbot`; images tagged by git SHA; migrations run in an initContainer before the API starts.
+- CI builds both images, runs migrations plus `alembic check` (catches schema drift between models and migrations), and smoke-tests the API through nginx.
+- `index.html` is served `no-cache` and hashed assets `immutable`, so a deploy reaches users on their next page load.
+- Runs on a single-node minikube behind a Cloudflare named tunnel; systemd brings everything back after a reboot.
+
 ## Stack
 
-Python 3.12 · FastAPI · async SQLAlchemy 2 + asyncpg · Postgres 16 · Alembic · selectolax · pytest (TDD) · GitHub Actions · cron + flock
+Python 3.12 · FastAPI · async SQLAlchemy 2 + asyncpg · Postgres 16 · Alembic · selectolax · React + TypeScript + Vite + Tailwind · Docker · Kubernetes + Helm · Cloudflare Tunnel · pytest + Vitest (TDD) · GitHub Actions
 
 ## Run it
 
@@ -107,6 +133,8 @@ backend/
   boards.txt     Greenhouse board slugs
   skills.txt     skill taxonomy + implications
   tests/
+frontend/        React app (login, resume, preferences, matches, password reset)
+deploy/jobbot/   Helm chart
 docs/design.md   decisions and incidents
 ```
 
@@ -114,5 +142,5 @@ docs/design.md   decisions and incidents
 
 - Skill discovery: learn new skills from list contexts in postings ("Python, Go, and Prism"), promoted only with evidence across multiple companies
 - More job sources beyond Greenhouse
-- Frontend
+- Industry matching: prefer, or only show, companies in chosen industries
 - Recruiter side: let recruiters search for developers, built on the same explainable scoring
