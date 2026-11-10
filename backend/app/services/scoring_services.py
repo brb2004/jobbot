@@ -41,6 +41,10 @@ TITLE_YEARS = [
     (re.compile(r"(?<!\w)(principal|distinguished)(?!\w)", re.IGNORECASE), 10),
     (re.compile(r"(?<!\w)staff(?!\w)", re.IGNORECASE), 8),
     (re.compile(r"(?<!\w)(senior|sr\.?|lead)(?!\w)", re.IGNORECASE), 5),
+    # Level numbers, only right after the role word: "Software Engineer II" yes, "Class of 2027" no.
+    (re.compile(r"(?<!\w)(?:engineer|developer|swe|sde)\s*[-,]?\s*(?:iv|4)(?!\w)", re.IGNORECASE), 6),
+    (re.compile(r"(?<!\w)(?:engineer|developer|swe|sde)\s*[-,]?\s*(?:iii|3)(?!\w)", re.IGNORECASE), 4),
+    (re.compile(r"(?<!\w)(?:engineer|developer|swe|sde)\s*[-,]?\s*(?:ii|2)(?!\w)", re.IGNORECASE), 2),
 ]
 
 
@@ -53,7 +57,9 @@ def years_note(detail: dict) -> str | None:
     y = detail.get("years_asked")
     if y is None:
         return None
-    return f"senior-level title (~{y}+ years)" if detail.get("years_source") == "title" else f"asks for {y}+ years"
+    if detail.get("years_source") == "title":
+        return f"{'senior' if y >= 5 else 'mid'}-level title (~{y}+ years)"
+    return f"asks for {y}+ years"
 
 
 EDUCATION = re.compile(r"\b(?:degree|universit|college|education|graduat|coursework|enrolled|student|school|"

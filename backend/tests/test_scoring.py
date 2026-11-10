@@ -112,7 +112,7 @@ def test_years_from_title_when_the_posting_gives_no_number():
     assert years_from_title("Sr. Engineer") == 5
     assert years_from_title("Staff Software Engineer") == 8
     assert years_from_title("Principal Engineer") == 10
-    assert years_from_title("Software Engineer II") is None
+    assert years_from_title("Software Engineer II") == 2          # level number: mid-level
 
 
 def test_years_note_wording():
