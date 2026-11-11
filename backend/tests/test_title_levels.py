@@ -21,3 +21,11 @@ def test_seniority_words_beat_level_numbers():
 def test_note_says_mid_or_senior():
     assert years_note({"years_asked": 2, "years_source": "title"}) == "mid-level title (~2+ years)"
     assert years_note({"years_asked": 5, "years_source": "title"}) == "senior-level title (~5+ years)"
+
+
+def test_architect_titles_are_senior():
+    from app.services.scoring_services import years_from_title
+    assert years_from_title("AI Architect") == 5
+    assert years_from_title("Solutions Architect (FedS062)") == 5
+    assert years_from_title("Principal Architect") == 10                 # the stronger word wins
+    assert years_from_title("Software Engineer, Architecture Tooling") is None

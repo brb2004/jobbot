@@ -41,6 +41,7 @@ TITLE_YEARS = [
     (re.compile(r"(?<!\w)(principal|distinguished)(?!\w)", re.IGNORECASE), 10),
     (re.compile(r"(?<!\w)staff(?!\w)", re.IGNORECASE), 8),
     (re.compile(r"(?<!\w)(senior|sr\.?|lead)(?!\w)", re.IGNORECASE), 5),
+    (re.compile(r"(?<!\w)architect(?!\w)", re.IGNORECASE), 5),           # "Solutions Architect", not "architecture"
     # Level numbers, only right after the role word: "Software Engineer II" yes, "Class of 2027" no.
     (re.compile(r"(?<!\w)(?:engineer|developer|swe|sde)\s*[-,]?\s*(?:iv|4)(?!\w)", re.IGNORECASE), 6),
     (re.compile(r"(?<!\w)(?:engineer|developer|swe|sde)\s*[-,]?\s*(?:iii|3)(?!\w)", re.IGNORECASE), 4),
