@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -46,6 +47,12 @@ async def account(session, verified=True):
 BUG = {"kind": "bug", "message": "The Apply button does nothing", "page": "/matches"}
 
 
+async def cron(session):
+    """What the feedback CronJob does: drain the queue with the current mailer."""
+    from app.services.feedback_services import drain
+    await drain(session, app.dependency_overrides[auth_routes.get_mailer]())
+
+
 async def rows(session, user):
     return (await session.execute(select(Feedback).where(Feedback.user_id == user.id)
                                   .order_by(Feedback.created_at))).scalars().all()
@@ -56,6 +63,8 @@ async def test_a_report_is_queued_then_acknowledged_by_email(client, session, ou
     r = await client.post("/feedback", json=BUG, headers=h)
     assert r.status_code == 202
     ref = r.json()["ref"]
+    assert outbox == []                                            # the request only queues it
+    await cron(session)
     assert len(outbox) == 1 and outbox[0]["To"] == user.email and ref in outbox[0]["Subject"]
     assert "Apply button" not in outbox[0].get_content()          # the report isn't echoed back
     [fb] = await rows(session, user)
@@ -70,12 +79,14 @@ async def test_a_failed_email_stays_queued_and_goes_out_on_the_next_drain(client
 
     use_mailer(down)
     assert (await client.post("/feedback", json=BUG, headers=h)).status_code == 202   # the report is still saved
+    await cron(session)
     [fb] = await rows(session, user)
     assert (fb.ack_status, fb.attempts) == ("queued", 1)
     async def capture(msg):
         outbox.append(msg)
     use_mailer(capture)
     await client.post("/feedback", json={**BUG, "kind": "idea"}, headers=h)
+    await cron(session)
     assert len(outbox) == 2                                        # the straggler went out too
     assert [f.ack_status for f in await rows(session, user)] == ["sent", "sent"]
 
@@ -97,3 +108,15 @@ async def test_only_confirmed_accounts_and_sane_input(client, session, outbox):
     for bad in ({**BUG, "kind": "spam"}, {**BUG, "message": "   "}, {**BUG, "message": "x" * 5001}):
         assert (await client.post("/feedback", json=bad, headers=h)).status_code == 422
     assert outbox == []
+
+
+async def test_the_request_never_touches_smtp(client, session):
+    """Even with SMTP hanging, sending feedback answers right away: the cron does the sending."""
+    _, h = await account(session)
+
+    async def hangs(msg):
+        await asyncio.sleep(60)
+
+    use_mailer(hangs)
+    r = await asyncio.wait_for(client.post("/feedback", json=BUG, headers=h), timeout=2)
+    assert r.status_code == 202

@@ -1,7 +1,8 @@
 """Bug reports and feedback, with a Postgres-backed queue for the acknowledgement emails.
 
 Transactional outbox: the report and its pending email commit together, so a report never exists without
-its email being queued. drain() then sends queued emails; FOR UPDATE SKIP LOCKED lets several drains run
+its email being queued. drain() then sends queued emails, from a CronJob every few minutes
+(python -m app.services.run_feedback), never inside the request; FOR UPDATE SKIP LOCKED lets several drains run
 at once without double-sending, and a failed send stays queued for the next drain (up to MAX_ATTEMPTS)."""
 import asyncio
 import logging

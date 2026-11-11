@@ -3,7 +3,6 @@ import math
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.api.deps_api import client_ip, get_current_user
-from app.api.routes.auth_routes import get_mailer
 from app.core.db_core import get_session
 from app.core.ratelimit_core import RateLimiter
 from app.schemas.feedback_schemas import FeedbackIn
@@ -17,7 +16,7 @@ FEEDBACK_IP = RateLimiter(max_hits=20, window_s=3600)    # per ip: stops one mac
 
 @router.post("", status_code=202)
 async def report(body: FeedbackIn, request: Request, s=Depends(get_session),
-                 user_id=Depends(get_current_user), send=Depends(get_mailer)):
+                 user_id=Depends(get_current_user)):
     keys = ((FEEDBACK_IP, client_ip(request)), (FEEDBACK_USER, str(user_id)))
     for limiter, key in keys:
         if wait := limiter.blocked(key):
@@ -27,5 +26,4 @@ async def report(body: FeedbackIn, request: Request, s=Depends(get_session),
         limiter.hit(key)
     ref = await feedback.submit(s, user_id, body.kind, body.message.strip(), body.page,
                                 (request.headers.get("user-agent") or "")[:300] or None)
-    await feedback.drain(s, send)                  # sends this one, plus any earlier ones that failed
-    return {"ref": ref, "detail": "Thanks. We emailed you a confirmation."}
+    return {"ref": ref, "detail": "Thanks. We'll email you a confirmation in a few minutes."}   # cron sends it
