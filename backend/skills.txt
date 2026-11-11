@@ -140,6 +140,71 @@ NoSQL
 Solr
 Hadoop
 Lua
+# from the skill-gap report over 25,635 engineering postings (2026-11-11), plus resume misses
+# platforms / languages
+Windows: microsoft windows, windows server
+macOS: mac os
+Unix
+=JSON
+=XML
+=SOAP
+MATLAB
+R Language: r programming, r language, rstudio
+# aws / gcp services (no "AWS ..." aliases: "AWS Lambda" must still tag AWS for the job)
+=S3
+=EC2
+=Lambda
+DynamoDB
+=RDS
+=ECS
+=EKS
+=VPC
+CloudFormation
+CloudWatch
+Redshift
+BigQuery
+# devops / platform
+Helm: helm charts
+Argo CD: argocd
+GitOps
+GitLab: gitlab ci, gitlab ci/cd
+Azure DevOps
+=IaC: infrastructure as code, infrastructure-as-code
+DevSecOps
+HashiCorp Vault
+Confluence
+Splunk
+=ELK: elk stack, elastic stack
+# testing / process
+Playwright
+Selenium
+=QA: quality assurance
+Agile: scrum
+=SDLC
+# data
+=ETL: =ELT, =ETL/ELT
+Flink: apache flink
+# security / compliance
+=OWASP
+SOC 2: soc2, =SOC 2 Type II
+=NIST
+=RBAC: role-based access control
+=CISSP
+FedRAMP
+Cisco: cisco ios
+=DHCP
+# ai
+=NLP: natural language processing
+LangChain
+LangGraph
+# systems (resume misses)
+SQLAlchemy
+=JWT: json web token, json web tokens
+Assembly: x86 assembly, x86-64 assembly, assembly language, x86-64
+=GDB
+=QEMU
+Compilers: compiler design, compiler construction
+
 # implications: left > right means "having left implies having right" (expands YOUR skills only)
 RAG > LLMs & Generative AI
 PyTorch > Machine Learning
@@ -164,3 +229,28 @@ Active Directory > IAM
 TCP/IP > Networking
 BGP > Networking
 DNS > Networking
+S3 > AWS
+EC2 > AWS
+Lambda > AWS
+DynamoDB > AWS
+RDS > AWS
+ECS > AWS
+EKS > AWS, Kubernetes
+VPC > AWS
+CloudFormation > AWS, IaC
+CloudWatch > AWS
+Redshift > AWS
+BigQuery > GCP
+Terraform > IaC
+Pulumi > IaC
+Helm > Kubernetes
+Argo CD > Kubernetes, GitOps
+GitLab > Git
+Azure DevOps > Azure, CI/CD
+LangChain > LLMs & Generative AI
+LangGraph > LLMs & Generative AI
+SQLAlchemy > Python, SQL
+Playwright > QA
+Selenium > QA
+DHCP > Networking
+Cisco > Networking
