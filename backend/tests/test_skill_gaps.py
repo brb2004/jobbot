@@ -26,3 +26,8 @@ def test_ranked_by_companies_not_by_one_company_repeating_itself():
     ranked = rank(rows, T, min_companies=3)
     assert [r[0] for r in ranked] == ["Snowflake"]                # AcmeOS: 50 postings, but 1 company
     assert ranked[0][1:3] == (3, 3)
+
+
+def test_slash_joined_plain_words_are_not_terms():
+    got = candidates("Experience with SQLAlchemy and/or Kafka; CI/CD a plus", T)
+    assert "and/or" not in got and {"SQLAlchemy", "Kafka", "CI/CD"} <= got

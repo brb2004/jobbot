@@ -35,6 +35,8 @@ STOP = {w.lower() for w in """
 def _techy(tok: str, first: bool) -> bool:
     if tok.lower() in STOP or len(tok) < 2 and tok not in {"R"}:
         return False
+    if "/" in tok and all(part.lower() in STOP for part in tok.split("/") if part):
+        return False                                       # "and/or", "his/her"
     return (any(c.isupper() for c in tok[1:])            # SQLAlchemy, gRPC, iOS, JWT
             or any(c.isdigit() or c in ".#+/" for c in tok)   # Node.js, C#, x86, S3
             or (tok[0].isupper() and not first))           # Kafka mid-sentence (not "Strong ..." at the start)
@@ -94,18 +96,21 @@ def rank(rows, tagger, min_companies: int = 3):
 async def main(top_n: int, min_companies: int) -> None:
     from app.core.db_core import SessionLocal, engine
     from app.db.models_db import Job
+    from app.services.preferences_services import Preferences, allowed
     from app.services.skills_services import default_tagger
 
+    everyone = Preferences()                                # the matcher's default title rules: engineering roles
     tally = Tally(default_tagger())
     async with SessionLocal() as s:
-        stream = await s.stream(select(Job.board, Job.requirements)
+        stream = await s.stream(select(Job.board, Job.title, Job.location, Job.requirements)
                                 .where(Job.closed_at.is_(None), Job.requirements.is_not(None))
                                 .execution_options(yield_per=2000))            # streamed: flat memory
-        async for board, reqs in stream:
-            tally.add(board, reqs)
+        async for board, title, location, reqs in stream:
+            if allowed(Job(title=title, location=location), everyone):   # only jobs the matcher would show
+                tally.add(board, reqs)
     await engine.dispose()
     ranked = tally.ranked(min_companies)
-    print(f"{tally.postings_seen} open postings with requirements; {len(ranked)} unknown terms asked by "
+    print(f"{tally.postings_seen} open ENGINEERING postings with requirements; {len(ranked)} unknown terms asked by "
           f">= {min_companies} companies. Top {top_n}:\n")
     print(f"{'term':<28}{'companies':>10}{'postings':>10}  example")
     for term, n_co, n_post, ex in ranked[:top_n]:
