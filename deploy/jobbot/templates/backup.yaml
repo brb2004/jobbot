@@ -5,6 +5,8 @@ spec:
   accessModes: [ReadWriteOnce]
   resources: {requests: {storage: {{ .Values.backups.storage }}}}
 ---
+# Nightly: dump -> prove it reads back -> keep a few days here -> encrypt to a PUBLIC key -> upload to R2.
+# The private key is never in the cluster, so someone who takes over this machine can't read old backups.
 apiVersion: batch/v1
 kind: CronJob
 metadata: {name: backup}
@@ -22,18 +24,63 @@ spec:
         spec:
           restartPolicy: Never
           securityContext: {fsGroup: 999}
-          containers:
-            - name: pg-dump
+          initContainers:
+            - name: dump
               image: {{ .Values.postgres.image }}
               env:
                 - name: PGPASSWORD
                   valueFrom: {secretKeyRef: {name: {{ .Values.existingSecret }}, key: POSTGRES_PASSWORD}}
+              securityContext:                              # the image's postgres user, not root
+                runAsUser: 999
+                runAsGroup: 999
+                {{- include "jobbot.hardened" . | nindent 16 }}
+              command:
+                - bash
+                - -c
+                - |
+                  set -euo pipefail                                   # a failed dump fails the job (no more empty files)
+                  f=/backups/jobbot-$(date -u +%Y-%m-%dT%H%MZ).dump
+                  pg_dump -h db -U jobbot -Fc -f "$f.part" jobbot     # custom format: compressed, restorable per table
+                  pg_restore -l "$f.part" > /dev/null                 # the archive reads back, or we stop here
+                  mv "$f.part" "$f"
+                  echo "$f" > /work/latest
+                  find /backups -name 'jobbot-*' -mtime +{{ .Values.backups.keepDays }} -delete 2>/dev/null || true
+                  ls -lh /backups
+              volumeMounts: [{name: backups, mountPath: /backups}, {name: work, mountPath: /work}]
+          containers:
+            {{- if .Values.backups.offsite.enabled }}
+            - name: offsite
+              image: "{{ .Values.backups.offsite.image }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              env:
+                - {name: AGE_RECIPIENT, value: {{ .Values.backups.offsite.recipient | quote }}}
+                - {name: HOME, value: /work}
+                - {name: RCLONE_CONFIG_R2_TYPE, value: s3}
+                - {name: RCLONE_CONFIG_R2_PROVIDER, value: Cloudflare}
+                - {name: RCLONE_CONFIG_R2_ENDPOINT, value: {{ .Values.backups.offsite.endpoint | quote }}}
+                - {name: RCLONE_CONFIG_R2_NO_CHECK_BUCKET, value: "true"}      # token can't create buckets, and doesn't need to
+                - name: RCLONE_CONFIG_R2_ACCESS_KEY_ID
+                  valueFrom: {secretKeyRef: {name: {{ .Values.backups.offsite.secret }}, key: R2_ACCESS_KEY_ID}}
+                - name: RCLONE_CONFIG_R2_SECRET_ACCESS_KEY
+                  valueFrom: {secretKeyRef: {name: {{ .Values.backups.offsite.secret }}, key: R2_SECRET_ACCESS_KEY}}
+              securityContext: {{- include "jobbot.hardened" . | nindent 16 }}
               command:
                 - sh
                 - -c
-                - >-
-                  pg_dump -h db -U jobbot jobbot | gzip > /backups/jobbot-$(date +%F).sql.gz &&
-                  find /backups -name '*.sql.gz' -mtime +{{ .Values.backups.keepDays }} -delete &&
-                  ls -lh /backups
-              volumeMounts: [{name: backups, mountPath: /backups}]
-          volumes: [{name: backups, persistentVolumeClaim: {claimName: backups}}]
+                - |
+                  set -euo pipefail
+                  f=$(cat /work/latest)
+                  dest="r2:{{ .Values.backups.offsite.bucket }}/daily"
+                  age -r "$AGE_RECIPIENT" -o /work/upload.age "$f"
+                  rclone copyto /work/upload.age "$dest/$(basename "$f").age"
+                  rclone delete "$dest" --min-age {{ .Values.backups.offsite.keepDays }}d
+                  rclone lsl "$dest"
+              volumeMounts: [{name: backups, mountPath: /backups, readOnly: true}, {name: work, mountPath: /work}]
+            {{- else }}
+            - name: done
+              image: {{ .Values.postgres.image }}
+              command: ["true"]
+            {{- end }}
+          volumes:
+            - {name: backups, persistentVolumeClaim: {claimName: backups}}
+            - {name: work, emptyDir: {}}

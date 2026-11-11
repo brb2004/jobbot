@@ -19,7 +19,15 @@ postgres:
 
 backups:
   storage: 2Gi
-  keepDays: 7
+  keepDays: 3                       # copies on this machine (R2 holds the long history)
+  offsite:
+    enabled: true
+    image: jobbot-backup:alpine3.20-1           # deploy/backup/Dockerfile (age + rclone)
+    bucket: jobmatch-backup
+    endpoint: https://ac44114a45c232f22f274ce7755fcfe8.r2.cloudflarestorage.com
+    recipient: age1rpu6jwllxhr6na408cpwc7493atxlrltrr7ayqw5zyf2m2zhgp8qa4vyem   # public key: can lock, can't unlock
+    secret: jobbot-backup-r2                    # R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY (made with kubectl, never in git)
+    keepDays: 14
 
 timeZone: America/Chicago
 cronjobs:
