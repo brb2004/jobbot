@@ -6,6 +6,7 @@ import httpx
 
 from app.core.db_core import SessionLocal, engine
 from app.ingest.greenhouse_ingest import crawl, fill_descriptions, retire_dropped
+from app.services.retention_services import prune
 
 BOARDS_FILE = Path(__file__).resolve().parents[2] / "boards.txt"   # backend/boards.txt
 HEADERS = {"User-Agent": "jobbot3-crawler (github.com/brb2004)"}
@@ -26,8 +27,9 @@ async def main(slugs: list[str], full: bool) -> None:
         if full:                                                # only a full crawl may retire other boards
             print(f"jobs closed from boards no longer listed: {await retire_dropped(s, slugs)}")
         filled = await fill_descriptions(client, s)
+        pruned = await prune(s)
     await engine.dispose()
-    print(summary, f"descriptions filled: {filled}")
+    print(summary, f"descriptions filled: {filled}", pruned)
 
 
 if __name__ == "__main__":

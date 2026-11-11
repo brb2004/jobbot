@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import httpx
 from pydantic import BaseModel, field_validator
-from sqlalchemy import func, literal_column, select, update
+from sqlalchemy import case, func, literal_column, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -129,13 +129,19 @@ async def save_board(s: AsyncSession, board: str, jobs: list[BoardJob]) -> int:
         return 0
     stmt = insert(Job).values([
         {"board": board, "external_id": j.id, "title": j.title.strip(),
-         "url": j.absolute_url, "location": j.location}
+         "url": j.absolute_url, "location": j.location, "source_updated_at": j.updated_at}
         for j in jobs
     ])
+    # The company edited the posting since we fetched it: drop the description so fill_descriptions
+    # fetches it again. Skills and requirements stay until the new text replaces them, so the job keeps
+    # matching meanwhile. NULL before (rows from before this column existed) is not a change.
+    edited = Job.source_updated_at.is_not(None) & Job.source_updated_at.is_distinct_from(stmt.excluded.source_updated_at)
     stmt = stmt.on_conflict_do_update(
         constraint="uq_jobs_board_external",
         set_={"title": stmt.excluded.title, "url": stmt.excluded.url,
               "location": stmt.excluded.location,
+              "description": case((edited, None), else_=Job.description),
+              "source_updated_at": stmt.excluded.source_updated_at,
               "closed_at": None},                               # listed again -> open again
     ).returning(literal_column("xmax = 0"))
     inserted = (await s.execute(stmt)).scalars().all()
@@ -244,6 +250,7 @@ async def fill_descriptions(client: httpx.AsyncClient, s: AsyncSession,
             job.description = d.description
             job.content_html = d.content_html
             job.salary_min, job.salary_max, job.salary_currency = d.salary_min, d.salary_max, d.salary_currency
+            job.requirements, job.skills_version = None, None    # re-extracted and re-tagged from the new text
             filled += 1
         await s.commit()
     return filled

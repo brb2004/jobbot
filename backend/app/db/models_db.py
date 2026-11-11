@@ -37,6 +37,7 @@ class Job(Base):
     requirements: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
     skills: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # gone from its board
+    source_updated_at: Mapped[str | None] = mapped_column(String(40))  # Greenhouse's updated_at, as sent
     skills_version: Mapped[str | None] = mapped_column(String(12))   # skills.txt hash used to tag
 
     __table_args__ = (
