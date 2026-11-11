@@ -31,18 +31,23 @@ def link_token(msg) -> str:
 
 async def register(client, email="verify@example.com"):
     r = await client.post("/auth/register", json={"email": email, "password": "correct-horse-1"})
-    assert r.status_code == 201
+    assert r.status_code == 202
+    assert (await client.post("/auth/login", json={"email": email, "password": "correct-horse-1"})).status_code == 200   # cookie
     return email
 
 
-async def test_signup_emails_a_link_that_confirms_the_address(client, outbox):
-    email = await register(client)
+async def test_signup_emails_a_link_that_confirms_the_address_and_logs_in(client, outbox):
+    email = "verify@example.com"
+    await client.post("/auth/register", json={"email": email, "password": "correct-horse-1"})
     assert len(outbox) == 1 and outbox[0]["To"] == email
-    assert (await client.get("/auth/me")).json()["email_verified_at"] is None
-    assert (await client.post("/auth/verify", json={"token": link_token(outbox[0])})).status_code == 204
+    assert (await client.get("/auth/me")).status_code == 401            # sign-up alone starts no session
+    r = await client.post("/auth/verify", json={"token": link_token(outbox[0])})
+    assert r.status_code == 204 and "jobbot_session=" in r.headers["set-cookie"]
     assert (await client.get("/auth/me")).json()["email_verified_at"] is not None
+    client.cookies.clear()
     again = await client.post("/auth/verify", json={"token": link_token(outbox[0])})
-    assert again.status_code == 204                      # clicking twice is harmless
+    assert again.status_code == 204                      # clicking twice is harmless...
+    assert "set-cookie" not in again.headers             # ...but an old link is no way to log in
 
 
 async def test_a_reset_token_cannot_confirm_an_email(client, session):

@@ -67,6 +67,21 @@ def verify_email(from_addr: str, to: str, link: str) -> EmailMessage:
     return msg
 
 
+def account_exists_email(from_addr: str, to: str, app_url: str) -> EmailMessage:
+    """Sent instead of an error when someone signs up with a registered address: the sign-up page
+    answers the same either way, so it can't be used to check who has an account."""
+    msg = EmailMessage()
+    msg["From"] = from_addr
+    msg["To"] = to
+    msg["Subject"] = "You already have a JobMatch account"
+    msg.set_content(
+        "Someone tried to sign up for JobMatch with this address, but it already has an account.\n\n"
+        f"Log in here:\n{app_url}\n\n"
+        "Forgot your password? Use \"Forgot password\" on that page to get a reset link.\n"
+        "If this wasn't you, ignore this email. Nothing about your account has changed.\n")
+    return msg
+
+
 def feedback_email(from_addr: str, to: str, ref: str, kind: str) -> EmailMessage:
     """Doesn't quote the report back: the form can't be used to send arbitrary text from our address."""
     what = {"bug": "bug report", "idea": "feature idea"}.get(kind, "feedback")

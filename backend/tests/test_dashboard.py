@@ -1,12 +1,13 @@
+from tests.conftest import user_row
 from uuid import uuid4
 from app.core.security_core import create_access_token
 from app.db.models_db import Job, Resume, MatchScore
 
 
 async def test_dashboard_shows_only_my_matches_best_first(client, session):
-    me, someone_else = await _user(session), uuid4()
+    me = await _user(session)
     backend, data, frontend = Job(title="Backend"), Job(title="Data"), Job(title="Frontend")
-    my_resume, their_resume = Resume(user_id=me), Resume(user_id=someone_else)
+    my_resume, their_resume = Resume(user_id=me), Resume(user=user_row())
     session.add_all([backend, data, frontend, my_resume, their_resume])
     await session.flush()
 

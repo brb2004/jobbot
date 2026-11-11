@@ -24,6 +24,10 @@ class RateLimiter:
         q = self._recent(key)
         return q[0] + self.window_s - self.clock() if len(q) >= self.max_hits else 0
 
+    def count(self, key: str) -> int:
+        """Hits inside the window."""
+        return len(self._recent(key))
+
     def hit(self, key: str) -> None:
         q = self._recent(key)
         q.append(self.clock())

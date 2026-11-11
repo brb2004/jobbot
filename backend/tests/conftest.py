@@ -1,6 +1,7 @@
 # 1. env vars FIRST, before anything from app/ is imported
 import os
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-that-is-at-least-32-bytes")
+os.environ.setdefault("COOKIE_SECURE", "false")       # the test client talks plain http
 os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+asyncpg://jobbot:jobbot123@localhost:55432/jobbot_test")
 if not os.environ["DATABASE_URL"].rsplit("/", 1)[-1].endswith("_test"):
@@ -69,7 +70,7 @@ def _reset_rate_limits():
     from app.api.routes import auth_routes
     for limiter in (auth_routes.LOGIN_FAILS, auth_routes.LOGIN_IP, auth_routes.REGISTER_IP,
                     auth_routes.FORGOT_IP, auth_routes.FORGOT_EMAIL,
-                    auth_routes.VERIFY_RESEND):
+                    auth_routes.VERIFY_RESEND, auth_routes.LOGIN_EMAIL, auth_routes.SIGNUP_EMAIL):
         limiter.reset()
     yield
 
@@ -101,3 +102,21 @@ def _no_retry_sleep(monkeypatch):
     """Crawler retries back off for real in production; tests don't wait."""
     from app.ingest import greenhouse_ingest
     monkeypatch.setattr(greenhouse_ingest, "BACKOFF", 0)
+
+
+def user_row(**kw):
+    """An unsaved verified User with a random id/email. resumes.user_id is a real FK now: give each
+    test resume an owner, e.g. Resume(user=user_row()); the ORM inserts the user first."""
+    from datetime import datetime, timezone
+    from app.db.models_db import User
+    return User(**{"id": uuid4(), "email": f"{uuid4().hex[:12]}@fixture.test", "hashed_password": "x",
+                   "email_verified_at": datetime.now(timezone.utc), **kw})
+
+
+async def signup(client, email: str, password: str = "correct-horse-battery") -> str:
+    """Register (which only emails a link now) then log in; returns a bearer token."""
+    r = await client.post("/auth/register", json={"email": email, "password": password})
+    assert r.status_code == 202, r.text
+    r = await client.post("/auth/login?token=1", json={"email": email, "password": password})
+    assert r.status_code == 200, r.text
+    return r.json()["access_token"]

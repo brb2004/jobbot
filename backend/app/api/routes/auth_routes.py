@@ -3,24 +3,36 @@ import math
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
-from app.api.deps_api import client_ip, get_current_user
+from app.api.deps_api import client_ip, get_current_user, set_session_cookie
 from app.core.db_core import get_session
 from app.core.config_core import get_settings
 from app.core.ratelimit_core import RateLimiter
-from app.core.security_core import create_access_token, make_verify_token
+from app.core.security_core import make_verify_token
 from app.schemas.auth_schemas import ForgotIn, LoginIn, RegisterIn, ResetIn, TokenOut, UserOut, VerifyIn
 from app.services import auth_services as auth_service
-from app.services.email_services import reset_email, smtp_transport, verify_email
+from app.services.email_services import account_exists_email, reset_email, smtp_transport, verify_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 LOGIN_FAILS = RateLimiter(max_hits=5, window_s=900)    # per (ip, email): stops guessing one account
 LOGIN_IP = RateLimiter(max_hits=30, window_s=900)      # per ip: tarpit only, never a hard block (shared NAT)
+LOGIN_EMAIL = RateLimiter(max_hits=10**9, window_s=900) # per account, any ip: counts failures for the slowdown
 REGISTER_IP = RateLimiter(max_hits=5, window_s=3600)   # per ip: new accounts per hour
 FORGOT_IP = RateLimiter(max_hits=10, window_s=3600)    # per ip: reset requests per hour
 VERIFY_RESEND = RateLimiter(max_hits=3, window_s=3600) # per user: confirmation re-sends
 FORGOT_EMAIL = RateLimiter(max_hits=3, window_s=3600)  # per address: nobody can mail-bomb an inbox
+SIGNUP_EMAIL = RateLimiter(max_hits=3, window_s=3600)  # per address: "you already have an account" mails
 TARPIT_S = 2.0                                         # delay for a noisy ip; asyncio.sleep doesn't block others
+EMAIL_FREE_FAILS = 5                                   # per-account failures before the slowdown starts
+EMAIL_DELAY_S, EMAIL_DELAY_MAX_S = 1.0, 16.0           # then 1, 2, 4, 8, 16, 16... seconds per attempt
+
+
+def account_delay(fails: int) -> float:
+    """Guessing one account from many ips gets slower and slower, but the right password always
+    works: a lockout would let anyone lock anyone else out."""
+    if fails < EMAIL_FREE_FAILS:
+        return 0.0
+    return min(EMAIL_DELAY_MAX_S, EMAIL_DELAY_S * 2 ** (fails - EMAIL_FREE_FAILS))
 
 
 def get_mailer():
@@ -36,46 +48,60 @@ def _queue_verify(tasks: BackgroundTasks, send, user) -> None:
 
 
 def _start_session(response: Response, user_id, include_token: bool = False) -> TokenOut:
-    """httpOnly: page JS can't read it. SameSite=Lax: not sent on cross-site POST/PUT (CSRF)."""
-    s = get_settings()
-    token = create_access_token(str(user_id))
-    response.set_cookie(s.COOKIE_NAME, token, max_age=s.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-                        httponly=True, secure=s.COOKIE_SECURE, samesite="lax", path="/")
+    token = set_session_cookie(response, user_id)
     return TokenOut(access_token=token if include_token else None)   # body token only when a script asks
 
 
-@router.post("/register", response_model=TokenOut, status_code=201)
-async def register(body: RegisterIn, request: Request, response: Response, tasks: BackgroundTasks,
-                   token: bool = False, s=Depends(get_session), send=Depends(get_mailer)):
+REGISTER_REPLY = {"detail": "Check your email to finish signing up."}
+
+
+@router.post("/register", status_code=202)
+async def register(body: RegisterIn, request: Request, tasks: BackgroundTasks,
+                   s=Depends(get_session), send=Depends(get_mailer)):
+    """Same answer, same speed, same rate limit whether or not the address has an account (no 409):
+    a new address gets a confirmation link, a registered one gets "you already have an account".
+    No session here; the confirmation link logs you in (or log in with your password)."""
     ip = client_ip(request)
     if wait := REGISTER_IP.blocked(ip):
         raise HTTPException(429, "Too many sign-ups from this network. Try again later.",
                             headers={"Retry-After": str(math.ceil(wait))})
+    REGISTER_IP.hit(ip)                                          # every attempt counts: existing or not
+    email = body.email.lower()
     try:
-        user = await auth_service.register(s, body.email, body.password)
+        user = await auth_service.register(s, email, body.password)   # hashes first: both paths pay bcrypt
     except auth_service.EmailTaken:
-        raise HTTPException(409, "Email already registered")
-    REGISTER_IP.hit(ip)                                          # count accounts created per ip
+        user = await auth_service.by_email(s, email)
+        if user is not None and not SIGNUP_EMAIL.blocked(email):
+            SIGNUP_EMAIL.hit(email)
+            if user.email_verified_at is None:
+                _queue_verify(tasks, send, user)                 # never confirmed: a fresh link is what they need
+            else:
+                tasks.add_task(send, account_exists_email(get_settings().EMAIL_FROM, user.email, get_settings().APP_URL))
+        return REGISTER_REPLY
     _queue_verify(tasks, send, user)                             # digests wait until this is clicked
-    return _start_session(response, user.id, token)
+    return REGISTER_REPLY
 
 
 @router.post("/login", response_model=TokenOut)
 async def login(body: LoginIn, request: Request, response: Response, token: bool = False,
                 s=Depends(get_session)):
     ip = client_ip(request)   # behind a reverse proxy: run uvicorn --proxy-headers
-    keys = [(LOGIN_FAILS, f"{ip}|{body.email.lower()}"), (LOGIN_IP, ip)]
+    email = body.email.lower()
+    keys = [(LOGIN_FAILS, f"{ip}|{email}"), (LOGIN_IP, ip), (LOGIN_EMAIL, email)]
     wait = LOGIN_FAILS.blocked(keys[0][1])                       # hard block: this ip guessing this account
     if LOGIN_IP.blocked(ip):
         await asyncio.sleep(TARPIT_S)                            # noisy ip: slow down, never lock out a right password
     if wait:
         raise HTTPException(429, "Too many attempts. Try again later.", headers={"Retry-After": str(math.ceil(wait))})
+    if delay := account_delay(LOGIN_EMAIL.count(email)):
+        await asyncio.sleep(delay)                               # this account is being guessed from many ips
     user = await auth_service.authenticate(s, body.email, body.password)
     if user is None:
         for limiter, k in keys:
             limiter.hit(k)                                       # count failures only
         raise HTTPException(401, "Invalid email or password")    # one message for both cases
     LOGIN_FAILS.reset(keys[0][1])                                # success clears this ip+email
+    LOGIN_EMAIL.reset(email)                                     # and the account's slowdown
     return _start_session(response, user.id, token)
 
 
@@ -127,9 +153,15 @@ async def reset(body: ResetIn, s=Depends(get_session)):
 
 
 @router.post("/verify", status_code=204)
-async def verify(body: VerifyIn, s=Depends(get_session)):
-    if not await auth_service.confirm_email(s, body.token):
+async def verify(body: VerifyIn, response: Response, s=Depends(get_session)):
+    """The click that confirms the address also logs that browser in, so sign-up -> link -> matches
+    needs no second password entry. Clicking an old link again only confirms; it never logs in."""
+    confirmed = await auth_service.confirm_email(s, body.token)
+    if confirmed is None:
         raise HTTPException(400, "This confirmation link is invalid or has expired. Log in and send a new one.")
+    user, first_time = confirmed
+    if first_time:
+        set_session_cookie(response, user.id)
 
 
 @router.post("/verify/resend", status_code=202)

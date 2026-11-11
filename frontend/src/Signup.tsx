@@ -1,11 +1,21 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError, type Api } from './api'
 
-export function Signup({ api, onDone, onLogin }: { api: Api; onDone: () => void; onLogin: () => void }) {
+export function Signup({ api, onConfirmed, onLogin }:
+  { api: Api; onConfirmed: () => void; onLogin: () => void }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [sent, setSent] = useState(false)
+
+  // The link opened in this browser logs it in: carry on here too.
+  useEffect(() => {
+    if (!sent || typeof BroadcastChannel === 'undefined') return
+    const channel = new BroadcastChannel('jobbot')
+    channel.onmessage = (e) => { if (e.data === 'email-confirmed') onConfirmed() }
+    return () => channel.close()
+  }, [sent, onConfirmed])
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -13,13 +23,28 @@ export function Signup({ api, onDone, onLogin }: { api: Api; onDone: () => void;
     setError(null)
     try {
       await api.register(email, password)
-      onDone()
+      setSent(true)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not reach the server')
     } finally {
       setBusy(false)
     }
   }
+
+  if (sent)
+    return (
+      <main className="grid min-h-screen place-items-center bg-slate-50 px-4">
+        <div className="w-full max-w-sm space-y-4 rounded-xl bg-white p-6 shadow">
+          <h1 className="text-2xl font-semibold">Check your email</h1>
+          <p className="text-sm text-slate-600">
+            We sent a message to <span className="font-medium text-slate-900">{email}</span>.
+            Click the link in it to confirm your address and log in. It works for 7 days. If it's not there, check spam.
+          </p>
+          <p className="text-sm text-slate-500">Already have an account with this address? The email says so instead.</p>
+          <button type="button" onClick={onLogin} className="w-full text-sm text-slate-600 underline">Back to log in</button>
+        </div>
+      </main>
+    )
 
   const input = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-slate-900 focus:outline-none'
   return (

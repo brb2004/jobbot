@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models_db import Resume
+from app.db.models_db import Resume, User
 # parsing lives in documents_services (child process, time and page limits); re-exported for callers
 from app.services.documents_services import (TooLarge, Unreadable, UnsupportedType,  # noqa: F401
                                              extract_text, extract_text_safely, sniff)
@@ -39,7 +39,9 @@ async def create(s: AsyncSession, user_id: UUID, filename: str, data: bytes,
         if not default_tagger().tag(text):
             raise Unreadable("Couldn't find any skills in this file. Check it's your resume, "
                              "or add skills on the Preferences page.")
-    # one resume per user: replace, don't pile up. ON DELETE CASCADE drops its old match scores.
+    # one resume per user (UNIQUE): replace, don't pile up. ON DELETE CASCADE drops its old match scores.
+    # Lock the user row first so two uploads at once take turns instead of one hitting the constraint.
+    await s.execute(select(User.id).where(User.id == user_id).with_for_update())
     await s.execute(delete(Resume).where(Resume.user_id == user_id))
     from app.services.experience_services import years_from_resume; from app.services.skills_services import default_tagger
     resume = Resume(user_id=user_id, filename=filename, raw_text=text, years_detected=years_from_resume(text, has_skills=lambda t: bool(default_tagger().pattern.search(t))))

@@ -33,7 +33,8 @@ def link_token(msg) -> str:
 
 async def register(client, email="reset@example.com"):
     r = await client.post("/auth/register", json={"email": email, "password": OLD})
-    assert r.status_code == 201
+    assert r.status_code == 202
+    assert (await client.post("/auth/login", json={"email": email, "password": OLD})).status_code == 200   # cookie
     return email
 
 

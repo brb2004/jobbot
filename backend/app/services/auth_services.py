@@ -37,6 +37,10 @@ async def authenticate(s: AsyncSession, email: str, password: str) -> User | Non
     return user if ok else None
 
 
+async def by_email(s: AsyncSession, email: str) -> User | None:
+    return (await s.execute(select(User).where(User.email == email.lower()))).scalar_one_or_none()
+
+
 async def get(s: AsyncSession, user_id: UUID) -> User | None:
     return await s.get(User, user_id)
 
@@ -76,11 +80,13 @@ async def _claimed_user(s: AsyncSession, token: str) -> User | None:
         return None
 
 
-async def confirm_email(s: AsyncSession, token: str) -> bool:
+async def confirm_email(s: AsyncSession, token: str) -> tuple[User, bool] | None:
+    """(user, True) on the click that confirms, (user, False) on later clicks, None if the link is bad."""
     user = await _claimed_user(s, token)
     if user is None or not verify_token_valid(token, user.email):
-        return False
-    if user.email_verified_at is None:                # clicking the link twice is fine
-        user.email_verified_at = datetime.now(timezone.utc)
-        await s.commit()
-    return True
+        return None
+    if user.email_verified_at is not None:            # clicking the link twice is fine
+        return user, False
+    user.email_verified_at = datetime.now(timezone.utc)
+    await s.commit()
+    return user, True

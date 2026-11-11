@@ -44,7 +44,7 @@ from app.services import resumes_services as _resumes
 
 
 async def test_uploading_again_replaces_the_previous_resume_and_its_scores(session):
-    me, other = _uuid.uuid4(), _uuid.uuid4()
+    me, other = await _user(session), await _user(session)
     first = await _resumes.create(session, me, "a.txt", b"Python")
     theirs = await _resumes.create(session, other, "t.txt", b"Rust")
     job = _Job(title="E")
@@ -62,7 +62,7 @@ async def test_uploading_again_replaces_the_previous_resume_and_its_scores(sessi
 
 
 async def test_upload_matches_the_user_immediately(session):
-    me = _uuid.uuid4()
+    me = await _user(session)
     session.add(_Job(title="Backend Engineer", skills=["Python"]))
     await session.flush()
     resume = await _resumes.upload(session, me, "cv.txt", b"Python developer")

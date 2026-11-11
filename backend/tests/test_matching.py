@@ -1,3 +1,4 @@
+from tests.conftest import user_row
 import uuid
 
 from sqlalchemy import select
@@ -17,7 +18,7 @@ async def test_tag_jobs_fills_skills_once(session):
 
 
 async def test_tag_resumes_uses_the_taxonomy(session):
-    r = Resume(user_id=uuid.uuid4(), raw_text="Python, Docker and k8s")
+    r = Resume(user=user_row(), raw_text="Python, Docker and k8s")
     session.add(r)
     await tag_resumes(session)
     assert r.skills == ["Docker", "Kubernetes", "Python"]
@@ -46,7 +47,7 @@ async def test_match_all_respects_preferences_and_replaces_old_scores(session):
 
 async def test_match_all_credits_implied_skills(session):
     job = Job(title="AI Engineer", skills=["LLMs & Generative AI"])
-    resume = Resume(user_id=uuid.uuid4(), skills=["RAG"])           # skills.txt: LLM > ... > AI
+    resume = Resume(user=user_row(), skills=["RAG"])           # skills.txt: LLM > ... > AI
     session.add_all([job, resume])
     await session.flush()
     await match_all(session)
@@ -96,7 +97,7 @@ async def test_jobs_are_retagged_when_the_taxonomy_changes(session):
 
 
 async def test_resumes_are_retagged_when_the_taxonomy_changes(session):
-    r = Resume(user_id=uuid.uuid4(), raw_text="Go and Rust")
+    r = Resume(user=user_row(), raw_text="Go and Rust")
     session.add(r)
     await tag_resumes(session, Tagger.from_text("Go"))
     await tag_resumes(session, Tagger.from_text("Go\nRust"))
@@ -105,8 +106,8 @@ async def test_resumes_are_retagged_when_the_taxonomy_changes(session):
 
 async def test_match_all_for_one_user_leaves_everyone_else_alone(session):
     job = Job(title="Engineer", skills=["Python"])
-    mine = Resume(user_id=uuid.uuid4(), skills=["Python"])
-    theirs = Resume(user_id=uuid.uuid4(), skills=["Python"])
+    mine = Resume(user=user_row(), skills=["Python"])
+    theirs = Resume(user=user_row(), skills=["Python"])
     session.add_all([job, mine, theirs])
     await session.flush()
     session.add(MatchScore(resume_id=theirs.id, job_id=job.id, score=0.99, detail={}))   # someone else's old row
@@ -121,7 +122,7 @@ async def test_match_all_for_one_user_leaves_everyone_else_alone(session):
 async def test_same_role_posted_per_location_shows_once(session):
     a = Job(title="Backend Engineer", board="stripe", external_id=1, skills=["Python"], location="NYC")
     b = Job(title="Backend Engineer ", board="stripe", external_id=2, skills=["Python"], location="SF")
-    resume = Resume(user_id=uuid.uuid4(), skills=["Python"])
+    resume = Resume(user=user_row(), skills=["Python"])
     session.add_all([a, b, resume])
     await session.flush()
     await match_all(session)

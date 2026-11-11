@@ -107,7 +107,10 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
   }
 
   return {
-    register: (email: string, password: string) => authenticate('/auth/register', email, password),
+    // No session yet: the emailed link logs you in. Same answer whether or not the address is taken.
+    register: async (email: string, password: string) => {
+      await call('/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) })
+    },
     login: (email: string, password: string) => authenticate('/auth/login', email, password),
     logout: async () => {
       loggedIn = false

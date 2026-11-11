@@ -1,3 +1,4 @@
+from tests.conftest import user_row
 from uuid import uuid4
 from app.schemas.matches_schemas import MatchOut
 from app.db.models_db import Job, Resume, MatchScore
@@ -25,9 +26,9 @@ def test_digest_with_no_matches_says_so():
 
 
 async def test_digest_only_includes_recent_scores(session):
-    me = uuid4()
+    owner = user_row(); me = owner.id
     old_job, new_job = Job(title="Old"), Job(title="New")
-    resume = Resume(user_id=me)
+    resume = Resume(user=owner)
     session.add_all([old_job, new_job, resume])
     await session.flush()
 
@@ -50,9 +51,9 @@ class FakeSender:
 
 
 async def test_sends_one_email_per_user_with_new_matches(session):
-    alice, bob, carol = uuid4(), uuid4(), uuid4()
+    alice, bob, carol = user_row(), user_row(), user_row()
     job = Job(title="Backend")
-    r_alice, r_bob, r_carol = Resume(user_id=alice), Resume(user_id=bob), Resume(user_id=carol)
+    r_alice, r_bob, r_carol = Resume(user=alice), Resume(user=bob), Resume(user=carol)
     session.add_all([job, r_alice, r_bob, r_carol])
     await session.flush()
 
@@ -68,7 +69,7 @@ async def test_sends_one_email_per_user_with_new_matches(session):
     sent = await digest.send_weekly(session, sender, now=now)
 
     assert sent == 2
-    assert {user_id for user_id, _ in sender.sent} == {alice, bob}   # carol's match is too old
+    assert {user_id for user_id, _ in sender.sent} == {alice.id, bob.id}   # carol's match is too old
 
 def test_each_match_shows_its_link_and_what_you_have_and_lack():
     match = MatchOut(job_id=uuid4(), title="Backend", score=0.5, url="https://x/1",
@@ -111,14 +112,14 @@ class FlakySender(FakeSender):
 
 
 async def _three_users_with_matches(session, now):
-    users = [uuid4() for _ in range(3)]
+    users = [user_row() for _ in range(3)]
     job = Job(title="Backend")
-    resumes = [Resume(user_id=u) for u in users]
+    resumes = [Resume(user=u) for u in users]
     session.add_all([job, *resumes])
     await session.flush()
     session.add_all([MatchScore(resume_id=r.id, job_id=job.id, score=0.9, scored_at=now) for r in resumes])
     await session.commit()
-    return users
+    return [u.id for u in users]
 
 
 async def test_one_failed_email_doesnt_stop_the_others(session):

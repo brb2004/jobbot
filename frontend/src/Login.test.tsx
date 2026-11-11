@@ -43,18 +43,27 @@ describe('Login', () => {
 })
 
 describe('Signup', () => {
-  it('registers and reports success', async () => {
+  it('registers, then says to check your email', async () => {
     const register = vi.fn().mockResolvedValue(undefined)
-    const onDone = vi.fn()
-    render(<Signup api={fakeApi({ register })} onDone={onDone} onLogin={vi.fn()} />)
+    render(<Signup api={fakeApi({ register })} onConfirmed={vi.fn()} onLogin={vi.fn()} />)
     await fillAndSubmit('Sign up')
     expect(register).toHaveBeenCalledWith('a@b.com', 'pw123456')
-    expect(onDone).toHaveBeenCalled()
+    await screen.findByRole('heading', { name: /check your email/i })
+    screen.getByText('a@b.com')
+  })
+
+  it('carries on once the link is opened in this browser', async () => {
+    const onConfirmed = vi.fn()
+    render(<Signup api={fakeApi({ register: vi.fn().mockResolvedValue(undefined) })} onConfirmed={onConfirmed} onLogin={vi.fn()} />)
+    await fillAndSubmit('Sign up')
+    await screen.findByRole('heading', { name: /check your email/i })
+    const c = new BroadcastChannel('jobbot'); c.postMessage('email-confirmed'); c.close()
+    await vi.waitFor(() => expect(onConfirmed).toHaveBeenCalled())
   })
 
   it('links back to log in', async () => {
     const onLogin = vi.fn()
-    render(<Signup api={fakeApi({})} onDone={vi.fn()} onLogin={onLogin} />)
+    render(<Signup api={fakeApi({})} onConfirmed={vi.fn()} onLogin={onLogin} />)
     await userEvent.click(screen.getByRole('button', { name: 'I already have an account' }))
     expect(onLogin).toHaveBeenCalled()
   })

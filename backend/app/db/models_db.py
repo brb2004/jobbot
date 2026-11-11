@@ -1,9 +1,9 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Index, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
@@ -39,13 +39,17 @@ class Job(Base):
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # gone from its board
     skills_version: Mapped[str | None] = mapped_column(String(12))   # skills.txt hash used to tag
 
-    __table_args__ = (UniqueConstraint("board", "external_id", name="uq_jobs_board_external"),)
+    __table_args__ = (
+        UniqueConstraint("board", "external_id", name="uq_jobs_board_external"),
+        Index("ix_jobs_open", "id", postgresql_where=closed_at.is_(None)),   # matching/digest scan open jobs only
+    )
 
 
 class Resume(Base):
     __tablename__ = "resumes"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(                      # one resume per user; goes with the account
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE", name="fk_resumes_user_id"))
     filename: Mapped[str | None] = mapped_column(String(255))
     raw_text: Mapped[str | None] = mapped_column(Text)
     years_detected: Mapped[int | None]                   # from the resume text; prefs override
@@ -53,6 +57,10 @@ class Resume(Base):
     skills_version: Mapped[str | None] = mapped_column(String(12))   # skills.txt hash used to tag
     education: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
     experience: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
+
+    user: Mapped["User"] = relationship(lazy="raise")   # never loaded; lets the ORM insert the user row first
+
+    __table_args__ = (UniqueConstraint("user_id", name="uq_resumes_user_id"),)
 
 
 class MatchScore(Base):
@@ -64,7 +72,10 @@ class MatchScore(Base):
     detail: Mapped[dict | None] = mapped_column(JSONB)
     scored_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    __table_args__ = (UniqueConstraint("resume_id", "job_id"),)
+    __table_args__ = (
+        UniqueConstraint("resume_id", "job_id"),
+        Index("ix_match_scores_job_id", "job_id"),   # ON DELETE CASCADE from jobs: no seq scan per deleted job
+    )
 
 
 class Application(Base):

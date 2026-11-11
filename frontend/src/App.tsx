@@ -44,7 +44,11 @@ function Shell() {
     .then((u) => { setEmail(u.email); setStatus(u.email_verified_at ? 'in' : 'unconfirmed') })
     .catch(() => setStatus('out'))
 
-  useEffect(() => { api.restore().then((ok) => (ok ? refresh() : setStatus('out'))) }, [])   // survives refresh
+  // The confirmation link logs the browser in, so after it the cookie is checked again, not assumed.
+  const restore = () => api.restore().then((ok) => (ok ? refresh() : setStatus('out')))
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on page load
+  useEffect(() => { restore() }, [])                                                          // survives refresh
   useEffect(() => api.onUnauthorized(() => setStatus('out')), [])                              // expired -> login
 
   const leaveOk = () => {
@@ -59,7 +63,7 @@ function Shell() {
   if (location.pathname === '/privacy') return <Privacy />
   if (location.pathname === '/verify')
     return <Verify api={api} token={location.hash.slice(1)}
-                   onDone={() => { navigate('/matches', { replace: true }); refresh() }} />
+                   onDone={() => { navigate('/matches', { replace: true }); restore() }} />
   if (location.pathname === '/reset')
     return <Reset api={api} token={location.hash.slice(1)}
                   onDone={() => { setStatus('out'); navigate('/', { replace: true }) }} />
@@ -67,7 +71,8 @@ function Shell() {
   if (status === 'checking') return <p className="p-6 text-slate-600">Loading…</p>
   if (status === 'out')
     return location.pathname === '/signup'
-      ? <Signup api={api} onDone={refresh} onLogin={() => navigate('/')} />
+      ? <Signup api={api} onConfirmed={() => { navigate('/matches', { replace: true }); restore() }}
+                onLogin={() => navigate('/')} />
       : <Login api={api} onDone={refresh} onSignup={() => navigate('/signup')} />
   if (status === 'unconfirmed')
     return <CheckEmail api={api} email={email} onConfirmed={refresh} onLogout={logout} />
