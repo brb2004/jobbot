@@ -1,12 +1,18 @@
 import asyncio
+import re
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
-from app.api.routes import preferences_routes, auth_routes, jobs_routes, matches_routes, resumes_routes, places_routes, skills_routes, applications_routes, feedback_routes
-from app.api.deps_api import require_verified
-from app.core.db_core import get_session
 
-from app.core.config_core import get_settings  # noqa: E402
+from app.api.deps_api import require_verified
+from app.api.routes import (applications_routes, auth_routes, email_routes, feedback_routes, jobs_routes,
+                            matches_routes, places_routes, preferences_routes, resumes_routes, skills_routes)
+from app.core.config_core import get_settings
+from app.core.db_core import get_session
+from app.services.resumes_services import Unreadable
 
 
 def docs_kwargs(enabled: bool) -> dict:
@@ -16,6 +22,8 @@ def docs_kwargs(enabled: bool) -> dict:
 app = FastAPI(**docs_kwargs(get_settings().DOCS_ENABLED), )
 app.include_router(preferences_routes.router)
 app.include_router(auth_routes.router)
+app.include_router(auth_routes.account)                # DELETE /me
+app.include_router(email_routes.router)                # public: unsubscribe links carry a signed token
 app.include_router(jobs_routes.router)
 app.include_router(skills_routes.router)        # public: skill names for autocomplete
 app.include_router(places_routes.router)        # public: place names for the pickers
@@ -24,21 +32,12 @@ app.include_router(resumes_routes.router, dependencies=[Depends(require_verified
 app.include_router(applications_routes.router, dependencies=[Depends(require_verified)])
 app.include_router(feedback_routes.router, dependencies=[Depends(require_verified)])
 
-from fastapi import Request  # noqa: E402
-from fastapi.encoders import jsonable_encoder  # noqa: E402
-from fastapi.exceptions import RequestValidationError  # noqa: E402
-from fastapi.responses import JSONResponse  # noqa: E402
-
-
-import re as _re  # noqa: E402
-
-
 def _plain(msg: str) -> str:
     """Pydantic wording -> plain English."""
     msg = msg.removeprefix("Value error, ")
-    msg = _re.sub(r"^String should have at least (\d+) characters?$", r"must be at least \1 characters", msg)
-    msg = _re.sub(r"^String should have at most (\d+) characters?$", r"must be at most \1 characters", msg)
-    msg = _re.sub(r"^value is not a valid email address.*$", "isn't a valid email address", msg)
+    msg = re.sub(r"^String should have at least (\d+) characters?$", r"must be at least \1 characters", msg)
+    msg = re.sub(r"^String should have at most (\d+) characters?$", r"must be at most \1 characters", msg)
+    msg = re.sub(r"^value is not a valid email address.*$", "isn't a valid email address", msg)
     return msg
 
 
@@ -47,9 +46,6 @@ async def validation_error_without_echo(request: Request, exc: RequestValidation
     """Same 422 shape, minus 'input'/'ctx': never send a submitted value (like a password) back."""
     errors = [{**{k: v for k, v in e.items() if k not in ("input", "ctx")}, "msg": _plain(e["msg"])} for e in exc.errors()]
     return JSONResponse(status_code=422, content={"detail": jsonable_encoder(errors)})
-
-
-from app.services.resumes_services import Unreadable  # noqa: E402
 
 
 @app.exception_handler(Unreadable)

@@ -10,6 +10,7 @@ import { Preferences } from './Preferences'
 import { Privacy } from './Privacy'
 import { Reset } from './Reset'
 import { Signup } from './Signup'
+import { Unsubscribe } from './Unsubscribe'
 import { Upload } from './Upload'
 import { Verify } from './Verify'
 
@@ -61,6 +62,7 @@ function Shell() {
 
   // Emailed links work logged in or out; the token rides after '#'.
   if (location.pathname === '/privacy') return <Privacy />
+  if (location.pathname === '/unsubscribe') return <Unsubscribe api={api} token={location.hash.slice(1)} />
   if (location.pathname === '/verify')
     return <Verify api={api} token={location.hash.slice(1)}
                    onDone={() => { navigate('/matches', { replace: true }); restore() }} />

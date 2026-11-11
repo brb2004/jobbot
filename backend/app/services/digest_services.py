@@ -66,7 +66,8 @@ async def matches_for(s: AsyncSession, user_id: UUID, since: datetime):
 
 async def send_weekly(s: AsyncSession, sender, now: datetime, top_n: int = 20) -> int:
     since = now - timedelta(days=7)
-    unconfirmed = exists().where(User.id == Resume.user_id, User.email_verified_at.is_(None))
+    unconfirmed = exists().where(User.id == Resume.user_id,
+                                 User.email_verified_at.is_(None) | User.digest_opt_out_at.is_not(None))
     user_ids = (await s.execute(select(Resume.user_id).distinct().where(~unconfirmed))).scalars().all()
 
     year, wk, _ = now.isocalendar()

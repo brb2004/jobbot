@@ -174,3 +174,13 @@ async def resend_verification(tasks: BackgroundTasks, s=Depends(get_session),
         VERIFY_RESEND.hit(str(user.id))
         _queue_verify(tasks, send, user)
     return {"detail": "If your email isn't confirmed yet, a new link is on its way."}
+
+
+account = APIRouter(prefix="/me", tags=["me"])
+
+
+@account.delete("", status_code=204)
+async def delete_me(response: Response, s=Depends(get_session), user_id=Depends(get_current_user)):
+    """Delete my account, resume and matches. Can't be undone."""
+    await auth_service.delete_account(s, user_id)
+    response.delete_cookie(get_settings().COOKIE_NAME, path="/")

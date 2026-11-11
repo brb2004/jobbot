@@ -81,3 +81,18 @@ def verify_token_valid(token: str, email: str, now: float | None = None) -> bool
     if int(exp) < (time.time() if now is None else now):
         return False
     return hmac.compare_digest(sig, _verify_sig(user_id, int(exp), email))
+
+
+# Unsubscribe links: no expiry (an old email's link must keep working), only power is the weekly email.
+def _unsub_sig(user_id: str) -> str:
+    msg = f"unsubscribe|{user_id}".encode()                       # "unsubscribe|": can't pass for another token
+    return hmac.new(get_settings().JWT_SECRET_KEY.encode(), msg, hashlib.sha256).hexdigest()
+
+
+def make_unsubscribe_token(user_id: str) -> str:
+    return f"{user_id}.{_unsub_sig(user_id)}"
+
+
+def unsubscribe_token_user(token: str) -> str | None:
+    user_id, _, sig = (token or "").partition(".")
+    return user_id if user_id and sig and hmac.compare_digest(sig, _unsub_sig(user_id)) else None

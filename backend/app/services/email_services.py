@@ -5,6 +5,8 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config_core import get_settings
+from app.core.security_core import make_unsubscribe_token
 from app.db.models_db import User
 
 SUBJECT = "Your top job matches this week"
@@ -26,7 +28,12 @@ class EmailSender:
         msg["From"] = self.from_addr
         msg["To"] = user.email
         msg["Subject"] = SUBJECT
-        msg.set_content(body)
+        token = make_unsubscribe_token(str(user.id))
+        app_url = get_settings().APP_URL
+        # RFC 8058 one-click: mail apps show their own Unsubscribe button and POST to this URL.
+        msg["List-Unsubscribe"] = f"<{app_url}/api/email/unsubscribe?token={token}>"
+        msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
+        msg.set_content(f"{body}\n\n--\nDon't want these? Unsubscribe: {app_url}/unsubscribe#{token}\n")
         await self.transport(msg)
 
 
