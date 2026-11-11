@@ -67,8 +67,8 @@ async def test_fetch_details_returns_clean_description_and_salary():
     assert d.content_html == "<p>Build things.</p>"
 async def test_fill_descriptions_only_fetches_jobs_missing_one(session):
     session.add_all([
-        Job(board="stripe", external_id=1, title="A"),                          # needs details
-        Job(board="stripe", external_id=2, title="B", description="already"),   # skip
+        Job(board="stripe", external_id="1", title="A"),                          # needs details
+        Job(board="stripe", external_id="2", title="B", description="already"),   # skip
     ])
     await session.commit()
 
@@ -83,7 +83,7 @@ async def test_fill_descriptions_only_fetches_jobs_missing_one(session):
 
     assert (first, second) == (1, 0)
     assert calls == ["/v1/boards/stripe/jobs/1"]              # job 2 never fetched, nothing re-fetched
-    job = (await session.execute(select(Job).where(Job.external_id == 1))).scalar_one()
+    job = (await session.execute(select(Job).where(Job.external_id == "1"))).scalar_one()
     assert job.description == "Build things."
     assert job.salary_min == 120000
 
@@ -91,7 +91,7 @@ async def test_fill_descriptions_works_in_batches_and_commits_each(session, monk
     """Big crawls: one batch in memory at a time, each committed, so a crash mid-run loses nothing finished."""
     import app.db.batches_db as batches_db
     monkeypatch.setattr(batches_db, "BATCH", 2)
-    session.add_all([Job(board="bigco", external_id=100 + i, title=f"Job {i}", url=f"https://x/{i}") for i in range(5)])
+    session.add_all([Job(board="bigco", external_id=str(100 + i), title=f"Job {i}", url=f"https://x/{i}") for i in range(5)])
     await session.commit()
     commits = 0
     real_commit = session.commit

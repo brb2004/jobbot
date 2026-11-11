@@ -1,22 +1,24 @@
+"""Greenhouse adapter. The board listing has no descriptions: fill_descriptions fetches each posting."""
 import asyncio
 import html as htmllib
 import logging
-from dataclasses import dataclass
 
 import httpx
 from pydantic import BaseModel, field_validator
-from sqlalchemy import case, func, literal_column, select, update
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.batches_db import batches
-from app.db.models_db import Board, Job
+from app.db.models_db import Job
+from app.ingest.crawl_ingest import (CrawlSummary, Posting, Source, _get, close_missing as _close_missing,
+                                     crawl_source, note_missing, retire_dropped, save_name, save_postings)
 from app.ingest.text_ingest import html_to_text
 
+__all__ = ["API", "BoardJob", "JobDetails", "CrawlSummary", "fetch_board", "fetch_board_name", "fetch_details",
+           "save_board", "save_name", "close_missing", "note_missing", "retire_dropped", "crawl",
+           "fill_descriptions", "GREENHOUSE", "_get"]
+
 API = "https://boards-api.greenhouse.io/v1/boards"
-TRIES = 3            # attempts per request on 429 / 5xx / connection errors
-BACKOFF = 0.5        # seconds, doubled each retry (Retry-After wins when it's longer, capped at 10 s)
-MAX_MISSES = 3       # consecutive 404 crawls before a board's jobs are closed
 log = logging.getLogger(__name__)
 
 
@@ -32,6 +34,10 @@ class BoardJob(BaseModel):
     def flatten_location(cls, v):
         return v.get("name") if isinstance(v, dict) else v
 
+    def posting(self) -> Posting:
+        return Posting(external_id=str(self.id), title=self.title, url=self.absolute_url,
+                       location=self.location, version=self.updated_at)
+
 
 class JobDetails(BaseModel):
     description: str
@@ -39,35 +45,6 @@ class JobDetails(BaseModel):
     salary_min: float | None = None
     salary_max: float | None = None
     salary_currency: str | None = None
-
-
-@dataclass
-class CrawlSummary:
-    found: int = 0
-    missing: int = 0
-    failed: int = 0
-    new_jobs: int = 0
-    closed: int = 0
-
-
-async def _get(client: httpx.AsyncClient, url: str, params: dict | None = None) -> httpx.Response:
-    """GET with retries for the failures that pass: 429 (rate limited), 5xx and dropped connections."""
-    for attempt in range(TRIES):
-        wait = BACKOFF * 2 ** attempt
-        try:
-            r = await client.get(url, params=params)
-        except httpx.TransportError:
-            if attempt == TRIES - 1:
-                raise
-        else:
-            if (r.status_code != 429 and r.status_code < 500) or attempt == TRIES - 1:
-                return r
-            try:
-                wait = max(wait, float(r.headers.get("Retry-After", 0)))
-            except ValueError:
-                pass
-        await asyncio.sleep(min(wait, 10))
-    raise AssertionError("unreachable")
 
 
 async def fetch_board(client: httpx.AsyncClient, slug: str) -> tuple[list[BoardJob], list[int]] | None:
@@ -97,13 +74,30 @@ async def fetch_board_name(client: httpx.AsyncClient, slug: str) -> str | None:
     return (r.json().get("name") or "").strip()[:200] or None
 
 
-async def save_name(s: AsyncSession, slug: str, name: str) -> None:
-    stmt = insert(Board).values(slug=slug, name=name, checked_at=func.now())
-    await s.execute(stmt.on_conflict_do_update(index_elements=[Board.slug],
-                                               set_={"name": stmt.excluded.name, "checked_at": func.now()}))
+async def _listing(client: httpx.AsyncClient, slug: str):
+    got = await fetch_board(client, slug)
+    if got is None:
+        return None
+    jobs, ids = got
+    return [j.posting() for j in jobs], [str(i) for i in ids]
 
 
-async def fetch_details(client: httpx.AsyncClient, board: str, job_id: int) -> JobDetails:
+GREENHOUSE = Source(name="greenhouse", prefix="", fetch_board=_listing, fetch_name=fetch_board_name)
+
+
+async def save_board(s: AsyncSession, board: str, jobs: list[BoardJob]) -> int:
+    return await save_postings(s, board, [j.posting() for j in jobs])
+
+
+async def close_missing(s: AsyncSession, board: str, listed_ids: list[int | str]) -> int:
+    return await _close_missing(s, board, [str(i) for i in listed_ids])
+
+
+async def crawl(client: httpx.AsyncClient, s: AsyncSession, slugs: list[str], concurrency: int = 4) -> CrawlSummary:
+    return await crawl_source(client, s, GREENHOUSE, slugs, concurrency)
+
+
+async def fetch_details(client: httpx.AsyncClient, board: str, job_id: int | str) -> JobDetails:
     r = await _get(client, f"{API}/{board}/jobs/{job_id}", params={"pay_transparency": "true"})
     r.raise_for_status()
     data = r.json()
@@ -124,111 +118,15 @@ async def fetch_details(client: httpx.AsyncClient, board: str, job_id: int) -> J
     )
 
 
-async def save_board(s: AsyncSession, board: str, jobs: list[BoardJob]) -> int:
-    if not jobs:
-        return 0
-    stmt = insert(Job).values([
-        {"board": board, "external_id": j.id, "title": j.title.strip(),
-         "url": j.absolute_url, "location": j.location, "source_updated_at": j.updated_at}
-        for j in jobs
-    ])
-    # The company edited the posting since we fetched it: drop the description so fill_descriptions
-    # fetches it again. Skills and requirements stay until the new text replaces them, so the job keeps
-    # matching meanwhile. NULL before (rows from before this column existed) is not a change.
-    edited = Job.source_updated_at.is_not(None) & Job.source_updated_at.is_distinct_from(stmt.excluded.source_updated_at)
-    stmt = stmt.on_conflict_do_update(
-        constraint="uq_jobs_board_external",
-        set_={"title": stmt.excluded.title, "url": stmt.excluded.url,
-              "location": stmt.excluded.location,
-              "description": case((edited, None), else_=Job.description),
-              "source_updated_at": stmt.excluded.source_updated_at,
-              "closed_at": None},                               # listed again -> open again
-    ).returning(literal_column("xmax = 0"))
-    inserted = (await s.execute(stmt)).scalars().all()
-    await s.commit()
-    return sum(inserted)
-
-
-async def close_missing(s: AsyncSession, board: str, listed_ids: list[int]) -> int:
-    """Close this board's open jobs that the board no longer lists. Only call after a SUCCESSFUL fetch."""
-    stmt = (update(Job)
-            .where(Job.board == board, Job.closed_at.is_(None), Job.external_id.not_in(listed_ids or [-1]))
-            .values(closed_at=func.now()))
-    closed = (await s.execute(stmt)).rowcount
-    await s.commit()
-    return closed
-
-
-async def note_missing(s: AsyncSession, slug: str) -> int:
-    """A board answered 404. After MAX_MISSES crawls in a row, close its jobs (one 404 can be a blip)."""
-    stmt = insert(Board).values(slug=slug, misses=1, checked_at=func.now())
-    stmt = stmt.on_conflict_do_update(index_elements=[Board.slug],
-                                      set_={"misses": Board.misses + 1, "checked_at": func.now()})
-    misses = (await s.execute(stmt.returning(Board.misses))).scalar_one()
-    closed = 0
-    if misses >= MAX_MISSES:
-        closed = (await s.execute(update(Job).where(Job.board == slug, Job.closed_at.is_(None))
-                                  .values(closed_at=func.now()))).rowcount
-    await s.commit()
-    return closed
-
-
-async def retire_dropped(s: AsyncSession, slugs: list[str]) -> int:
-    """Close open jobs from boards no longer in the crawl list. Run only after crawling the FULL list."""
-    closed = (await s.execute(update(Job).where(Job.closed_at.is_(None), Job.board.is_not(None),
-                                                Job.board.not_in(slugs or ["-"]))
-                              .values(closed_at=func.now()))).rowcount
-    await s.commit()
-    return closed
-
-
-async def crawl(client: httpx.AsyncClient, s: AsyncSession, slugs: list[str],
-                concurrency: int = 4) -> CrawlSummary:
-    sem = asyncio.Semaphore(concurrency)
-    named = set((await s.scalars(select(Board.slug).where(Board.name.is_not(None)))).all())
-
-    async def fetch(slug):
-        async with sem:
-            try:
-                got = await fetch_board(client, slug)
-            except Exception as e:                                  # any failure: this board only
-                log.warning("board %s failed: %s", slug, repr(e)[:200])
-                return slug, None, e, None
-            name = None
-            if got is not None and slug not in named:               # once per board, not every crawl
-                try:
-                    name = await fetch_board_name(client, slug)
-                except Exception:
-                    pass                                            # try again next crawl
-            return slug, got, None, name
-
-    summary = CrawlSummary()
-    tasks = [asyncio.ensure_future(fetch(slug)) for slug in slugs]
-    for done in asyncio.as_completed(tasks):                   # save each board as it lands, then drop it
-        slug, got, err, name = await done
-        if err:
-            summary.failed += 1                                 # unknown state: close nothing
-        elif got is None:
-            summary.missing += 1                                # 404: counted; closed after MAX_MISSES in a row
-            summary.closed += await note_missing(s, slug)
-        else:
-            jobs, listed = got
-            summary.found += 1
-            if name:
-                await save_name(s, slug, name)                      # committed with the board's jobs
-            await s.execute(update(Board).where(Board.slug == slug, Board.misses > 0).values(misses=0))
-            summary.new_jobs += await save_board(s, slug, jobs)
-            summary.closed += await close_missing(s, slug, listed)
-    return summary
-
-
 async def fill_descriptions(client: httpx.AsyncClient, s: AsyncSession,
                             concurrency: int = 8) -> int:
-    """Details for open jobs that lack them, a batch at a time: memory stays flat and each batch is
-    committed, so a killed run keeps what it finished and the next run picks up the rest."""
+    """Details for open Greenhouse jobs that lack them, a batch at a time: memory stays flat and each batch
+    is committed, so a killed run keeps what it finished and the next run picks up the rest. Other sources
+    carry the posting in their listing and never land here."""
     stmt = select(Job).where(
         Job.description.is_(None),
         Job.board.is_not(None),
+        Job.board.not_like("%:%"),                              # Greenhouse keys have no source prefix
         Job.external_id.is_not(None),
         Job.closed_at.is_(None),                                # don't fetch details for dead postings
     )
@@ -254,3 +152,4 @@ async def fill_descriptions(client: httpx.AsyncClient, s: AsyncSession,
             filled += 1
         await s.commit()
     return filled
+

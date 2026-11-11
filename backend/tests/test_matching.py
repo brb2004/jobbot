@@ -120,8 +120,8 @@ async def test_match_all_for_one_user_leaves_everyone_else_alone(session):
 
 
 async def test_same_role_posted_per_location_shows_once(session):
-    a = Job(title="Backend Engineer", board="stripe", external_id=1, skills=["Python"], location="NYC")
-    b = Job(title="Backend Engineer ", board="stripe", external_id=2, skills=["Python"], location="SF")
+    a = Job(title="Backend Engineer", board="stripe", external_id="1", skills=["Python"], location="NYC")
+    b = Job(title="Backend Engineer ", board="stripe", external_id="2", skills=["Python"], location="SF")
     resume = Resume(user=user_row(), skills=["Python"])
     session.add_all([a, b, resume])
     await session.flush()

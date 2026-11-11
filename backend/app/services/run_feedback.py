@@ -9,7 +9,7 @@ from app.services.feedback_services import drain
 
 async def main() -> None:
     st = get_settings()
-    send = smtp_transport(st.SMTP_HOST, st.SMTP_PORT, st.SMTP_USER, st.SMTP_PASSWORD)
+    send = smtp_transport(st.SMTP_HOST, st.SMTP_PORT, st.SMTP_USER, st.SMTP_PASSWORD, st.EMAIL_REPLY_TO)
     total = 0
     async with SessionLocal() as s:
         while (n := await drain(s, send)):                 # 20 at a time until the queue is empty

@@ -1,35 +1,34 @@
+"""Crawl every board in boards.txt (all sources), close what's gone, fill Greenhouse details, prune.
+
+  python -m app.ingest.run_ingest                    # full crawl
+  python -m app.ingest.run_ingest stripe ashby:ramp  # just these (retires nothing)
+"""
 import asyncio
 import sys
-from pathlib import Path
 
 import httpx
 
 from app.core.db_core import SessionLocal, engine
-from app.ingest.greenhouse_ingest import crawl, fill_descriptions, retire_dropped
+from app.ingest.boards_ingest import BOARDS_FILE, HEADERS, by_source, load_slugs
+from app.ingest.crawl_ingest import crawl_source, retire_dropped
+from app.ingest.greenhouse_ingest import fill_descriptions
 from app.services.retention_services import prune
 
-BOARDS_FILE = Path(__file__).resolve().parents[2] / "boards.txt"   # backend/boards.txt
-HEADERS = {"User-Agent": "jobbot3-crawler (github.com/brb2004)"}
+__all__ = ["BOARDS_FILE", "HEADERS", "by_source", "load_slugs", "main"]
 
 
-def load_slugs(text: str) -> list[str]:
-    slugs: list[str] = []
-    for line in text.splitlines():
-        slug = line.split("#", 1)[0].strip().lower()
-        if slug and slug not in slugs:
-            slugs.append(slug)
-    return slugs
-
-
-async def main(slugs: list[str], full: bool) -> None:
+async def main(keys: list[str], full: bool) -> None:
+    groups = by_source(keys)
     async with httpx.AsyncClient(timeout=15, headers=HEADERS) as client, SessionLocal() as s:
-        summary = await crawl(client, s, slugs)
+        for source, slugs in groups.items():
+            if slugs:
+                print(source.name, await crawl_source(client, s, source, slugs))
         if full:                                                # only a full crawl may retire other boards
-            print(f"jobs closed from boards no longer listed: {await retire_dropped(s, slugs)}")
+            print(f"jobs closed from boards no longer listed: {await retire_dropped(s, keys)}")
         filled = await fill_descriptions(client, s)
         pruned = await prune(s)
     await engine.dispose()
-    print(summary, f"descriptions filled: {filled}", pruned)
+    print(f"descriptions filled: {filled}", pruned)
 
 
 if __name__ == "__main__":

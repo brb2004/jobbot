@@ -72,7 +72,7 @@ async def test_resend_is_limited_and_stops_once_confirmed(client, outbox):
 
 async def test_digest_skips_unconfirmed_addresses(session):
     now = datetime.now(timezone.utc)
-    job = Job(title="Backend Engineer", board="acme", external_id=1, url="https://example.com/1")
+    job = Job(title="Backend Engineer", board="acme", external_id="1", url="https://example.com/1")
     session.add(job)
     await session.flush()
     ids = {}

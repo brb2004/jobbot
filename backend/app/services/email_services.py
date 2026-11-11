@@ -37,9 +37,12 @@ class EmailSender:
         await self.transport(msg)
 
 
-def smtp_transport(host: str, port: int, username: str, password: str):
-    """Real transport: STARTTLS + login. smtplib blocks, so it runs in a thread."""
+def smtp_transport(host: str, port: int, username: str, password: str, reply_to: str = ""):
+    """Real transport: STARTTLS + login. smtplib blocks, so it runs in a thread.
+    reply_to is added to every message that doesn't already set one."""
     async def send(msg: EmailMessage) -> None:
+        if reply_to and "Reply-To" not in msg:
+            msg["Reply-To"] = reply_to
         def _send():
             with smtplib.SMTP(host, port, timeout=30) as smtp:
                 smtp.starttls()

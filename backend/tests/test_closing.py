@@ -15,7 +15,7 @@ def bj(i):
 
 
 async def jobs_of(session, board):
-    return {j.external_id: j for j in (await session.scalars(select(Job).where(Job.board == board).execution_options(populate_existing=True))).all()}
+    return {int(j.external_id): j for j in (await session.scalars(select(Job).where(Job.board == board).execution_options(populate_existing=True))).all()}
 
 
 async def test_missing_jobs_close_and_reopen_when_they_come_back(session):

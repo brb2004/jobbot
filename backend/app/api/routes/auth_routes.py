@@ -38,7 +38,7 @@ def account_delay(fails: int) -> float:
 def get_mailer():
     """Overridden in tests to capture messages instead of sending them."""
     st = get_settings()
-    return smtp_transport(st.SMTP_HOST, st.SMTP_PORT, st.SMTP_USER, st.SMTP_PASSWORD)
+    return smtp_transport(st.SMTP_HOST, st.SMTP_PORT, st.SMTP_USER, st.SMTP_PASSWORD, st.EMAIL_REPLY_TO)
 
 
 def _queue_verify(tasks: BackgroundTasks, send, user) -> None:

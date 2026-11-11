@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Index, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -27,7 +27,7 @@ class Job(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title: Mapped[str | None]
     board: Mapped[str | None] = mapped_column(String(100))
-    external_id: Mapped[int | None] = mapped_column(BigInteger)
+    external_id: Mapped[str | None] = mapped_column(String(64))   # the source's posting id, as text
     url: Mapped[str | None]
     location: Mapped[str | None]
     description: Mapped[str | None] = mapped_column(Text)
@@ -38,7 +38,7 @@ class Job(Base):
     requirements: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
     skills: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # gone from its board
-    source_updated_at: Mapped[str | None] = mapped_column(String(40))  # Greenhouse's updated_at, as sent
+    source_updated_at: Mapped[str | None] = mapped_column(String(40))  # Greenhouse updated_at, or a content hash
     skills_version: Mapped[str | None] = mapped_column(String(12))   # skills.txt hash used to tag
 
     __table_args__ = (
@@ -109,7 +109,7 @@ class Feedback(Base):
 
 
 class Board(Base):
-    """A Greenhouse board: its slug (the name in the URL, sometimes a random id) and the company's real name."""
+    """A job board: its key ("stripe" on Greenhouse, "ashby:ramp", "lever:spotify") and the company's name."""
     __tablename__ = "boards"
     slug: Mapped[str] = mapped_column(String(100), primary_key=True)
     name: Mapped[str | None] = mapped_column(String(200))

@@ -20,7 +20,7 @@ def bj(i, updated):
 
 
 async def job(session, board, ext):
-    return (await session.scalars(select(Job).where(Job.board == board, Job.external_id == ext)
+    return (await session.scalars(select(Job).where(Job.board == board, Job.external_id == str(ext))
                                   .execution_options(populate_existing=True))).one()
 
 

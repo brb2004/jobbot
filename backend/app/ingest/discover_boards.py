@@ -1,9 +1,9 @@
-"""Find Greenhouse job boards we don't crawl yet, from Common Crawl's public URL index, then check each one
-live on Greenhouse's public Job Board API. Report first; --add appends the good ones to boards.txt.
+"""Find job boards we don't crawl yet, from Common Crawl's public URL index, then check each one live on
+its source's public API. Report first; --add appends the good ones to boards.txt.
 
-  python -m app.ingest.discover_boards                       # report only (default: 1 index, 3 pages per host)
-  python -m app.ingest.discover_boards --pages 10 --check 500
-  python -m app.ingest.discover_boards --add                 # also append boards with engineering jobs
+  python -m app.ingest.discover_boards                       # Greenhouse, report only
+  python -m app.ingest.discover_boards --source ashby --check 500
+  python -m app.ingest.discover_boards --source lever --add  # also append boards with engineering jobs
 """
 import argparse
 import gzip
@@ -20,11 +20,12 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from app.db.models_db import Job
+from app.ingest import ashby_ingest, lever_ingest
+from app.ingest.boards_ingest import load_slugs
 from app.services.places_services import places_in
 from app.services.preferences_services import Preferences, allowed
 
 UA = {"User-Agent": "JobMatch board discovery (https://jobmatch.bbenard.dev)"}
-HOSTS = ("boards.greenhouse.io", "job-boards.greenhouse.io")
 NOT_SLUGS = {"embed", "jobs", "v1", "api", "static", "assets", "favicon.ico", "robots.txt"}
 SLUG = re.compile(r"^[a-z0-9][a-z0-9_-]{1,60}$")
 US_STATE = re.compile(r",\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|DC|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b")      # "Columbia, MO"
@@ -46,16 +47,23 @@ def get(url: str, tries: int = 6) -> str:
         time.sleep(3 * 2 ** i)                              # busy server: 3, 6, 12, 24, 48 s
 
 
-def slug_of(url: str) -> str | None:
+def slug_of(url: str, keep_case: bool = False) -> str | None:
     u = urllib.parse.urlsplit(url if "://" in url else "https://" + url)
-    first = u.path.strip("/").split("/")[0].lower()
-    if first == "embed":                                   # boards.greenhouse.io/embed/job_board?for=<slug>
-        first = (urllib.parse.parse_qs(u.query).get("for") or [""])[0].lower()
-    return first if first not in NOT_SLUGS and SLUG.match(first) else None
+    first = u.path.strip("/").split("/")[0]
+    if first.lower() == "embed":                           # boards.greenhouse.io/embed/job_board?for=<slug>
+        first = (urllib.parse.parse_qs(u.query).get("for") or [""])[0]
+    first = urllib.parse.unquote(first) if keep_case else urllib.parse.unquote(first).lower()
+    return first if first.lower() not in NOT_SLUGS and SLUG.match(first.lower()) else None
 
 
 DATA = "https://data.commoncrawl.org/"
-PREFIXES = ("io,greenhouse,boards)/", "io,greenhouse,job-boards)/")      # SURT keys: reversed host, sorted
+# SURT keys (reversed host, sorted) per source, and how a board key is written in boards.txt.
+SURTS = {
+    "greenhouse": ("io,greenhouse,boards)/", "io,greenhouse,job-boards)/"),
+    "ashby": ("com,ashbyhq,jobs)/",),
+    "lever": ("co,lever,jobs)/",),
+}
+KEY_PREFIX = {"greenhouse": "", "ashby": "ashby:", "lever": "lever:"}
 FALLBACK_CRAWL = "CC-MAIN-2026-43"
 
 
@@ -137,9 +145,9 @@ def urls_in(crawl: str, block: list[str], prefix: str) -> list[str]:
     return out
 
 
-def from_common_crawl(indexes: int, max_blocks: int, crawl: str | None) -> set[str]:
-    """Companies with a Greenhouse board, from Common Crawl's index FILES (data.commoncrawl.org), which stay up
-    when the index search server is overloaded."""
+def from_common_crawl(indexes: int, max_blocks: int, crawl: str | None, source: str = "greenhouse") -> set[str]:
+    """Companies with a board on this source, from Common Crawl's index FILES (data.commoncrawl.org), which
+    stay up when the index search server is overloaded."""
     if crawl:
         crawls = [crawl]
     else:
@@ -151,30 +159,46 @@ def from_common_crawl(indexes: int, max_blocks: int, crawl: str | None) -> set[s
     found: set[str] = set()
     for c in crawls:
         idx = f"{DATA}cc-index/collections/{c}/indexes/cluster.idx"
-        for prefix in PREFIXES:
+        for prefix in SURTS[source]:
             blocks = blocks_for(idx, prefix)
             if max_blocks:
                 blocks = blocks[:max_blocks]
             print(f"  {c} {prefix}: {len(blocks)} blocks", file=sys.stderr)
             with ThreadPoolExecutor(max_workers=6) as pool:                 # a few at a time: polite, still fast
                 for n, urls in enumerate(pool.map(lambda b: urls_in(c, b, prefix), blocks), 1):
-                    found.update(filter(None, map(slug_of, urls)))
+                    keep = source != "greenhouse"                 # Ashby/Lever slugs keep their case
+                    found.update(filter(None, (slug_of(u, keep) for u in urls)))
                     if n % 20 == 0 or n == len(blocks):
                         print(f"    {n}/{len(blocks)} blocks, {len(found)} companies so far", file=sys.stderr)
     return found
 
 
-def check(slug: str) -> tuple[int, int, int]:
+def listing(source: str, slug: str) -> list[tuple[str, str]]:
+    """(title, location) of each open job, locations normalized the way the crawler stores them."""
+    q = urllib.parse.quote(slug)
+    if source == "ashby":
+        data = json.loads(get(f"{ashby_ingest.API}/{q}", tries=2))
+        jobs = [ashby_ingest.posting(j) for j in data["jobs"] if j.get("isListed") is not False]
+        return [(p.title, p.location or "") for p in jobs]
+    if source == "lever":
+        data = json.loads(get(f"{lever_ingest.API}/{q}?mode=json", tries=2))
+        return [(p.title, p.location or "") for p in map(lever_ingest.posting, data)]
+    jobs = json.loads(get(f"https://boards-api.greenhouse.io/v1/boards/{q}/jobs", tries=2)).get("jobs", [])
+    return [(j.get("title") or "", (j.get("location") or {}).get("name") or "") for j in jobs]
+
+
+def check(slug: str, source: str = "greenhouse") -> tuple[int, int, int]:
     """(open jobs, jobs our matcher would show, of those: US or remote)."""
-    jobs = json.loads(get(f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs", tries=2)).get("jobs", [])
-    eng = [j for j in jobs if allowed(Job(title=j.get("title")), Preferences())]   # same rules as matching
-    us = [j for j in eng if (loc := (j.get("location") or {}).get("name") or "")
-          and ("United States" in places_in(loc) or US_STATE.search(loc) or re.search(r"remote", loc, re.I))]
+    jobs = listing(source, slug)
+    eng = [(t, loc) for t, loc in jobs if allowed(Job(title=t), Preferences())]   # same rules as matching
+    us = [1 for _, loc in eng
+          if loc and ("United States" in places_in(loc) or US_STATE.search(loc) or re.search(r"remote", loc, re.I))]
     return len(jobs), len(eng), len(us)
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--source", choices=sorted(SURTS), default="greenhouse")
     ap.add_argument("--indexes", type=int, default=1, help="how many monthly crawls to read (newest first)")
     ap.add_argument("--max-blocks", type=int, default=0, help="limit index blocks per host (0 = all)")
     ap.add_argument("--crawl", default=None, help="a specific crawl id, e.g. CC-MAIN-2026-43")
@@ -184,15 +208,19 @@ def main() -> None:
     ap.add_argument("--add", action="store_true", help="append qualifying boards to boards.txt")
     a = ap.parse_args()
 
-    known = {l.strip() for l in BOARDS.read_text().splitlines() if l.strip() and not l.lstrip().startswith("#")}
-    fresh = sorted(from_common_crawl(a.indexes, a.max_blocks, a.crawl) - known)
+    pre = KEY_PREFIX[a.source]
+    known = {k.lower() for k in load_slugs(BOARDS.read_text())}
+    found: dict[str, str] = {}
+    for slug in from_common_crawl(a.indexes, a.max_blocks, a.crawl, a.source):
+        found.setdefault(slug.lower(), slug)                # one spelling per board
+    fresh = sorted(s for low, s in found.items() if (pre + low) not in known)
     random.Random(0).shuffle(fresh)                         # a fair sample, not just the A's; same order every run
     print(f"{len(fresh)} companies we don't crawl yet; checking {len(fresh[: a.check or None])}", file=sys.stderr)
 
     rows = []
     for slug in fresh[: a.check or None]:                  # --check 0 = all
         try:
-            total, eng, us = check(slug)
+            total, eng, us = check(slug, a.source)
             rows.append((slug, "ok" if eng >= a.min_eng and us >= a.min_us
                          else ("no-us-jobs" if eng >= a.min_eng else "no-eng-jobs"), total, eng, us))
         except Exception:
@@ -208,7 +236,7 @@ def main() -> None:
     for r in good[:25]:
         print(f"  {r[0]:<32} {r[3]:>4} eng jobs ({r[4]} US/remote) of {r[2]}")
     if a.add and good:
-        BOARDS.write_text(BOARDS.read_text().rstrip("\n") + "\n" + "\n".join(r[0] for r in good) + "\n")
+        BOARDS.write_text(BOARDS.read_text().rstrip("\n") + "\n" + "\n".join(pre + r[0] for r in good) + "\n")
         print(f"added {len(good)} boards to {BOARDS.name}")
 
 

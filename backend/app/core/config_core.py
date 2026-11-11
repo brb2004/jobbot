@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""        # set in .env, never in code
     EMAIL_FROM: str = ""
+    EMAIL_REPLY_TO: str = ""       # where replies go when EMAIL_FROM is send-only; blank = no header
     APP_URL: str = "https://jobmatch.bbenard.dev"   # links in emails; never built from the Host header
 
     @field_validator("JWT_SECRET_KEY")

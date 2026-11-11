@@ -106,8 +106,8 @@ def _fresh_job_index():
 @_pytest.fixture(autouse=True)
 def _no_retry_sleep(monkeypatch):
     """Crawler retries back off for real in production; tests don't wait."""
-    from app.ingest import greenhouse_ingest
-    monkeypatch.setattr(greenhouse_ingest, "BACKOFF", 0)
+    from app.ingest import crawl_ingest
+    monkeypatch.setattr(crawl_ingest, "BACKOFF", 0)
 
 
 def user_row(**kw):

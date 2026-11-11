@@ -2,7 +2,7 @@
 
 ## Flow
 
-crawl (bi-daily) Greenhouse Job Board API -> jobs (upsert on board+external_id)
+crawl (bi-daily) Greenhouse / Ashby / Lever public APIs -> jobs (upsert on board key+external_id)
 job details per-job API -> decoded HTML (content_html) + plain text + salary
 requirements selectolax: requirements section -> bullet list (no AI, 96% coverage)
 resume upload pypdf / python-docx -> text (file type by magic bytes, not extension)
@@ -98,3 +98,22 @@ Benchmark: `python -m app.services.bench_matching 100,1000,10000` (7.4k real job
 | Filter first (`within`), then score | 9 | cheap selective predicate first, like a query planner |
 
 10k users ≈ 90 s/run on one core. Remaining cost is the O(jobs) preference filter per user.
+
+## Job sources (2026-11-11)
+
+One crawl loop (`app/ingest/crawl_ingest.py`), one small adapter per source: fetch a board, return
+normalized `Posting`s plus the ids of everything listed. Closing, 404 counting, retiring dropped boards,
+names and upserts are shared, so every source gets the same failure rules.
+
+- **Keys:** Greenhouse boards keep their plain slug; others are namespaced (`ashby:ramp`, `lever:spotify`)
+  in `jobs.board` and `boards.slug`. Nothing downstream (matching, per-company limits, company names) needed
+  to change, and the same slug on two sources can't collide. `jobs.external_id` is text (UUIDs on Ashby/Lever).
+- **Details:** Greenhouse's listing has no descriptions (one detail call per job, `fill_descriptions`).
+  Ashby and Lever send the whole posting in the listing, so they're stored on the first pass.
+- **Edits:** Greenhouse has `updated_at`; the others don't, so the version is a hash of the posting's HTML
+  and pay. A changed hash replaces the text and clears requirements/skills to rebuild them.
+- **Remote:** Ashby (`isRemote`/`workplaceType`) and Lever (`workplaceType`) say remote in a field;
+  the adapter writes it into the location ("Remote - United States"), which is what preferences read.
+- **Lever sections:** `lists` (`{text, content}`) are joined back as `<h3>text</h3><ul>...</ul>`, so the
+  requirements parser finds them like any Greenhouse heading. Pages of 100 via skip/limit, with a stop if
+  the server ignores paging and a hard page cap that fails the board rather than closing jobs past it.

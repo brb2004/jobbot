@@ -1,4 +1,5 @@
-# Greenhouse board slugs, one per line. Check with: python -m app.ingest.check_boards
+# Job boards, one per line: a plain slug is Greenhouse; ashby:<board> and lever:<site> are the others.
+# Check with: python -m app.ingest.check_boards
 
 # current
 stripe
@@ -1547,3 +1548,9 @@ xealth
 xebiausa
 zenbusiness
 zestyai
+
+# Ashby / Lever (more with: python -m app.ingest.discover_boards --source ashby|lever --add)
+ashby:ramp
+ashby:openai
+lever:spotify
+lever:palantir

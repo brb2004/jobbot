@@ -12,6 +12,8 @@ app:
   cookieSecure: "true"              # HTTPS at Cloudflare
   trustCfConnectingIp: "true"       # only reachable through the tunnel
   docsEnabled: "false"
+  smtpHost: smtp.gmail.com          # provider's SMTP relay (STARTTLS); login + password live in the secret
+  smtpPort: "587"
 
 postgres:
   image: postgres:16

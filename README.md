@@ -4,12 +4,12 @@
 
 **Live:** https://jobmatch.bbenard.dev
 
-Crawls Greenhouse job boards, matches every posting against each user's resume, and emails each user their top 20 every week. **Matching is fully deterministic: no AI in the decision path.** Every score traces back to named skills and their weights, and the same input always gives the same output.
+Crawls Greenhouse, Ashby and Lever job boards, matches every posting against each user's resume, and emails each user their top 20 every week. **Matching is fully deterministic: no AI in the decision path.** Every score traces back to named skills and their weights, and the same input always gives the same output.
 
 ## Pipeline
 
 ```
-42 Greenhouse boards ──crawl every 2 days──▶ jobs (upsert; closed when a board stops listing them)
+Greenhouse/Ashby/Lever boards ──crawl every 2 days──▶ jobs (upsert; closed when a board stops listing them)
         │
         ▼
 requirements section (selectolax HTML parse) ──▶ skill tags (taxonomy tagger, versioned)
@@ -128,9 +128,9 @@ backend/
   app/core       config, db, security
   app/db         models
   app/api        routes (auth, resumes, preferences, matches)
-  app/ingest     Greenhouse crawler, requirements-section parser
+  app/ingest     crawl core + one adapter per source (Greenhouse, Ashby, Lever), requirements-section parser
   app/services   tagger, scoring, matching, preferences, digest, benchmarks
-  boards.txt     Greenhouse board slugs
+  boards.txt     boards to crawl: plain slug = Greenhouse, ashby:<board>, lever:<site>
   skills.txt     skill taxonomy + implications
   tests/
 frontend/        React app (login, resume, preferences, matches, password reset)
@@ -141,6 +141,6 @@ docs/design.md   decisions and incidents
 ## Roadmap
 
 - Skill discovery: learn new skills from list contexts in postings ("Python, Go, and Prism"), promoted only with evidence across multiple companies
-- More job sources beyond Greenhouse
+- More job sources (Workday, SmartRecruiters) on the same adapter interface
 - Industry matching: prefer, or only show, companies in chosen industries
 - Recruiter side: let recruiters search for developers, built on the same explainable scoring

@@ -34,13 +34,13 @@ async def test_a_malformed_board_fails_alone(session):
 
 
 async def test_one_malformed_job_is_skipped_but_not_closed(session):
-    session.add(Job(board="mixed", external_id=2, title="Old Title"))
+    session.add(Job(board="mixed", external_id="2", title="Old Title"))
     await session.flush()
     bad = {"id": 2, "title": None, "absolute_url": "https://x/2"}                 # fails validation
     async with client(lambda req: httpx.Response(200, json={"jobs": [OK_JOB, bad]})) as c:
         summary = await gh.crawl(c, session, ["mixed"])
     assert summary.found == 1 and summary.closed == 0                            # job 2 still listed: stays open
-    assert {j.external_id for j in await open_jobs(session, "mixed")} == {1, 2}
+    assert {j.external_id for j in await open_jobs(session, "mixed")} == {"1", "2"}
 
 
 async def test_rate_limits_and_server_errors_are_retried(session):
@@ -58,7 +58,7 @@ async def test_rate_limits_and_server_errors_are_retried(session):
 
 
 async def test_a_board_that_404s_three_crawls_in_a_row_gets_closed(session):
-    session.add(Job(board="gone", external_id=1, title="Engineer"))
+    session.add(Job(board="gone", external_id="1", title="Engineer"))
     await session.flush()
     async with client(lambda req: httpx.Response(404)) as c:
         for crawl_no in (1, 2):
@@ -80,14 +80,14 @@ async def test_a_good_crawl_resets_the_404_count(session):
 
 
 async def test_boards_dropped_from_the_list_are_retired(session):
-    session.add_all([Job(board="kept", external_id=1, title="A"), Job(board="dropped", external_id=1, title="B")])
+    session.add_all([Job(board="kept", external_id="1", title="A"), Job(board="dropped", external_id="1", title="B")])
     await session.flush()
     assert await gh.retire_dropped(session, ["kept"]) == 1
     assert len(await open_jobs(session, "kept")) == 1 and await open_jobs(session, "dropped") == []
 
 
 async def test_one_bad_posting_never_stops_the_details_run(session):
-    session.add_all([Job(board="dd", external_id=1, title="A"), Job(board="dd", external_id=2, title="B")])
+    session.add_all([Job(board="dd", external_id="1", title="A"), Job(board="dd", external_id="2", title="B")])
     await session.flush()
     def handler(req):
         if req.url.path.endswith("/1"):
