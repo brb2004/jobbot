@@ -163,6 +163,28 @@ async def test_health_needs_no_login(client):
     assert r.status_code == 200 and r.json() == {"ok": True}
 
 
+async def test_ready_checks_the_database(client):
+    r = await client.get("/ready")
+    assert r.status_code == 200 and r.json() == {"ok": True, "db": True}
+
+
+async def test_ready_says_503_when_the_database_is_down(client):
+    from app.core.db_core import get_session
+    from app.main import app
+
+    class Down:
+        async def execute(self, *a, **k):
+            raise OSError("connection refused")
+
+    before = app.dependency_overrides.get(get_session)
+    app.dependency_overrides[get_session] = lambda: Down()
+    try:
+        r = await client.get("/ready")
+    finally:
+        app.dependency_overrides[get_session] = before
+    assert r.status_code == 503 and r.json() == {"ok": False, "db": False}
+
+
 async def test_behind_cloudflare_the_limit_is_per_real_visitor(client, monkeypatch):
     from app.core.config_core import get_settings
     monkeypatch.setattr(get_settings(), "TRUST_CF_CONNECTING_IP", True)

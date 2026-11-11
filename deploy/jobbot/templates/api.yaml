@@ -28,7 +28,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports: [{containerPort: 8000}]
           env: {{- include "jobbot.appEnv" . | nindent 12 }}
-          readinessProbe: {httpGet: {path: /health, port: 8000}, periodSeconds: 5}
+          readinessProbe: {httpGet: {path: /ready, port: 8000}, periodSeconds: 5}      # can reach Postgres
           livenessProbe: {httpGet: {path: /health, port: 8000}, periodSeconds: 15, failureThreshold: 4}
           resources: {requests: {cpu: 100m, memory: 256Mi}, limits: {memory: 768Mi}}
           securityContext: {{- include "jobbot.hardened" . | nindent 12 }}
