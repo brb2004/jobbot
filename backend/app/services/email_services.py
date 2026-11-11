@@ -76,6 +76,6 @@ def feedback_email(from_addr: str, to: str, ref: str, kind: str) -> EmailMessage
     msg["Subject"] = f"We got your {what} (#{ref})"
     msg.set_content(
         f"Thanks for the {what}. It's in our queue as #{ref}.\n\n"
-        "We read every report. If we need more detail, we'll reply to this email.\n\n"
+        "We read every report. If we need more details, we'll reply to this email.\n\n"
         "JobMatch\n")
     return msg
