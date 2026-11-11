@@ -51,3 +51,23 @@ def test_vancouver_wa_is_not_vancouver_bc():
     assert {"Vancouver WA", "United States"} <= places_in("Vancouver, WA") and "Canada" not in places_in("Vancouver, WA")
     assert "Canada" in places_in("Vancouver, British Columbia, Canada")
     assert place_of("vancouver, wa") == "Vancouver WA"
+
+
+def test_a_city_in_another_state_is_not_the_local_one():
+    from app.services.places_services import places_in
+    assert "Dallas-Fort Worth" not in places_in("Cambridge, MA, Arlington, VA")
+    assert "Dallas-Fort Worth" not in places_in("Arlington, Virginia")
+    assert "Dallas-Fort Worth" in places_in("Arlington, TX")
+    assert "Dallas-Fort Worth" in places_in("Plano, Texas")
+    assert "Dallas-Fort Worth" in places_in("Arlington")                     # no state given: same as before
+    assert "Dallas-Fort Worth" in places_in("Dallas, TX / Arlington, VA")    # one of the states is its own
+    assert "Toronto" in places_in("Toronto, CA")                              # CA = Canada there
+    assert "Vancouver WA" in places_in("Vancouver, WA") and "Vancouver" in places_in("Vancouver, BC")
+
+
+def test_arlington_virginia_is_not_a_dfw_job():
+    from app.db.models_db import Job
+    from app.services.preferences_services import Preferences, allowed
+    dfw = Preferences(locations=["Dallas-Fort Worth"], remote=False, onsite=True)
+    assert not allowed(Job(title="Software Engineer", location="Arlington, VA"), dfw)
+    assert allowed(Job(title="Software Engineer", location="Arlington, TX"), dfw)

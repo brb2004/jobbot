@@ -12,6 +12,9 @@ from app.services.skills_services import default_tagger
 from app.services.titles_services import role_key
 
 
+PER_COMPANY = 2          # at most 2 of anyone's top k from one company
+
+
 def _stale(model, tagger):
     """Never tagged, or tagged with a different skills.txt."""
     return or_(model.skills_version.is_(None), model.skills_version != tagger.version)
@@ -60,6 +63,7 @@ async def match_all(s: AsyncSession, k: int = 20, user_id: UUID | None = None) -
         years_src[j.id] = "requirements" if stated is not None else "title"
     by_id = {j.id: j for j in jobs}
     roles = {j.id: (j.board, role_key(j.title)) for j in jobs}  # one per company + title
+    companies = {j.id: j.board for j in jobs if j.board}            # capped at PER_COMPANY each
     all_jobs = {j.id: set(j.skills) for j in jobs}
     index = build_index(all_jobs)                                           # once per run, shared by every user
     users = {u.id: u for u in (await s.scalars(select(User))).all()}        # one query, not one per resume
@@ -76,7 +80,7 @@ async def match_all(s: AsyncSession, k: int = 20, user_id: UUID | None = None) -
         ok = {j.id for j in jobs if allowed(j, prefs)} - applied.get(resume.user_id, set())                      # cheap + selective: filter first
         await s.execute(delete(MatchScore).where(MatchScore.resume_id == resume.id))
         for m in top_matches(tagger.expand(set(resume.skills) | _extra(prefs)), all_jobs, weights, k,
-                             index=index, within=ok, dedupe_key=roles, job_years=years, user_years=prefs.years_experience if prefs.years_experience is not None else resume.years_detected):
+                             index=index, within=ok, dedupe_key=roles, company=companies, per_company=PER_COMPANY, job_years=years, user_years=prefs.years_experience if prefs.years_experience is not None else resume.years_detected):
             s.add(MatchScore(resume_id=resume.id, job_id=m.job_id, score=m.score,
                              detail={"met": m.matched, "partial": [], "missing": m.missing, "soft": [],
                                      "years_asked": m.years_asked,

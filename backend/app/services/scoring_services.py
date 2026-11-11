@@ -114,8 +114,11 @@ def build_index(jobs: dict[object, set[str]]) -> dict[str, set]:
 def top_matches(user_skills: set[str], jobs: dict[object, set[str]], weights: dict[str, float],
                 k: int = 20, index: dict[str, set] | None = None,
                 job_years: dict[object, int | None] | None = None, user_years: int | None = None,
-                allow=None, within: set | None = None, dedupe_key: dict | None = None) -> list[Match]:
-    """within: cheap precomputed filter, applied BEFORE scoring. allow: expensive check, applied lazily best-first."""
+                allow=None, within: set | None = None, dedupe_key: dict | None = None,
+                company: dict | None = None, per_company: int | None = None) -> list[Match]:
+    """within: cheap precomputed filter, applied BEFORE scoring. allow: expensive check, applied lazily best-first.
+    per_company: at most this many picks from one company (company maps job -> company), so a list
+    isn't six postings from two employers."""
     index = index if index is not None else build_index(jobs)
     job_years = job_years or {}
     candidates = set().union(*(index.get(s, set()) for s in user_skills))   # only jobs sharing a skill
@@ -128,15 +131,21 @@ def top_matches(user_skills: set[str], jobs: dict[object, set[str]], weights: di
     heapq.heapify(heap)                                                     # O(n)
     out: list[Match] = []
     seen: set = set()                                                       # dedupe keys already used
+    taken: dict = {}                                                        # company -> picks so far
     while heap and len(out) < k:
         _, m = heapq.heappop(heap)                                          # O(log n), best first
         key = dedupe_key.get(m.job_id) if dedupe_key else None
         if key is not None and key in seen:
             continue                                                        # a better posting of this role won
+        co = company.get(m.job_id) if company and per_company else None
+        if co is not None and taken.get(co, 0) >= per_company:
+            continue                                                        # this company has its share
         if allow is None or allow(m.job_id):
             out.append(m)
             if key is not None:
                 seen.add(key)
+            if co is not None:
+                taken[co] = taken.get(co, 0) + 1
     return out
 
 

@@ -127,3 +127,11 @@ def test_years_in_education_clauses_are_not_work_experience():
     assert years_required(["2+ years of coursework in data structures"]) is None
     assert years_required(["5+ years of auditing experience, including IT/Information Security."]) == 5
     assert years_required(["Degree in CS, plus 3+ years of industry experience"]) == 3
+
+
+def test_at_most_n_picks_per_company():
+    jobs = {f"a{i}": {"Python"} for i in range(5)} | {"b1": {"Python"}, "b2": {"Python"}}
+    company = {j: j[0] for j in jobs}
+    out = top_matches({"Python"}, jobs, {"Python": 1.0}, k=10, company=company, per_company=2)
+    picked = [m.job_id[0] for m in out]
+    assert picked.count("a") == 2 and picked.count("b") == 2 and len(out) == 4
