@@ -15,7 +15,8 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.main import app
-from app.core.db_core import engine, get_session
+from contextlib import asynccontextmanager
+from app.core.db_core import engine, get_session, get_sessionmaker
 from app.core.security_core import create_access_token
 from app.db.models_db import Base
 
@@ -36,6 +37,11 @@ async def session():
         trans = await conn.begin()
         s = AsyncSession(bind=conn, join_transaction_mode="create_savepoint", expire_on_commit=False)
         app.dependency_overrides[get_session] = lambda: s
+
+        @asynccontextmanager
+        async def same_session():                    # background tasks reuse the test's session
+            yield s
+        app.dependency_overrides[get_sessionmaker] = lambda: same_session
         yield s
         app.dependency_overrides.clear()
         await s.close()

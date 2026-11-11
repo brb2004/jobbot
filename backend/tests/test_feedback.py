@@ -58,14 +58,12 @@ async def rows(session, user):
                                   .order_by(Feedback.created_at))).scalars().all()
 
 
-async def test_a_report_is_queued_then_acknowledged_by_email(client, session, outbox):
+async def test_a_report_is_acknowledged_by_email_right_away(client, session, outbox):
     user, h = await account(session)
     r = await client.post("/feedback", json=BUG, headers=h)
     assert r.status_code == 202
     ref = r.json()["ref"]
-    assert outbox == []                                            # the request only queues it
-    await cron(session)
-    assert len(outbox) == 1 and outbox[0]["To"] == user.email and ref in outbox[0]["Subject"]
+    assert len(outbox) == 1                                        # sent just after the response, no cron wait and outbox[0]["To"] == user.email and ref in outbox[0]["Subject"]
     assert "Apply button" not in outbox[0].get_content()          # the report isn't echoed back
     [fb] = await rows(session, user)
     assert (fb.kind, fb.page, fb.ack_status, fb.attempts) == ("bug", "/matches", "sent", 1)
@@ -79,15 +77,15 @@ async def test_a_failed_email_stays_queued_and_goes_out_on_the_next_drain(client
 
     use_mailer(down)
     assert (await client.post("/feedback", json=BUG, headers=h)).status_code == 202   # the report is still saved
-    await cron(session)
     [fb] = await rows(session, user)
     assert (fb.ack_status, fb.attempts) == ("queued", 1)
     async def capture(msg):
         outbox.append(msg)
     use_mailer(capture)
-    await client.post("/feedback", json={**BUG, "kind": "idea"}, headers=h)
+    await client.post("/feedback", json={**BUG, "kind": "idea"}, headers=h)   # sent at once
+    assert len(outbox) == 1
     await cron(session)
-    assert len(outbox) == 2                                        # the straggler went out too
+    assert len(outbox) == 2                                        # the cron retried the straggler
     assert [f.ack_status for f in await rows(session, user)] == ["sent", "sent"]
 
 
@@ -110,13 +108,39 @@ async def test_only_confirmed_accounts_and_sane_input(client, session, outbox):
     assert outbox == []
 
 
-async def test_the_request_never_touches_smtp(client, session):
-    """Even with SMTP hanging, sending feedback answers right away: the cron does the sending."""
+async def test_the_page_gets_its_answer_before_any_email_is_sent(session):
+    """The send runs after the response is out, so a slow SMTP server never delays the page."""
+    from httpx import ASGITransport, AsyncClient
     _, h = await account(session)
+    events = []
+
+    async def slow(msg):
+        events.append("mail start")
+        await asyncio.sleep(0.2)
+        events.append("mail done")
+
+    async def recording(scope, receive, send):
+        async def send2(message):
+            if message["type"] == "http.response.body" and not message.get("more_body"):
+                events.append("response sent")
+            await send(message)
+        await app(scope, receive, send2)
+
+    use_mailer(slow)
+    async with AsyncClient(transport=ASGITransport(app=recording), base_url="http://test") as c:
+        assert (await c.post("/feedback", json=BUG, headers=h)).status_code == 202
+    assert events == ["response sent", "mail start", "mail done"]
+
+
+async def test_a_hanging_smtp_server_times_out_and_leaves_it_for_the_cron(client, session, monkeypatch):
+    from app.services import feedback_services
+    monkeypatch.setattr(feedback_services, "SEND_TIMEOUT_S", 0.1)
+    user, h = await account(session)
 
     async def hangs(msg):
         await asyncio.sleep(60)
 
     use_mailer(hangs)
-    r = await asyncio.wait_for(client.post("/feedback", json=BUG, headers=h), timeout=2)
-    assert r.status_code == 202
+    assert (await asyncio.wait_for(client.post("/feedback", json=BUG, headers=h), timeout=2)).status_code == 202
+    [fb] = await rows(session, user)
+    assert (fb.ack_status, fb.attempts) == ("queued", 1)

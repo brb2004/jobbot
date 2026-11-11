@@ -32,7 +32,7 @@ export function Feedback({ api }: { api: Api }) {
     return (
       <div className="max-w-xl space-y-2">
         <p role="status" className="rounded-md bg-green-50 px-3 py-2 text-green-800">
-          Thanks! Your report is #{ref}. We'll email you a confirmation in a few minutes.
+          Thanks! Your report is #{ref}. We've emailed you a confirmation.
         </p>
         <button onClick={() => setRef(null)} className="text-sm underline">Send another</button>
       </div>
