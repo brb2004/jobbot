@@ -45,3 +45,4 @@ grafanalabs
 mercury
 verkada
 sofi
+equipmentsharecom
