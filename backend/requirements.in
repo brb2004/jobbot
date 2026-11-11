@@ -1,0 +1,30 @@
+# Direct dependencies. requirements.txt is generated from this file, pinned with hashes:
+#   uv pip compile requirements.in --python-version 3.12 --python-platform linux --generate-hashes -o requirements.txt
+# Edit here, recompile, commit both.
+
+# --- web ---
+fastapi
+uvicorn[standard]
+python-multipart               # file uploads (resumes)
+
+# --- config / validation ---
+pydantic
+pydantic-settings
+email-validator                # EmailStr
+
+# --- database ---
+sqlalchemy[asyncio]
+asyncpg
+alembic
+
+# --- auth ---
+pyjwt
+bcrypt
+
+# --- http / crawler ---
+httpx
+selectolax
+
+# --- resume parsing ---
+pypdf
+python-docx

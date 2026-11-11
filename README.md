@@ -109,7 +109,7 @@ Python 3.12 · FastAPI · async SQLAlchemy 2 + asyncpg · Postgres 16 · Alembic
 ```bash
 docker compose up -d db                      # Postgres on :55432
 cd backend
-python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+python -m venv .venv && source .venv/bin/activate && pip install --require-hashes -r requirements-dev.txt
 cp .env.example .env                         # DATABASE_URL, JWT_SECRET_KEY, SMTP_*
 alembic upgrade head
 

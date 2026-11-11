@@ -3,7 +3,7 @@ name: tests
 on: [push, pull_request]
 
 jobs:
-  test:
+  backend:
     runs-on: ubuntu-latest
 
     services:
@@ -33,5 +33,36 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: backend/requirements-dev.txt
-      - run: pip install -r requirements-dev.txt
+      - name: Install (pinned, every file hash-checked)
+        run: pip install --require-hashes -r requirements-dev.txt
+      - name: Lock files match the .in files
+        run: |
+          pip install uv
+          uv pip compile requirements.in --python-version 3.12 --python-platform linux --generate-hashes -q -o /tmp/req.txt
+          diff <(grep -v '^#' requirements.txt) <(grep -v '^#' /tmp/req.txt) || { echo "requirements.txt is stale: recompile (command in requirements.in)"; exit 1; }
+      - name: Migrations build the schema the models describe
+        env:
+          DATABASE_URL: postgresql+asyncpg://jobbot:jobbot123@localhost:5432/jobbot_test
+        run: alembic upgrade head && alembic check
       - run: pytest -q
+      - name: Known vulnerabilities in pinned Python packages
+        run: pip-audit -r requirements.txt --require-hashes --disable-pip
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx tsc -b
+      - run: npm run lint
+      - run: npm test
+      - name: Known vulnerabilities in what ships to browsers (high and above)
+        run: npm audit --omit=dev --audit-level=high
