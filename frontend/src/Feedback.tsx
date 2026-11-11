@@ -55,11 +55,9 @@ export function Feedback({ api }: { api: Api }) {
         <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={5000} rows={6}
                   className="mt-1 w-full rounded-md border border-slate-300 p-2" />
       </label>
-      <p className="text-xs text-slate-500">
-        {text.trim().length < 5 ? 'At least 5 characters' : `${text.length}/5000`}
-      </p>
+      <p className="text-xs text-slate-500">{text.length}/5000</p>
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-      <button type="submit" disabled={busy || text.trim().length < 5}
+      <button type="submit" disabled={busy || !text.trim()}
               className="rounded-md bg-slate-900 px-4 py-2 text-white disabled:opacity-50">
         {busy ? 'Sending…' : 'Send'}
       </button>

@@ -22,7 +22,7 @@ describe('Feedback', () => {
   it('needs a real message and shows the rate-limit error', async () => {
     const sendFeedback = vi.fn().mockRejectedValue(new ApiError(429, "You've sent a lot of reports this hour. Try again later."))
     render(<Feedback api={{ sendFeedback } as unknown as Api} />)
-    type('hi')
+    type('   ')
     expect(screen.getByRole('button', { name: /send/i })).toHaveProperty('disabled', true)
     type('It broke again')
     fireEvent.click(screen.getByRole('button', { name: /send/i }))

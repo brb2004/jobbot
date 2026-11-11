@@ -94,6 +94,6 @@ async def test_only_confirmed_accounts_and_sane_input(client, session, outbox):
     _, unconfirmed = await account(session, verified=False)
     assert (await client.post("/feedback", json=BUG, headers=unconfirmed)).status_code == 403
     _, h = await account(session)
-    for bad in ({**BUG, "kind": "spam"}, {**BUG, "message": "hi"}, {**BUG, "message": "x" * 5001}):
+    for bad in ({**BUG, "kind": "spam"}, {**BUG, "message": "   "}, {**BUG, "message": "x" * 5001}):
         assert (await client.post("/feedback", json=bad, headers=h)).status_code == 422
     assert outbox == []
