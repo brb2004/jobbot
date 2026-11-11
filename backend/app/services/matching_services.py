@@ -1,7 +1,7 @@
 """Glue between the database and the pure matcher in scoring_services."""
 from uuid import UUID
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.batches_db import batches
@@ -13,6 +13,8 @@ from app.services.titles_services import role_key
 
 
 PER_COMPANY = 2          # at most 2 of anyone's top k from one company
+RESERVE = 20             # extra matches stored past the k shown: apply / dismiss just reveal the next one
+LOCK_NS = 7342           # advisory-lock namespace for per-resume rematches
 
 
 def _stale(model, tagger):
@@ -49,7 +51,10 @@ def _extra(prefs: Preferences) -> set[str]:
 
 
 async def match_all(s: AsyncSession, k: int = 20, user_id: UUID | None = None) -> int:
-    """Recompute every user's top k from scratch. Deterministic and cheap, so no caching needed."""
+    """Recompute each user's top matches from scratch: k shown, plus RESERVE and the jobs they applied to or
+    dismissed (the dashboard hides those), so marking a job never needs a rematch and undo always brings it back.
+    Each resume is locked and committed on its own: two rematches of one user wait for each other instead of
+    colliding on the unique (resume, job) key, and the nightly run never holds every user's rows at once."""
     tagger = default_tagger()
     # only the columns matching needs: skipping content_html/description is ~100 MB less per run
     cols = select(Job.id, Job.board, Job.title, Job.location, Job.skills, Job.requirements)
@@ -67,7 +72,7 @@ async def match_all(s: AsyncSession, k: int = 20, user_id: UUID | None = None) -
     all_jobs = {j.id: set(j.skills) for j in jobs}
     index = build_index(all_jobs)                                           # once per run, shared by every user
     users = {u.id: u for u in (await s.scalars(select(User))).all()}        # one query, not one per resume
-    applied: dict = {}                                                    # applied jobs leave the list
+    applied: dict = {}                                                    # applied / dismissed: hidden on read
     for uid, jid in (await s.execute(select(Application.user_id, Application.job_id))).all():
         applied.setdefault(uid, set()).add(jid)
     saved = 0
@@ -77,9 +82,11 @@ async def match_all(s: AsyncSession, k: int = 20, user_id: UUID | None = None) -
     for resume in (await s.scalars(resumes)).all():
         user = users.get(resume.user_id)
         prefs = Preferences.model_validate((user.preferences if user else None) or {})
-        ok = {j.id for j in jobs if allowed(j, prefs)} - applied.get(resume.user_id, set())                      # cheap + selective: filter first
+        ok = {j.id for j in jobs if allowed(j, prefs)}                     # cheap + selective: filter first
+        store = k + RESERVE + len(applied.get(resume.user_id, ()))
+        await s.execute(select(func.pg_advisory_xact_lock(LOCK_NS, func.hashtext(str(resume.id)))))
         await s.execute(delete(MatchScore).where(MatchScore.resume_id == resume.id))
-        for m in top_matches(tagger.expand(set(resume.skills) | _extra(prefs)), all_jobs, weights, k,
+        for m in top_matches(tagger.expand(set(resume.skills) | _extra(prefs)), all_jobs, weights, store,
                              index=index, within=ok, dedupe_key=roles, company=companies, per_company=PER_COMPANY, job_years=years, user_years=prefs.years_experience if prefs.years_experience is not None else resume.years_detected):
             s.add(MatchScore(resume_id=resume.id, job_id=m.job_id, score=m.score,
                              detail={"met": m.matched, "partial": [], "missing": m.missing, "soft": [],
@@ -89,5 +96,5 @@ async def match_all(s: AsyncSession, k: int = 20, user_id: UUID | None = None) -
                                      "clearance": needs_clearance(by_id[m.job_id].title,
                                                                   by_id[m.job_id].requirements or [])}))
             saved += 1
-    await s.commit()                                                        # one commit for the whole run
+        await s.commit()                                                    # per user: releases the lock
     return saved

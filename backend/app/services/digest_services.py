@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Job, MatchScore, Resume, User
 from app.schemas.matches_schemas import MatchOut
+from app.services.matches_services import marked
 from app.services.scoring_services import TIERS, tier, years_note  # noqa: F401  (re-exported)
 
 SHOW = 3          # requirements shown per list
@@ -52,6 +53,7 @@ async def matches_for(s: AsyncSession, user_id: UUID, since: datetime):
         .where(Resume.user_id == user_id)
         .where(MatchScore.scored_at >= since)
         .where(Job.closed_at.is_(None))                 # never email a dead link
+        .where(Job.id.not_in(marked(user_id)))          # nor a job they already applied to or dismissed
         .order_by(MatchScore.score.desc())
     )
     return [MatchOut.model_validate(r, from_attributes=True) for r in (await s.execute(stmt)).all()]

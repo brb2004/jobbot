@@ -10,14 +10,21 @@ from app.services.matching_services import match_all
 pytestmark = pytest.mark.asyncio
 
 
+@pytest.fixture(autouse=True)
+def _show_two(monkeypatch):
+    """Show 2 matches so a third stored one is the reserve that moves up."""
+    import app.services.matches_services as matches
+    monkeypatch.setattr(matches, "SHOW", 2)
+
+
 async def setup(session, n=3):
     user = User(id=uuid4(), email=f"{uuid4().hex[:8]}@apply.test", hashed_password="x",
                 email_verified_at=datetime.now(timezone.utc))
-    jobs = [Job(title=f"Backend Engineer {i}", board="acme", skills=["Python"], requirements=["Python"],
+    jobs = [Job(title=f"Backend Engineer {i}", board=f"acme{i}", skills=["Python"], requirements=["Python"],
                 url=f"https://x/{i}") for i in range(n)]
     session.add_all([user, *jobs, Resume(user_id=user.id, skills=["Python"])])
     await session.flush()
-    await match_all(session, k=2)                         # top 2 of 3: one job waits in reserve
+    await match_all(session, k=2)                         # 2 shown, the rest stored as reserve
     return {"Authorization": f"Bearer {create_access_token(str(user.id))}"}, jobs
 
 
@@ -65,3 +72,31 @@ async def test_not_interested_hides_it_without_listing_it_as_applied(client, ses
     assert (await client.put(f"/applications/{picked}", headers=h)).status_code == 204   # changed mind: applied
     assert [a["job_id"] for a in (await client.get("/applications", headers=h)).json()] == [picked]
     assert (await client.put(f"/applications/{picked}?status=bogus", headers=h)).status_code == 422
+
+
+async def test_marking_and_undo_never_rerun_matching(client, session, monkeypatch):
+    """The whole point of the reserve: a click is a cheap insert, not a full rematch over every job."""
+    h, jobs = await setup(session)
+    import app.services.matching_services as matching
+    calls = []
+
+    async def spy(*a, **k):
+        calls.append(1)
+
+    monkeypatch.setattr(matching, "match_all", spy)
+    picked = next(iter(await shown(client, h)))
+    await client.put(f"/applications/{picked}", headers=h)
+    await client.put(f"/applications/{picked}?status=dismissed", headers=h)
+    await client.delete(f"/applications/{picked}", headers=h)
+    assert calls == []
+
+
+async def test_closed_jobs_leave_the_dashboard_right_away(client, session):
+    from datetime import datetime, timezone
+    h, jobs = await setup(session)
+    before = await shown(client, h)
+    gone = next(j for j in jobs if str(j.id) in before)
+    gone.closed_at = datetime.now(timezone.utc)
+    await session.flush()
+    after = await shown(client, h)
+    assert str(gone.id) not in after and len(after) == 2      # reserve fills the slot

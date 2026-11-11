@@ -1,4 +1,5 @@
-"""Applied jobs leave the matches list; matching re-runs for that user so the next match moves up."""
+"""Applied or dismissed jobs leave the matches list. No rematch: the user's stored matches already include a
+reserve, and the dashboard hides marked jobs, so the next match moves up instantly and undo is instant too."""
 from uuid import UUID
 
 from sqlalchemy import delete, func, select
@@ -8,11 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models_db import Application, Board, Job
 
 
-async def _rematch(s: AsyncSession, user_id: UUID) -> None:
-    from app.services.matching_services import match_all          # local import: matching imports a lot
-    await match_all(s, user_id=user_id)
-
-
 async def mark(s: AsyncSession, user_id: UUID, job_id: UUID, status: str = "applied") -> bool:
     if await s.get(Job, job_id) is None:
         return False
@@ -20,14 +16,12 @@ async def mark(s: AsyncSession, user_id: UUID, job_id: UUID, status: str = "appl
     await s.execute(stmt.on_conflict_do_update(constraint="uq_applications_user_job",
                                                set_={"status": stmt.excluded.status}))   # idempotent; last choice wins
     await s.commit()
-    await _rematch(s, user_id)
     return True
 
 
 async def undo(s: AsyncSession, user_id: UUID, job_id: UUID) -> None:
     await s.execute(delete(Application).where(Application.user_id == user_id, Application.job_id == job_id))
     await s.commit()
-    await _rematch(s, user_id)
 
 
 async def list_for(s: AsyncSession, user_id: UUID) -> list[dict]:
