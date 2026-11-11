@@ -85,3 +85,12 @@ def _no_real_email():
     app.dependency_overrides[auth_routes.get_mailer] = lambda: drop
     yield
     app.dependency_overrides.pop(auth_routes.get_mailer, None)
+
+
+@_pytest.fixture(autouse=True)
+def _fresh_job_index():
+    """The cached job index is process-wide; each test starts without one."""
+    from app.services import matching_services
+    matching_services._cached = None
+    yield
+    matching_services._cached = None

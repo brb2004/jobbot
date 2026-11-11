@@ -106,8 +106,8 @@ async def list_for(s: AsyncSession, user_id: UUID) -> list[Resume]:
 
 async def upload(s: AsyncSession, user_id: UUID, filename: str, data: bytes) -> Resume:
     """Save (replacing any previous resume), tag, and match this user now instead of at the next cron run."""
-    from app.services.matching_services import match_all, tag_resumes
+    from app.services.matching_services import rematch_user, tag_resumes
     resume = await create(s, user_id, filename, data, require_skills=True)
     await tag_resumes(s)
-    await match_all(s, user_id=user_id)
+    await rematch_user(s, user_id)
     return resume
