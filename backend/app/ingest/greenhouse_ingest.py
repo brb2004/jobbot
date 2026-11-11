@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.batches_db import batches
-from app.db.models_db import Job
+from app.db.models_db import Board, Job
 from app.ingest.text_ingest import html_to_text
 
 API = "https://boards-api.greenhouse.io/v1/boards"
@@ -51,6 +51,20 @@ async def fetch_board(client: httpx.AsyncClient, slug: str) -> list[BoardJob] | 
         return None
     r.raise_for_status()
     return [BoardJob.model_validate(j) for j in r.json()["jobs"]]
+
+
+async def fetch_board_name(client: httpx.AsyncClient, slug: str) -> str | None:
+    """The company's real name: slugs can be "accenturefederalservices" or a random id like "a3c41b8b71eff8c4"."""
+    r = await client.get(f"{API}/{slug}")
+    if r.status_code != 200:
+        return None
+    return (r.json().get("name") or "").strip()[:200] or None
+
+
+async def save_name(s: AsyncSession, slug: str, name: str) -> None:
+    stmt = insert(Board).values(slug=slug, name=name, checked_at=func.now())
+    await s.execute(stmt.on_conflict_do_update(index_elements=[Board.slug],
+                                               set_={"name": stmt.excluded.name, "checked_at": func.now()}))
 
 
 async def fetch_details(client: httpx.AsyncClient, board: str, job_id: int) -> JobDetails:
@@ -106,24 +120,34 @@ async def close_missing(s: AsyncSession, board: str, listed_ids: list[int]) -> i
 async def crawl(client: httpx.AsyncClient, s: AsyncSession, slugs: list[str],
                 concurrency: int = 4) -> CrawlSummary:
     sem = asyncio.Semaphore(concurrency)
+    named = set((await s.scalars(select(Board.slug).where(Board.name.is_not(None)))).all())
 
     async def fetch(slug):
         async with sem:
             try:
-                return slug, await fetch_board(client, slug), None
+                jobs = await fetch_board(client, slug)
             except httpx.HTTPError as e:
-                return slug, None, e
+                return slug, None, e, None
+            name = None
+            if jobs is not None and slug not in named:              # once per board, not every crawl
+                try:
+                    name = await fetch_board_name(client, slug)
+                except httpx.HTTPError:
+                    pass                                            # try again next crawl
+            return slug, jobs, None, name
 
     summary = CrawlSummary()
     tasks = [asyncio.ensure_future(fetch(slug)) for slug in slugs]
     for done in asyncio.as_completed(tasks):                   # save each board as it lands, then drop it
-        slug, jobs, err = await done
+        slug, jobs, err, name = await done
         if err:
             summary.failed += 1                                 # unknown state: close nothing
         elif jobs is None:
             summary.missing += 1                                # 404: close nothing (slug may be wrong)
         else:
             summary.found += 1
+            if name:
+                await save_name(s, slug, name)                      # committed with the board's jobs
             summary.new_jobs += await save_board(s, slug, jobs)
             summary.closed += await close_missing(s, slug, [j.id for j in jobs])
     return summary

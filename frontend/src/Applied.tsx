@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { ApiError, type Api, type Application } from './api'
 
-const company = (slug: string | null) => (slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : null)
+// real names come as-is ("eBay", "Defense Unicorns"); a bare slug gets a capital letter
+const company = (c: string | null) => (c ? (/[A-Z\s]/.test(c) ? c : c.charAt(0).toUpperCase() + c.slice(1)) : null)
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 
 export function Applied({ api }: { api: Api }) {

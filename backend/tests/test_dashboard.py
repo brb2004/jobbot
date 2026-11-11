@@ -111,3 +111,15 @@ async def _user(session):
     session.add(u)
     await session.flush()
     return u.id
+
+
+async def test_dashboard_shows_the_real_company_name(client, auth_headers, session):
+    from app.db.models_db import Board
+    session.add(Board(slug="a3c41b8b71eff8c4", name="Ivanti"))
+    job = _J(title="Backend Engineer", board="a3c41b8b71eff8c4", location="Remote, US", url="https://x/9")
+    resume = _R(user_id=_my_id(auth_headers))
+    session.add_all([job, resume])
+    await session.flush()
+    session.add(_MS(resume_id=resume.id, job_id=job.id, score=0.5, detail={"met": [], "missing": []}))
+    await session.flush()
+    assert (await client.get("/dashboard", headers=auth_headers)).json()[0]["company"] == "Ivanti"

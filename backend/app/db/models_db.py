@@ -93,3 +93,11 @@ class Feedback(Base):
     attempts: Mapped[int] = mapped_column(default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     acked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Board(Base):
+    """A Greenhouse board: its slug (the name in the URL, sometimes a random id) and the company's real name."""
+    __tablename__ = "boards"
+    slug: Mapped[str] = mapped_column(String(100), primary_key=True)
+    name: Mapped[str | None] = mapped_column(String(200))
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

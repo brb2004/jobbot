@@ -111,3 +111,20 @@ async def test_fill_descriptions_works_in_batches_and_commits_each(session, monk
     assert commits == 3                                          # 2 + 2 + 1
     left = (await session.execute(select(Job).where(Job.board == "bigco", Job.description.is_(None)))).all()
     assert left == []
+
+
+async def test_crawl_saves_the_real_company_name_once(session):
+    from app.db.models_db import Board
+    calls = []
+
+    def named(request):
+        calls.append(request.url.path)
+        if request.url.path == "/v1/boards/stripe":
+            return httpx.Response(200, json={"name": "Stripe, Inc."})
+        return fake_greenhouse(request)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(named)) as c:
+        await gh.crawl(c, session, ["stripe"])
+        await gh.crawl(c, session, ["stripe"])
+    assert (await session.get(Board, "stripe")).name == "Stripe, Inc."
+    assert calls.count("/v1/boards/stripe") == 1                  # not re-fetched once known
