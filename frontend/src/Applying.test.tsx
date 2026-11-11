@@ -53,3 +53,19 @@ describe('Applied tab', () => {
     expect(unmarkApplied).toHaveBeenCalledWith('a')
   })
 })
+
+describe('not interested', () => {
+  it('hides the job and the next match moves up', async () => {
+    const matches = vi.fn()
+      .mockResolvedValueOnce([match('a', 'Backend A'), match('b', 'Backend B')])
+      .mockResolvedValueOnce([match('b', 'Backend B'), match('c', 'Backend C')])
+    const dismiss = vi.fn().mockResolvedValue(undefined)
+    const api = { matches, dismiss, listResumes: vi.fn().mockResolvedValue([{ id: 'r' }]) } as unknown as Api
+    render(<Matches api={api} />)
+    fireEvent.click((await screen.findAllByRole('button', { name: /not interested/i }))[0])
+    await screen.findByText('Backend C')
+    expect(dismiss).toHaveBeenCalledWith('a')
+    expect(screen.queryByText('Backend A')).toBeNull()
+    screen.getByText(/hid “backend a”/i)
+  })
+})

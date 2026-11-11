@@ -26,7 +26,7 @@ export function Matches({ api, onUpload, onPreferences }:
   const [hasResume, setHasResume] = useState<boolean | null>(null)   // null = still checking
   const [error, setError] = useState<string | null>(null)
   const [asking, setAsking] = useState<string | null>(null)          // opened this posting: "did you apply?"
-  const [moved, setMoved] = useState<Match | null>(null)             // last job moved to Applied (for Undo)
+  const [moved, setMoved] = useState<{ m: Match; hidden: boolean } | null>(null)  // last job moved or hidden (for Undo)
   const [notice, setNotice] = useState<string | null>(null)
 
   const load = () => api.matches().then(setMatches).catch((e) => setError(message(e)))
@@ -42,7 +42,19 @@ export function Matches({ api, onUpload, onPreferences }:
     setNotice(null)
     try {
       await api.markApplied(m.job_id)
-      setMoved(m)
+      setMoved({ m, hidden: false })
+      await load()                                                   // the next match moves up
+    } catch (e) {
+      setNotice(message(e))
+    }
+  }
+
+  async function hide(m: Match) {
+    setAsking(null)
+    setNotice(null)
+    try {
+      await api.dismiss(m.job_id)
+      setMoved({ m, hidden: true })
       await load()                                                   // the next match moves up
     } catch (e) {
       setNotice(message(e))
@@ -52,7 +64,7 @@ export function Matches({ api, onUpload, onPreferences }:
   async function undo() {
     if (!moved) return
     try {
-      await api.unmarkApplied(moved.job_id)
+      await api.unmarkApplied(moved.m.job_id)
       setMoved(null)
       await load()
     } catch (e) {
@@ -83,7 +95,7 @@ export function Matches({ api, onUpload, onPreferences }:
     <div className="max-w-3xl space-y-3">
       {moved && (
         <p role="status" className="flex flex-wrap items-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
-          Moved “{moved.title}” to Applied.
+          {moved.hidden ? <>Hid “{moved.m.title}”.</> : <>Moved “{moved.m.title}” to Applied.</>}
           <button onClick={undo} className="underline">Undo</button>
         </p>
       )}
@@ -124,6 +136,9 @@ export function Matches({ api, onUpload, onPreferences }:
                    className="rounded-md border border-slate-300 px-3 py-1">Apply ↗</a>
               ) : (
                 <button onClick={() => applied(m)} className="rounded-md border border-slate-300 px-3 py-1">Mark applied</button>
+              )}
+              {asking !== m.job_id && (
+                <button onClick={() => hide(m)} className="text-slate-500 underline">Not interested</button>
               )}
             </div>
           </li>

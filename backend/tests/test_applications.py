@@ -53,3 +53,15 @@ async def test_marking_twice_is_harmless_and_unknown_jobs_404(client, session):
         assert (await client.put(f"/applications/{jobs[0].id}", headers=h)).status_code == 204
     assert len((await client.get("/applications", headers=h)).json()) == 1
     assert (await client.put(f"/applications/{uuid4()}", headers=h)).status_code == 404
+
+
+async def test_not_interested_hides_it_without_listing_it_as_applied(client, session):
+    h, jobs = await setup(session)
+    picked = next(iter(await shown(client, h)))
+    assert (await client.put(f"/applications/{picked}?status=dismissed", headers=h)).status_code == 204
+    after = await shown(client, h)
+    assert picked not in after and len(after) == 2                 # next match moved up
+    assert (await client.get("/applications", headers=h)).json() == []
+    assert (await client.put(f"/applications/{picked}", headers=h)).status_code == 204   # changed mind: applied
+    assert [a["job_id"] for a in (await client.get("/applications", headers=h)).json()] == [picked]
+    assert (await client.put(f"/applications/{picked}?status=bogus", headers=h)).status_code == 422

@@ -13,11 +13,12 @@ async def _rematch(s: AsyncSession, user_id: UUID) -> None:
     await match_all(s, user_id=user_id)
 
 
-async def mark(s: AsyncSession, user_id: UUID, job_id: UUID) -> bool:
+async def mark(s: AsyncSession, user_id: UUID, job_id: UUID, status: str = "applied") -> bool:
     if await s.get(Job, job_id) is None:
         return False
-    await s.execute(insert(Application).values(user_id=user_id, job_id=job_id, status="applied")
-                    .on_conflict_do_nothing(constraint="uq_applications_user_job"))   # idempotent
+    stmt = insert(Application).values(user_id=user_id, job_id=job_id, status=status)
+    await s.execute(stmt.on_conflict_do_update(constraint="uq_applications_user_job",
+                                               set_={"status": stmt.excluded.status}))   # idempotent; last choice wins
     await s.commit()
     await _rematch(s, user_id)
     return True
@@ -33,7 +34,7 @@ async def list_for(s: AsyncSession, user_id: UUID) -> list[dict]:
     rows = (await s.execute(
         select(Job.id, Job.title, Job.board, Job.location, Job.url, Job.closed_at, Application.created_at)
         .join(Application, Application.job_id == Job.id)
-        .where(Application.user_id == user_id)
+        .where(Application.user_id == user_id, Application.status == "applied")
         .order_by(Application.created_at.desc()))).all()
     return [{"job_id": r.id, "title": r.title, "company": r.board, "location": r.location, "url": r.url,
              "closed": r.closed_at is not None, "applied_at": r.created_at} for r in rows]

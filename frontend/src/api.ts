@@ -147,6 +147,7 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
     matches: () => call<Match[]>('/dashboard'),
     applications: () => call<Application[]>('/applications'),
     markApplied: (jobId: string) => call<void>(`/applications/${jobId}`, { method: 'PUT' }),
+    dismiss: (jobId: string) => call<void>(`/applications/${jobId}?status=dismissed`, { method: 'PUT' }),
     unmarkApplied: (jobId: string) => call<void>(`/applications/${jobId}`, { method: 'DELETE' }),
   }
 }
