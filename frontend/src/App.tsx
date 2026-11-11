@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, NavLink, Route, Routes, useLocation, useNaviga
 import { api } from './api'
 import { CheckEmail } from './CheckEmail'
 import { Applied } from './Applied'
+import { Feedback } from './Feedback'
 import { Login } from './Login'
 import { Matches } from './Matches'
 import { Preferences } from './Preferences'
@@ -17,6 +18,7 @@ const PAGES = [
   { path: '/applied', label: 'Applied' },
   { path: '/resume', label: 'Resume' },
   { path: '/preferences', label: 'Preferences' },
+  { path: '/feedback', label: 'Feedback' },
 ]
 
 export default function App() {
@@ -89,6 +91,7 @@ function Shell() {
         <Routes>
           <Route path="/matches" element={<Matches api={api} onUpload={() => go('/resume')} onPreferences={() => go('/preferences')} />} />
           <Route path="/applied" element={<Applied api={api} />} />
+          <Route path="/feedback" element={<Feedback api={api} />} />
           <Route path="/resume" element={<Upload api={api} onDone={() => go('/matches', 'Resume uploaded. Your matches are updated.')} />} />
           <Route path="/preferences" element={<Preferences api={api} onDirty={setDirty} onSaved={() => go('/matches', 'Preferences saved. Your matches are updated.')}
                                                      onDeleted={() => setStatus('out')} />} />

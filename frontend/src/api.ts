@@ -145,6 +145,8 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
       loggedIn = false
     },
     matches: () => call<Match[]>('/dashboard'),
+    sendFeedback: (body: { kind: string; message: string }) =>
+      call<{ ref: string; detail: string }>('/feedback', { method: 'POST', body: JSON.stringify(body) }),
     applications: () => call<Application[]>('/applications'),
     markApplied: (jobId: string) => call<void>(`/applications/${jobId}`, { method: 'PUT' }),
     dismiss: (jobId: string) => call<void>(`/applications/${jobId}?status=dismissed`, { method: 'PUT' }),

@@ -77,3 +77,19 @@ class Application(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (UniqueConstraint("user_id", "job_id", name="uq_applications_user_job"),)
+
+
+class Feedback(Base):
+    """A bug report or feedback, plus the queue state of its acknowledgement email (transactional outbox)."""
+    __tablename__ = "feedback"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(20))                     # bug | feedback | idea
+    message: Mapped[str] = mapped_column(Text)
+    page: Mapped[str | None] = mapped_column(String(300))
+    user_agent: Mapped[str | None] = mapped_column(String(300))
+    status: Mapped[str] = mapped_column(String(20), default="open")   # triage: open | done
+    ack_status: Mapped[str] = mapped_column(String(20), default="queued")  # queued | sent | failed
+    attempts: Mapped[int] = mapped_column(default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    acked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
