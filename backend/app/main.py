@@ -1,5 +1,5 @@
 from fastapi import Depends, FastAPI
-from app.api.routes import preferences_routes, auth_routes, jobs_routes, matches_routes, resumes_routes, places_routes, skills_routes
+from app.api.routes import preferences_routes, auth_routes, jobs_routes, matches_routes, resumes_routes, places_routes, skills_routes, applications_routes
 from app.api.deps_api import require_verified
 
 from app.core.config_core import get_settings  # noqa: E402
@@ -17,6 +17,7 @@ app.include_router(skills_routes.router)        # public: skill names for autoco
 app.include_router(places_routes.router)        # public: place names for the pickers
 app.include_router(matches_routes.router, dependencies=[Depends(require_verified)])   # confirmed emails only
 app.include_router(resumes_routes.router, dependencies=[Depends(require_verified)])
+app.include_router(applications_routes.router, dependencies=[Depends(require_verified)])
 
 from fastapi import Request  # noqa: E402
 from fastapi.encoders import jsonable_encoder  # noqa: E402

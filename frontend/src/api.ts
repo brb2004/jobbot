@@ -35,6 +35,16 @@ export interface Match {
   detail: MatchDetail | null
 }
 
+export interface Application {
+  job_id: string
+  title: string | null
+  company: string | null
+  location: string | null
+  url: string | null
+  closed: boolean
+  applied_at: string
+}
+
 export interface Place {
   name: string
   label?: string
@@ -135,6 +145,9 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
       loggedIn = false
     },
     matches: () => call<Match[]>('/dashboard'),
+    applications: () => call<Application[]>('/applications'),
+    markApplied: (jobId: string) => call<void>(`/applications/${jobId}`, { method: 'PUT' }),
+    unmarkApplied: (jobId: string) => call<void>(`/applications/${jobId}`, { method: 'DELETE' }),
   }
 }
 

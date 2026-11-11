@@ -18,21 +18,47 @@ function Skills({ label, items }: { label: string; items: string[] }) {
 }
 
 const company = (slug: string | null) => (slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : null)
+const message = (e: unknown) => (e instanceof ApiError ? e.message : 'Could not reach the server')
 
 export function Matches({ api, onUpload, onPreferences }:
   { api: Api; onUpload?: () => void; onPreferences?: () => void }) {
   const [matches, setMatches] = useState<Match[] | null>(null)
   const [hasResume, setHasResume] = useState<boolean | null>(null)   // null = still checking
   const [error, setError] = useState<string | null>(null)
+  const [asking, setAsking] = useState<string | null>(null)          // opened this posting: "did you apply?"
+  const [moved, setMoved] = useState<Match | null>(null)             // last job moved to Applied (for Undo)
+  const [notice, setNotice] = useState<string | null>(null)
 
+  const load = () => api.matches().then(setMatches).catch((e) => setError(message(e)))
   useEffect(() => {
-    api.matches()
-      .then(setMatches)
-      .catch((e) => setError(e instanceof ApiError ? e.message : 'Could not reach the server'))
+    load()
     Promise.resolve().then(() => api.listResumes())
       .then((rs) => setHasResume(rs.length > 0))
       .catch(() => setHasResume(false))
-  }, [api])
+  }, [api])                                                          // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function applied(m: Match) {
+    setAsking(null)
+    setNotice(null)
+    try {
+      await api.markApplied(m.job_id)
+      setMoved(m)
+      await load()                                                   // the next match moves up
+    } catch (e) {
+      setNotice(message(e))
+    }
+  }
+
+  async function undo() {
+    if (!moved) return
+    try {
+      await api.unmarkApplied(moved.job_id)
+      setMoved(null)
+      await load()
+    } catch (e) {
+      setNotice(message(e))
+    }
+  }
 
   if (error) return <p role="alert" className="text-red-600">{error}</p>
   if (matches === null) return <p className="text-slate-600">Loading…</p>
@@ -54,31 +80,55 @@ export function Matches({ api, onUpload, onPreferences }:
     )
 
   return (
-    <ol className="max-w-3xl space-y-3">
-      {matches.map((m, i) => (
-        <li key={m.job_id} className="rounded-lg bg-white p-4 shadow-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="min-w-0">
-              <span className="mr-1 text-sm text-slate-400">#{i + 1}</span>
-              {m.url
-                ? <a href={m.url} target="_blank" rel="noreferrer" className="font-medium underline">{m.title}</a>
-                : <span className="font-medium">{m.title}</span>}
-            </span>
-            <span className={`rounded-full px-2 py-0.5 text-xs ${BADGE[m.tier] ?? BADGE.Stretch}`}>{m.tier}</span>
-            {m.years_note && (
-              <span className={`text-xs ${m.detail?.over_years ? 'text-amber-700' : 'text-slate-600'}`}>{m.years_note}</span>
+    <div className="max-w-3xl space-y-3">
+      {moved && (
+        <p role="status" className="flex flex-wrap items-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          Moved “{moved.title}” to Applied.
+          <button onClick={undo} className="underline">Undo</button>
+        </p>
+      )}
+      {notice && <p role="alert" className="text-sm text-red-600">{notice}</p>}
+      <ol className="space-y-3">
+        {matches.map((m, i) => (
+          <li key={m.job_id} className="rounded-lg bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="min-w-0">
+                <span className="mr-1 text-sm text-slate-400">#{i + 1}</span>
+                {m.url
+                  ? <a href={m.url} target="_blank" rel="noreferrer" onClick={() => setAsking(m.job_id)}
+                       className="font-medium underline">{m.title}</a>
+                  : <span className="font-medium">{m.title}</span>}
+              </span>
+              <span className={`rounded-full px-2 py-0.5 text-xs ${BADGE[m.tier] ?? BADGE.Stretch}`}>{m.tier}</span>
+              {m.years_note && (
+                <span className={`text-xs ${m.detail?.over_years ? 'text-amber-700' : 'text-slate-600'}`}>{m.years_note}</span>
+              )}
+              {m.detail?.clearance && (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">May require clearance or U.S. citizenship</span>
+              )}
+            </div>
+            {(m.company || m.location) && (
+              <p className="text-sm text-slate-500">{[company(m.company), m.location].filter(Boolean).join(' · ')}</p>
             )}
-            {m.detail?.clearance && (
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">May require clearance or U.S. citizenship</span>
-            )}
-          </div>
-          {(m.company || m.location) && (
-            <p className="text-sm text-slate-500">{[company(m.company), m.location].filter(Boolean).join(' · ')}</p>
-          )}
-          <Skills label="You have" items={m.detail?.met ?? []} />
-          <Skills label="Missing" items={m.detail?.missing ?? []} />
-        </li>
-      ))}
-    </ol>
+            <Skills label="You have" items={m.detail?.met ?? []} />
+            <Skills label="Missing" items={m.detail?.missing ?? []} />
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+              {asking === m.job_id ? (
+                <>
+                  <span>Did you apply?</span>
+                  <button onClick={() => applied(m)} className="rounded-md bg-slate-900 px-3 py-1 text-white">Yes, move to Applied</button>
+                  <button onClick={() => setAsking(null)} className="underline">Not yet</button>
+                </>
+              ) : m.url ? (
+                <a href={m.url} target="_blank" rel="noreferrer" onClick={() => setAsking(m.job_id)}
+                   className="rounded-md border border-slate-300 px-3 py-1">Apply ↗</a>
+              ) : (
+                <button onClick={() => applied(m)} className="rounded-md border border-slate-300 px-3 py-1">Mark applied</button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
   )
 }

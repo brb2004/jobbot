@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models_db import Job, MatchScore, Resume, User
+from app.db.models_db import Application, Job, MatchScore, Resume, User
 from app.services.preferences_services import Preferences, allowed
 from app.services.scoring_services import build_index, idf_weights, needs_clearance, top_matches, years_from_title, years_required
 from app.services.skills_services import default_tagger
@@ -60,6 +60,9 @@ async def match_all(s: AsyncSession, k: int = 20, user_id: UUID | None = None) -
     all_jobs = {j.id: set(j.skills) for j in jobs}
     index = build_index(all_jobs)                                           # once per run, shared by every user
     users = {u.id: u for u in (await s.scalars(select(User))).all()}        # one query, not one per resume
+    applied: dict = {}                                                    # applied jobs leave the list
+    for uid, jid in (await s.execute(select(Application.user_id, Application.job_id))).all():
+        applied.setdefault(uid, set()).add(jid)
     saved = 0
     resumes = select(Resume).where(Resume.skills.is_not(None))
     if user_id is not None:
@@ -67,7 +70,7 @@ async def match_all(s: AsyncSession, k: int = 20, user_id: UUID | None = None) -
     for resume in (await s.scalars(resumes)).all():
         user = users.get(resume.user_id)
         prefs = Preferences.model_validate((user.preferences if user else None) or {})
-        ok = {j.id for j in jobs if allowed(j, prefs)}                      # cheap + selective: filter first
+        ok = {j.id for j in jobs if allowed(j, prefs)} - applied.get(resume.user_id, set())                      # cheap + selective: filter first
         await s.execute(delete(MatchScore).where(MatchScore.resume_id == resume.id))
         for m in top_matches(tagger.expand(set(resume.skills) | _extra(prefs)), all_jobs, weights, k,
                              index=index, within=ok, dedupe_key=roles, job_years=years, user_years=prefs.years_experience if prefs.years_experience is not None else resume.years_detected):

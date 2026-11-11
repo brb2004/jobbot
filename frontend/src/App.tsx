@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router'
 import { api } from './api'
 import { CheckEmail } from './CheckEmail'
+import { Applied } from './Applied'
 import { Login } from './Login'
 import { Matches } from './Matches'
 import { Preferences } from './Preferences'
@@ -13,6 +14,7 @@ import { Verify } from './Verify'
 
 const PAGES = [
   { path: '/matches', label: 'Matches' },
+  { path: '/applied', label: 'Applied' },
   { path: '/resume', label: 'Resume' },
   { path: '/preferences', label: 'Preferences' },
 ]
@@ -86,6 +88,7 @@ function Shell() {
         {flash && <p role="status" className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">{flash}</p>}
         <Routes>
           <Route path="/matches" element={<Matches api={api} onUpload={() => go('/resume')} onPreferences={() => go('/preferences')} />} />
+          <Route path="/applied" element={<Applied api={api} />} />
           <Route path="/resume" element={<Upload api={api} onDone={() => go('/matches', 'Resume uploaded. Your matches are updated.')} />} />
           <Route path="/preferences" element={<Preferences api={api} onDirty={setDirty} onSaved={() => go('/matches', 'Preferences saved. Your matches are updated.')}
                                                      onDeleted={() => setStatus('out')} />} />
