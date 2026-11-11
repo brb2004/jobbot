@@ -17,6 +17,7 @@ describe('Matches', () => {
     const link = await screen.findByRole('link', { name: 'Backend Engineer' })
     expect(link.getAttribute('href')).toBe('https://x/1')
     expect(screen.getByText('Strong match')).toBeTruthy()
+    expect(screen.getByText('2 of 3 skills')).toBeTruthy()
     expect(screen.getByText('Python, Go')).toBeTruthy()
     expect(screen.getByText('Kafka')).toBeTruthy()
     expect(screen.getByText('asks for 5+ years')).toBeTruthy()

@@ -19,6 +19,11 @@ function Skills({ label, items }: { label: string; items: string[] }) {
 
 // real names come as-is ("eBay", "Defense Unicorns"); a bare slug gets a capital letter
 const company = (c: string | null) => (c ? (/[A-Z\s]/.test(c) ? c : c.charAt(0).toUpperCase() + c.slice(1)) : null)
+// "2 of 3 skills": how much of what the posting asks for you already have
+const skillCount = (d: Match['detail']) => {
+  const total = (d?.met.length ?? 0) + (d?.partial?.length ?? 0) + (d?.missing.length ?? 0)
+  return total ? `${d?.met.length ?? 0} of ${total} skills` : null
+}
 const message = (e: unknown) => (e instanceof ApiError ? e.message : 'Could not reach the server')
 
 export function Matches({ api, onUpload, onPreferences }:
@@ -113,6 +118,7 @@ export function Matches({ api, onUpload, onPreferences }:
                   : <span className="font-medium">{m.title}</span>}
               </span>
               <span className={`rounded-full px-2 py-0.5 text-xs ${BADGE[m.tier] ?? BADGE.Stretch}`}>{m.tier}</span>
+              {skillCount(m.detail) && <span className="text-xs text-slate-600">{skillCount(m.detail)}</span>}
               {m.years_note && (
                 <span className={`text-xs ${m.detail?.over_years ? 'text-amber-700' : 'text-slate-600'}`}>{m.years_note}</span>
               )}

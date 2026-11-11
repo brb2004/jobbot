@@ -92,6 +92,12 @@ def test_tier_labels():
     assert tier(0.12) == "Stretch"
 
 
+def test_render_says_how_many_of_the_skills_you_have():
+    m = MatchOut(job_id=_uuid.uuid4(), title="Backend", score=0.5, url="https://x/1",
+                 detail={"met": ["Python", "Go"], "partial": [], "missing": ["Kafka"]})
+    assert "Backend — " in render([m], 20) and "· 2 of 3 skills" in render([m], 20)
+
+
 def test_render_shows_tier_and_years_flag_instead_of_percent():
     m = MatchOut(job_id=_uuid.uuid4(), title="Backend", score=0.25, url="https://x/1",
                  detail={"met": ["Python"], "missing": [], "years_asked": 3, "over_years": True})

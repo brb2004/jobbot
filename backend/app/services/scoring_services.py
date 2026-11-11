@@ -67,15 +67,26 @@ EDUCATION = re.compile(r"\b(?:degree|universit|college|education|graduat|coursew
                        r"bachelor|master'?s|ph\.?d|semester)", re.IGNORECASE)
 
 
+# An ask is about experience when the clause says so, or "N years" leads straight into what was done
+# ("5+ years of Python", "3 years in backend", "2 years building APIs"). Not: "a 10 years old codebase".
+EXPERIENCE_WORDS = re.compile(r"\b(?:experience|experienced|exp|background|track record)\b", re.IGNORECASE)
+YEARS_LEADS_IN = re.compile(r"\s*(?:\)\s*)?(?:of|in|working|building|developing|writing|designing|leading|"
+                            r"managing|shipping|programming|coding|professional|industry|hands-on|relevant|"
+                            r"related|or\s+more|plus)\b", re.IGNORECASE)
+
+
 def years_required(bullets: list[str]) -> int | None:
     """Largest 'N+ years' ask. A clause about school ('1 year of university', 'within 1 year of graduation')
-    isn't work experience, unless it says 'experience' itself."""
+    isn't work experience, unless it says 'experience' itself; nor is a number of years that isn't an ask."""
     asks = []
     for b in bullets:
         for clause in re.split(r"[;,]|\.\s", b):
             if EDUCATION.search(clause) and "experience" not in clause.lower():
                 continue
-            asks += [int(m.group(1)) for m in YEARS.finditer(clause)]
+            about_work = EXPERIENCE_WORDS.search(clause) is not None \
+                or len(re.findall(r"[a-z]{2,}", YEARS.sub("", clause), re.IGNORECASE)) <= 2   # a bare "3-5 years"
+            asks += [int(m.group(1)) for m in YEARS.finditer(clause)
+                     if about_work or YEARS_LEADS_IN.match(clause, m.end())]
     return max(asks) if asks else None
 
 

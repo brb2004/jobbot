@@ -34,6 +34,9 @@ def render(matches: list[MatchOut], top_n: int) -> str:
             head += f" · {note}"                     # email: only flag when it's over your level
         if d.get("clearance"):
             head += " · may require clearance or U.S. citizenship"
+        total = len(d.get("met") or []) + len(d.get("partial") or []) + len(d.get("missing") or [])
+        if total:
+            head += f" · {len(d.get('met') or [])} of {total} skills"
         lines = [head]
         if d.get("met"):
             lines.append(f"   You have: {_short(d['met'])}")

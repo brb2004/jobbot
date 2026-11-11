@@ -55,10 +55,23 @@ def _span(m: re.Match, today: date) -> tuple[int, int]:
     return start, end
 
 
+# "mentored engineers with 15 years of experience", "a team averaging 10 years": someone else's years.
+OTHERS = re.compile(r"\b(?:engineers|developers|team|teams|members|staff|people|clients|customers|users|"
+                    r"company|companies|organization|organizations|firm|colleagues|peers|mentees|interns|"
+                    r"students|reports|mentored|managed|supervised|led|hired|coached|alongside|averaging)\b",
+                    re.IGNORECASE)
+
+
+def _own_claim(text: str, m: re.Match) -> bool:
+    """The words before the number, back to the start of its sentence or line, don't name other people."""
+    start = max(text.rfind(".", 0, m.start()), text.rfind("\n", 0, m.start()), text.rfind("•", 0, m.start())) + 1
+    return OTHERS.search(text, start, m.start()) is None
+
+
 def years_from_resume(text: str | None, today: date | None = None,
                       has_skills: Callable[[str], bool] | None = None) -> int | None:
     text = text or ""
-    stated = [int(m.group(1)) for p in STATED for m in p.finditer(text)]
+    stated = [int(m.group(1)) for p in STATED for m in p.finditer(text) if _own_claim(text, m)]
     if stated:
         return max(stated)                                  # the person's own claim
     section = _experience_section(text)
