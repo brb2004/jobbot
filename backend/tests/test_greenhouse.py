@@ -86,3 +86,28 @@ async def test_fill_descriptions_only_fetches_jobs_missing_one(session):
     job = (await session.execute(select(Job).where(Job.external_id == 1))).scalar_one()
     assert job.description == "Build things."
     assert job.salary_min == 120000
+
+async def test_fill_descriptions_works_in_batches_and_commits_each(session, monkeypatch):
+    """Big crawls: one batch in memory at a time, each committed, so a crash mid-run loses nothing finished."""
+    import app.db.batches_db as batches_db
+    monkeypatch.setattr(batches_db, "BATCH", 2)
+    session.add_all([Job(board="bigco", external_id=100 + i, title=f"Job {i}", url=f"https://x/{i}") for i in range(5)])
+    await session.commit()
+    commits = 0
+    real_commit = session.commit
+
+    async def counting_commit():
+        nonlocal commits
+        commits += 1
+        await real_commit()
+
+    monkeypatch.setattr(session, "commit", counting_commit)
+
+    def details(request):
+        return httpx.Response(200, json={"id": 1, "content": "<p>Build things.</p>"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(details)) as c:
+        assert await gh.fill_descriptions(c, session) == 5
+    assert commits == 3                                          # 2 + 2 + 1
+    left = (await session.execute(select(Job).where(Job.board == "bigco", Job.description.is_(None)))).all()
+    assert left == []

@@ -6,3 +6,4 @@ __pycache__/
 logs/
 !backend/boards.txt
 !backend/skills.txt
+!backend/places.txt

@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.batches_db import batches
 from app.db.models_db import Application, Job, MatchScore, Resume, User
 from app.services.preferences_services import Preferences, allowed
 from app.services.scoring_services import build_index, idf_weights, needs_clearance, top_matches, years_from_title, years_required
@@ -18,12 +19,14 @@ def _stale(model, tagger):
 
 async def tag_jobs(s: AsyncSession, tagger=None) -> int:
     tagger = tagger or default_tagger()
-    jobs = (await s.scalars(select(Job).where(Job.requirements.is_not(None), _stale(Job, tagger)))).all()
-    for job in jobs:
-        job.skills = sorted(set().union(*(tagger.tag(b) for b in job.requirements)))
-        job.skills_version = tagger.version
-    await s.commit()
-    return len(jobs)
+    done = 0
+    async for jobs in batches(s, select(Job).where(Job.requirements.is_not(None), _stale(Job, tagger)), Job.id):
+        for job in jobs:
+            job.skills = sorted(set().union(*(tagger.tag(b) for b in job.requirements)))
+            job.skills_version = tagger.version
+        await s.commit()
+        done += len(jobs)
+    return done
 
 
 async def tag_resumes(s: AsyncSession, tagger=None) -> int:

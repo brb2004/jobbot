@@ -1,0 +1,184 @@
+# Places: canonical name, then aliases (case-insensitive, whole words, longest match wins).
+# Same format and loader as skills.txt. Ambiguous short forms stay out on purpose:
+# CA (Canada or California?), GA (Georgia the state or the country?), bare "Washington".
+
+# [metro]
+Dallas-Fort Worth: dfw, dallas, fort worth, plano, richardson, irving, arlington, frisco, addison, garland, mckinney, denton
+SF Bay Area: san francisco, sf, bay area, san mateo, mountain view, palo alto, menlo park, sunnyvale, san jose, oakland, redwood city, south san francisco, cupertino, santa clara, foster city
+New York City: nyc, new york city, new york, brooklyn, manhattan
+Seattle: seattle, bellevue, redmond, kirkland
+Los Angeles: los angeles, santa monica, culver city
+Washington DC: washington dc, washington d.c., dc, d.c.
+Boston
+Chicago
+Austin
+Denver
+Atlanta
+Portland
+California
+Texas
+Toronto
+Vancouver
+Montreal: montréal
+Ontario
+British Columbia
+London
+Dublin
+Paris
+Amsterdam
+Berlin
+Munich: münchen
+Bengaluru: bangalore
+Gurugram: gurgaon
+Hyderabad
+Pune
+Mumbai
+New Delhi: delhi
+Tokyo
+Sydney
+Melbourne
+Shanghai
+Beijing
+Seoul
+Manila
+Sao Paulo: são paulo
+Vancouver WA: vancouver washington
+# [country]
+United States: us, u.s., usa, u.s.a., united states of america, america
+Canada
+Mexico: méxico
+United Kingdom: uk, u.k., great britain, britain, england, scotland, wales
+Ireland
+France
+Germany: deutschland
+Netherlands: the netherlands, holland
+Spain
+Portugal
+Poland
+Italy
+Sweden
+Switzerland
+Israel
+India
+Singapore
+Japan
+Australia
+China
+South Korea: korea
+Philippines
+Brazil: brasil
+# [region]
+North America
+Latin America: latam, south america, central america
+Americas: amer
+Europe: eu, european union
+EMEA
+Asia-Pacific: apac, asia pacific
+
+# implications: left > right means "left is inside right"
+Dallas-Fort Worth > United States
+SF Bay Area > United States
+New York City > United States
+Seattle > United States
+Los Angeles > United States
+Washington DC > United States
+Boston > United States
+Chicago > United States
+Austin > United States
+Denver > United States
+Atlanta > United States
+Portland > United States
+California > United States
+Texas > United States
+Toronto > Canada
+Vancouver > Canada
+Montreal > Canada
+Ontario > Canada
+British Columbia > Canada
+London > United Kingdom
+Dublin > Ireland
+Paris > France
+Amsterdam > Netherlands
+Berlin > Germany
+Munich > Germany
+Bengaluru > India
+Gurugram > India
+Hyderabad > India
+Pune > India
+Mumbai > India
+New Delhi > India
+Tokyo > Japan
+Sydney > Australia
+Melbourne > Australia
+Shanghai > China
+Beijing > China
+Seoul > South Korea
+Manila > Philippines
+Sao Paulo > Brazil
+United States > North America
+Canada > North America
+Mexico > North America
+Mexico > Latin America
+United Kingdom > Europe
+Ireland > Europe
+France > Europe
+Germany > Europe
+Netherlands > Europe
+Spain > Europe
+Portugal > Europe
+Poland > Europe
+Italy > Europe
+Sweden > Europe
+Switzerland > Europe
+Israel > EMEA
+India > Asia-Pacific
+Singapore > Asia-Pacific
+Japan > Asia-Pacific
+Australia > Asia-Pacific
+China > Asia-Pacific
+South Korea > Asia-Pacific
+Philippines > Asia-Pacific
+Brazil > Latin America
+North America > Americas
+Latin America > Americas
+Europe > EMEA
+Vancouver WA > United States
+
+# [labels] how places are shown in the app (City, State in the US and Canada; City, Country elsewhere).
+# Matching uses the names above; these only change the display.
+# Dallas-Fort Worth = Dallas-Fort Worth, TX
+# SF Bay Area = San Francisco Bay Area, CA
+# New York City = New York City, NY
+# Seattle = Seattle, WA
+# Los Angeles = Los Angeles, CA
+# Washington DC = Washington, DC
+# Boston = Boston, MA
+# Chicago = Chicago, IL
+# Austin = Austin, TX
+# Denver = Denver, CO
+# Atlanta = Atlanta, GA
+# Portland = Portland, OR
+# Vancouver WA = Vancouver, WA
+# Toronto = Toronto, ON
+# Vancouver = Vancouver, BC
+# Montreal = Montreal, QC
+# London = London, United Kingdom
+# Dublin = Dublin, Ireland
+# Paris = Paris, France
+# Amsterdam = Amsterdam, Netherlands
+# Berlin = Berlin, Germany
+# Munich = Munich, Germany
+# Bengaluru = Bengaluru, India
+# Gurugram = Gurugram, India
+# Hyderabad = Hyderabad, India
+# Pune = Pune, India
+# Mumbai = Mumbai, India
+# New Delhi = New Delhi, India
+# Tokyo = Tokyo, Japan
+# Sydney = Sydney, Australia
+# Melbourne = Melbourne, Australia
+# Shanghai = Shanghai, China
+# Beijing = Beijing, China
+# Seoul = Seoul, South Korea
+# Manila = Manila, Philippines
+# Sao Paulo = São Paulo, Brazil

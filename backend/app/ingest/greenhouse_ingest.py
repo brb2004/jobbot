@@ -8,6 +8,7 @@ from sqlalchemy import func, literal_column, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.batches_db import batches
 from app.db.models_db import Job
 from app.ingest.text_ingest import html_to_text
 
@@ -113,10 +114,10 @@ async def crawl(client: httpx.AsyncClient, s: AsyncSession, slugs: list[str],
             except httpx.HTTPError as e:
                 return slug, None, e
 
-    results = await asyncio.gather(*(fetch(slug) for slug in slugs))
-
     summary = CrawlSummary()
-    for slug, jobs, err in results:
+    tasks = [asyncio.ensure_future(fetch(slug)) for slug in slugs]
+    for done in asyncio.as_completed(tasks):                   # save each board as it lands, then drop it
+        slug, jobs, err = await done
         if err:
             summary.failed += 1                                 # unknown state: close nothing
         elif jobs is None:
@@ -129,14 +130,15 @@ async def crawl(client: httpx.AsyncClient, s: AsyncSession, slugs: list[str],
 
 
 async def fill_descriptions(client: httpx.AsyncClient, s: AsyncSession,
-                            concurrency: int = 4) -> int:
+                            concurrency: int = 8) -> int:
+    """Details for open jobs that lack them, a batch at a time: memory stays flat and each batch is
+    committed, so a killed run keeps what it finished and the next run picks up the rest."""
     stmt = select(Job).where(
         Job.description.is_(None),
         Job.board.is_not(None),
         Job.external_id.is_not(None),
         Job.closed_at.is_(None),                                # don't fetch details for dead postings
     )
-    jobs = list((await s.execute(stmt)).scalars().all())
     sem = asyncio.Semaphore(concurrency)
 
     async def fetch(job):
@@ -147,12 +149,13 @@ async def fill_descriptions(client: httpx.AsyncClient, s: AsyncSession,
                 return job, None
 
     filled = 0
-    for job, d in await asyncio.gather(*(fetch(j) for j in jobs)):
-        if d is None:
-            continue
-        job.description = d.description
-        job.content_html = d.content_html
-        job.salary_min, job.salary_max, job.salary_currency = d.salary_min, d.salary_max, d.salary_currency
-        filled += 1
-    await s.commit()
+    async for jobs in batches(s, stmt, Job.id):
+        for job, d in await asyncio.gather(*(fetch(j) for j in jobs)):
+            if d is None:
+                continue                                        # stays empty: retried next run
+            job.description = d.description
+            job.content_html = d.content_html
+            job.salary_min, job.salary_max, job.salary_currency = d.salary_min, d.salary_max, d.salary_currency
+            filled += 1
+        await s.commit()
     return filled
