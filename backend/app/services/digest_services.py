@@ -1,15 +1,17 @@
+import logging
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import exists, select
+from sqlalchemy import delete, exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models_db import Job, MatchScore, Resume, User
+from app.db.models_db import DigestSent, Job, MatchScore, Resume, User
 from app.schemas.matches_schemas import MatchOut
 from app.services.matches_services import marked
 from app.services.scoring_services import TIERS, tier, years_note  # noqa: F401  (re-exported)
 
 SHOW = 3          # requirements shown per list
+log = logging.getLogger(__name__)
 WIDTH = 80        # characters per requirement before trimming
 
 
@@ -64,11 +66,24 @@ async def send_weekly(s: AsyncSession, sender, now: datetime, top_n: int = 20) -
     unconfirmed = exists().where(User.id == Resume.user_id, User.email_verified_at.is_(None))
     user_ids = (await s.execute(select(Resume.user_id).distinct().where(~unconfirmed))).scalars().all()
 
+    year, wk, _ = now.isocalendar()
+    week = f"{year}-W{wk:02d}"
+    done = set((await s.scalars(select(DigestSent.user_id).where(DigestSent.week == week))).all())
     sent = 0
     for user_id in user_ids:
+        if user_id in done:
+            continue                                     # already sent this week: re-running the job is safe
         matches = await matches_for(s, user_id, since)
         if not matches:
             continue
-        await sender.send(user_id, render(matches, top_n))
+        s.add(DigestSent(user_id=user_id, week=week))    # claim first: a crash after sending can't resend
+        await s.commit()
+        try:
+            await sender.send(user_id, render(matches, top_n))
+        except Exception:                                # one bad address or SMTP hiccup: log it, keep going
+            log.exception("weekly digest to %s failed", user_id)
+            await s.execute(delete(DigestSent).where(DigestSent.user_id == user_id, DigestSent.week == week))
+            await s.commit()                             # unclaimed: the next run retries this user
+            continue
         sent += 1
     return sent

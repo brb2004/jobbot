@@ -33,7 +33,9 @@ timeZone: America/Chicago
 cronjobs:
   pipeline:
     schedule: "13 2 */2 * *"        # crawl + match every 2 days, 2:13am
+    deadlineSeconds: 7200           # first big crawl took ~20 min; 2 h means something is stuck
     command: ["sh", "-c", "python -m app.ingest.run_ingest && python -m app.services.run_matching 20"]
   digest:
     schedule: "7 7 * * 1"           # Monday 7:07am email
+    deadlineSeconds: 1800
     command: ["python", "-m", "app.services.run_digest"]

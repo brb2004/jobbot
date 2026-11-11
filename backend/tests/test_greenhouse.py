@@ -26,7 +26,7 @@ def client():
 
 async def test_fetch_board_returns_jobs():
     async with client() as c:
-        jobs = await gh.fetch_board(c, "stripe")
+        jobs, ids = await gh.fetch_board(c, "stripe")
 
     assert [j.title for j in jobs] == ["Backend Engineer"]
     assert jobs[0].location == "Remote"

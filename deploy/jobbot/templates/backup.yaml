@@ -19,6 +19,7 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 1
+      activeDeadlineSeconds: 1800                 # a hung dump can't block tomorrow's
       template:
         metadata: {labels: {app: backup, jobbot/db-client: "true", app.kubernetes.io/part-of: jobbot}}
         spec:

@@ -94,3 +94,10 @@ def _fresh_job_index():
     matching_services._cached = None
     yield
     matching_services._cached = None
+
+
+@_pytest.fixture(autouse=True)
+def _no_retry_sleep(monkeypatch):
+    """Crawler retries back off for real in production; tests don't wait."""
+    from app.ingest import greenhouse_ingest
+    monkeypatch.setattr(greenhouse_ingest, "BACKOFF", 0)

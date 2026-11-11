@@ -101,3 +101,12 @@ class Board(Base):
     slug: Mapped[str] = mapped_column(String(100), primary_key=True)
     name: Mapped[str | None] = mapped_column(String(200))
     checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    misses: Mapped[int] = mapped_column(default=0, server_default="0")   # consecutive 404 crawls
+
+
+class DigestSent(Base):
+    """One weekly digest per user per ISO week: claimed before sending, so a re-run never sends it twice."""
+    __tablename__ = "digest_sent"
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    week: Mapped[str] = mapped_column(String(8), primary_key=True)          # "2026-W46"
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

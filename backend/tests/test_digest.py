@@ -97,3 +97,44 @@ def test_render_shows_tier_and_years_flag_instead_of_percent():
     text = render([m], 20)
     assert "Backend — Stretch · asks for 3+ years" in text
     assert "%" not in text
+
+
+class FlakySender(FakeSender):
+    def __init__(self, broken):
+        super().__init__()
+        self.broken = broken
+
+    async def send(self, user_id, body):
+        if user_id in self.broken:
+            raise OSError("SMTP said no")
+        await super().send(user_id, body)
+
+
+async def _three_users_with_matches(session, now):
+    users = [uuid4() for _ in range(3)]
+    job = Job(title="Backend")
+    resumes = [Resume(user_id=u) for u in users]
+    session.add_all([job, *resumes])
+    await session.flush()
+    session.add_all([MatchScore(resume_id=r.id, job_id=job.id, score=0.9, scored_at=now) for r in resumes])
+    await session.commit()
+    return users
+
+
+async def test_one_failed_email_doesnt_stop_the_others(session):
+    now = datetime(2026, 11, 2, tzinfo=timezone.utc)
+    a, b, c = await _three_users_with_matches(session, now)
+    sender = FlakySender(broken={b})
+    assert await digest.send_weekly(session, sender, now=now) == 2
+    assert {u for u, _ in sender.sent} == {a, c}
+
+
+async def test_rerunning_the_same_week_sends_nothing_twice_but_retries_failures(session):
+    now = datetime(2026, 11, 2, tzinfo=timezone.utc)
+    a, b, c = await _three_users_with_matches(session, now)
+    await digest.send_weekly(session, FlakySender(broken={b}), now=now)
+    second = FakeSender()
+    assert await digest.send_weekly(session, second, now=now) == 1               # only b, who failed
+    assert [u for u, _ in second.sent] == [b]
+    next_week = FakeSender()
+    assert await digest.send_weekly(session, next_week, now=now + timedelta(days=7)) == 3   # a new week: new digest
