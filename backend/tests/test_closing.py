@@ -1,6 +1,4 @@
-from tests.conftest import user_row
-import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 from sqlalchemy import select
@@ -8,6 +6,7 @@ from sqlalchemy import select
 from app.db.models_db import Job, MatchScore, Resume
 from app.ingest.greenhouse_ingest import BoardJob, close_missing, crawl, save_board
 from app.services.matching_services import match_all
+from tests.conftest import user_row
 
 
 def bj(i):
@@ -15,20 +14,27 @@ def bj(i):
 
 
 async def jobs_of(session, board):
-    return {int(j.external_id): j for j in (await session.scalars(select(Job).where(Job.board == board).execution_options(populate_existing=True))).all()}
+    return {
+        int(j.external_id): j
+        for j in (
+            await session.scalars(
+                select(Job).where(Job.board == board).execution_options(populate_existing=True)
+            )
+        ).all()
+    }
 
 
 async def test_missing_jobs_close_and_reopen_when_they_come_back(session):
     await save_board(session, "acme", [bj(1), bj(2)])
-    await save_board(session, "other", [bj(2)])                  # same id, different board
+    await save_board(session, "other", [bj(2)])  # same id, different board
     assert await close_missing(session, "acme", [1]) == 1
 
     acme, other = await jobs_of(session, "acme"), await jobs_of(session, "other")
     assert acme[1].closed_at is None
     assert acme[2].closed_at is not None
-    assert other[2].closed_at is None                            # other boards untouched
+    assert other[2].closed_at is None  # other boards untouched
 
-    await save_board(session, "acme", [bj(1), bj(2)])            # it's back
+    await save_board(session, "acme", [bj(1), bj(2)])  # it's back
     assert (await jobs_of(session, "acme"))[2].closed_at is None
 
 
@@ -43,7 +49,7 @@ async def test_failed_board_fetch_closes_nothing(session):
 
 async def test_match_all_skips_closed_jobs(session):
     open_job = Job(title="Open Engineer", skills=["Python"])
-    gone = Job(title="Gone Engineer", skills=["Python"], closed_at=datetime.now(timezone.utc))
+    gone = Job(title="Gone Engineer", skills=["Python"], closed_at=datetime.now(UTC))
     resume = Resume(user=user_row(), skills=["Python"])
     session.add_all([open_job, gone, resume])
     await session.flush()
@@ -53,10 +59,16 @@ async def test_match_all_skips_closed_jobs(session):
 
 
 async def test_titles_are_stripped_on_ingest(session):
-    await save_board(session, "trim", [BoardJob(id=1, title="  Security Analyst \n", absolute_url="https://x/1")])
+    await save_board(
+        session, "trim", [BoardJob(id=1, title="  Security Analyst \n", absolute_url="https://x/1")]
+    )
     assert (await jobs_of(session, "trim"))[1].title == "Security Analyst"
 
 
 async def test_non_breaking_spaces_are_stripped_from_titles(session):
-    await save_board(session, "nbsp", [BoardJob(id=1, title="Forward-Deployed Engineer\u00a0 ", absolute_url="https://x/1")])
+    await save_board(
+        session,
+        "nbsp",
+        [BoardJob(id=1, title="Forward-Deployed Engineer\u00a0 ", absolute_url="https://x/1")],
+    )
     assert (await jobs_of(session, "nbsp"))[1].title == "Forward-Deployed Engineer"

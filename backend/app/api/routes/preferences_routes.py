@@ -22,4 +22,3 @@ async def put_preferences(body: Preferences, s=Depends(get_session), user_id=Dep
     if prefs is None:
         raise HTTPException(401, "Not authenticated")
     return prefs
-

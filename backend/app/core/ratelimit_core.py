@@ -1,4 +1,5 @@
 """Sliding-window counter. In-memory = one process; with several workers or servers, move this to Redis."""
+
 import time
 from collections import deque
 
@@ -16,7 +17,7 @@ class RateLimiter:
         if q:
             self.hits[key] = q
         else:
-            self.hits.pop(key, None)            # don't keep empty keys around forever
+            self.hits.pop(key, None)  # don't keep empty keys around forever
         return q
 
     def blocked(self, key: str) -> float:

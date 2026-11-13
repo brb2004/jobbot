@@ -1,6 +1,7 @@
 """Two rematches of one user at once (double click, or a click during the nightly run) must not collide.
 
 Uses real, committed rows on separate connections: the per-test savepoint session can't show a race."""
+
 import asyncio
 from uuid import uuid4
 
@@ -17,8 +18,10 @@ pytestmark = pytest.mark.asyncio
 async def test_concurrent_rematches_of_one_user_dont_crash():
     tag = uuid4().hex[:8]
     user = User(id=uuid4(), email=f"{tag}@race.test", hashed_password="x")
-    jobs = [Job(title=f"Backend Engineer {i}", board=f"race{tag}-{i}", skills=["Python"], requirements=["Python"])
-            for i in range(30)]
+    jobs = [
+        Job(title=f"Backend Engineer {i}", board=f"race{tag}-{i}", skills=["Python"], requirements=["Python"])
+        for i in range(30)
+    ]
     async with SessionLocal() as s:
         s.add_all([user, *jobs])
         await s.flush()
@@ -26,6 +29,7 @@ async def test_concurrent_rematches_of_one_user_dont_crash():
         s.add(resume)
         await s.commit()
     try:
+
         async def one():
             async with SessionLocal() as s:
                 return await match_all(s, user_id=user.id)
@@ -44,22 +48,27 @@ async def test_concurrent_rematches_of_one_user_dont_crash():
 async def test_uploads_at_once_never_pass_the_two_resume_cap():
     """The user-row lock makes the count check race-free: 4 at once -> exactly 2 saved, 2 told to replace."""
     from sqlalchemy import select
+
     from app.services import resumes_services
+
     user = User(id=uuid4(), email=f"{uuid4().hex[:8]}@race.test", hashed_password="x")
     async with SessionLocal() as s:
         s.add(user)
         await s.commit()
     try:
+
         async def one(text):
             async with SessionLocal() as s:
                 return await resumes_services.create(s, user.id, "cv.txt", text)
 
-        results = await asyncio.gather(*(one(f"Python {i}".encode()) for i in range(4)), return_exceptions=True)
+        results = await asyncio.gather(
+            *(one(f"Python {i}".encode()) for i in range(4)), return_exceptions=True
+        )
         errors = [r for r in results if isinstance(r, Exception)]
         assert len(errors) == 2 and all(isinstance(e, resumes_services.TooMany) for e in errors), results
         async with SessionLocal() as s:
             assert len((await s.scalars(select(Resume).where(Resume.user_id == user.id))).all()) == 2
     finally:
         async with SessionLocal() as s:
-            await s.execute(delete(User).where(User.id == user.id))     # resume goes with it (CASCADE)
+            await s.execute(delete(User).where(User.id == user.id))  # resume goes with it (CASCADE)
             await s.commit()

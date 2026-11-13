@@ -1,4 +1,5 @@
 """Check every board in boards.txt against its source's API. 404 = wrong slug or not on that source."""
+
 import asyncio
 
 import httpx
@@ -16,10 +17,12 @@ async def check(client: httpx.AsyncClient, sem: asyncio.Semaphore, source, slug:
 
 
 async def main() -> None:
-    sem = asyncio.Semaphore(5)                                 # be polite: 5 at a time
+    sem = asyncio.Semaphore(5)  # be polite: 5 at a time
     groups = by_source(load_slugs(BOARDS_FILE.read_text()))
     async with httpx.AsyncClient(timeout=15, headers=HEADERS) as client:
-        results = await asyncio.gather(*(check(client, sem, src, s) for src, slugs in groups.items() for s in slugs))
+        results = await asyncio.gather(
+            *(check(client, sem, src, s) for src, slugs in groups.items() for s in slugs)
+        )
     for key, status in sorted(results, key=lambda r: r[1].startswith(("BAD", "ERROR")), reverse=True):
         print(f"{key:32} {status}")
 

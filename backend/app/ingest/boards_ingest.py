@@ -1,4 +1,5 @@
 """boards.txt: which boards to crawl, on which source. No database here, so tools can use it standalone."""
+
 from pathlib import Path
 
 from app.ingest.ashby_ingest import ASHBY
@@ -6,7 +7,7 @@ from app.ingest.crawl_ingest import Source
 from app.ingest.greenhouse_ingest import GREENHOUSE
 from app.ingest.lever_ingest import LEVER
 
-BOARDS_FILE = Path(__file__).resolve().parents[2] / "boards.txt"   # backend/boards.txt
+BOARDS_FILE = Path(__file__).resolve().parents[2] / "boards.txt"  # backend/boards.txt
 HEADERS = {"User-Agent": "jobbot3-crawler (github.com/brb2004)"}
 SOURCES = (GREENHOUSE, ASHBY, LEVER)
 
@@ -31,7 +32,9 @@ def by_source(keys: list[str]) -> dict[Source, list[str]]:
         src = next((s for s in SOURCES if s.prefix and key.startswith(s.prefix)), None)
         if src is None:
             if ":" in key:
-                raise ValueError(f"unknown job source in {key!r} (known: ashby:, lever:, or a plain Greenhouse slug)")
+                raise ValueError(
+                    f"unknown job source in {key!r} (known: ashby:, lever:, or a plain Greenhouse slug)"
+                )
             src = GREENHOUSE
-        out[src].append(key[len(src.prefix):])
+        out[src].append(key[len(src.prefix) :])
     return out

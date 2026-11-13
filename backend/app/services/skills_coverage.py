@@ -1,5 +1,6 @@
 """Dev tool: how much of the real job data does skills.txt understand, and what is it missing?
 Run: python -m app.services.skills_coverage"""
+
 import asyncio
 import re
 from collections import Counter
@@ -14,23 +15,126 @@ from app.services.skills_services import default_tagger
 # a run of capitalized / symbol-y words: "Apache Flink", "Next.js", "C/C++", "SOC2"
 NAME = re.compile(r"(?<![\w.])(?:[A-Z][\w.+#/-]*|[a-z]+[A-Z][\w]*)(?:\s+(?:[A-Z][\w.+#/-]*))*")
 ENGINEERING = re.compile(r"engineer|developer|\bsre\b|devops|scientist|architect", re.I)
-STOP = set("""
-a an and or the of in on for with to at by from as is are be you we our your their this that it its
-experience experienced strong ability able bachelor bachelor's bachelors master master's masters phd degree
-science computer engineering engineer engineers software years year knowledge familiarity familiar excellent
-proven demonstrated understanding proficiency proficient working track record team teams plus bonus preferred
-required including e.g i.e etc such other related field equivalent practical minimum least deep good solid
-hands-on high skills skill background expertise comfort comfortable passion interest desire us u.s english
-must nice ideally previous prior professional industry production systems system technical tools design
-""".split())
+STOP = set(
+    [
+        "a",
+        "an",
+        "and",
+        "or",
+        "the",
+        "of",
+        "in",
+        "on",
+        "for",
+        "with",
+        "to",
+        "at",
+        "by",
+        "from",
+        "as",
+        "is",
+        "are",
+        "be",
+        "you",
+        "we",
+        "our",
+        "your",
+        "their",
+        "this",
+        "that",
+        "it",
+        "its",
+        "experience",
+        "experienced",
+        "strong",
+        "ability",
+        "able",
+        "bachelor",
+        "bachelor's",
+        "bachelors",
+        "master",
+        "master's",
+        "masters",
+        "phd",
+        "degree",
+        "science",
+        "computer",
+        "engineering",
+        "engineer",
+        "engineers",
+        "software",
+        "years",
+        "year",
+        "knowledge",
+        "familiarity",
+        "familiar",
+        "excellent",
+        "proven",
+        "demonstrated",
+        "understanding",
+        "proficiency",
+        "proficient",
+        "working",
+        "track",
+        "record",
+        "team",
+        "teams",
+        "plus",
+        "bonus",
+        "preferred",
+        "required",
+        "including",
+        "e.g",
+        "i.e",
+        "etc",
+        "such",
+        "other",
+        "related",
+        "field",
+        "equivalent",
+        "practical",
+        "minimum",
+        "least",
+        "deep",
+        "good",
+        "solid",
+        "hands-on",
+        "high",
+        "skills",
+        "skill",
+        "background",
+        "expertise",
+        "comfort",
+        "comfortable",
+        "passion",
+        "interest",
+        "desire",
+        "us",
+        "u.s",
+        "english",
+        "must",
+        "nice",
+        "ideally",
+        "previous",
+        "prior",
+        "professional",
+        "industry",
+        "production",
+        "systems",
+        "system",
+        "technical",
+        "tools",
+        "design",
+    ]
+)
 
 
 def unknown_names(bullet: str, tagger) -> set[str]:
-    text = tagger.pattern.sub(" ", bullet)                       # erase skills we already know
+    text = tagger.pattern.sub(" ", bullet)  # erase skills we already know
     found = set()
     for m in NAME.finditer(text):
-        if m.start() == 0 or text[:m.start()].rstrip().endswith((".", ":", ";")):
-            continue                                             # sentence start: capitalized for grammar
+        if m.start() == 0 or text[: m.start()].rstrip().endswith((".", ":", ";")):
+            continue  # sentence start: capitalized for grammar
         words = [w for w in m.group().split() if w.lower().strip(".,") not in STOP]
         if words and len(" ".join(words)) > 1:
             found.add(" ".join(words).strip(".,"))

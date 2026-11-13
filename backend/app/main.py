@@ -8,8 +8,18 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.api.deps_api import require_verified
-from app.api.routes import (applications_routes, auth_routes, email_routes, feedback_routes, jobs_routes,
-                            matches_routes, places_routes, preferences_routes, resumes_routes, skills_routes)
+from app.api.routes import (
+    applications_routes,
+    auth_routes,
+    email_routes,
+    feedback_routes,
+    jobs_routes,
+    matches_routes,
+    places_routes,
+    preferences_routes,
+    resumes_routes,
+    skills_routes,
+)
 from app.core.config_core import get_settings
 from app.core.db_core import get_session
 from app.services.resumes_services import Unreadable
@@ -19,18 +29,21 @@ def docs_kwargs(enabled: bool) -> dict:
     return {} if enabled else {"docs_url": None, "redoc_url": None, "openapi_url": None}
 
 
-app = FastAPI(**docs_kwargs(get_settings().DOCS_ENABLED), )
+app = FastAPI(
+    **docs_kwargs(get_settings().DOCS_ENABLED),
+)
 app.include_router(preferences_routes.router)
 app.include_router(auth_routes.router)
-app.include_router(auth_routes.account)                # DELETE /me
-app.include_router(email_routes.router)                # public: unsubscribe links carry a signed token
+app.include_router(auth_routes.account)  # DELETE /me
+app.include_router(email_routes.router)  # public: unsubscribe links carry a signed token
 app.include_router(jobs_routes.router)
-app.include_router(skills_routes.router)        # public: skill names for autocomplete
-app.include_router(places_routes.router)        # public: place names for the pickers
-app.include_router(matches_routes.router, dependencies=[Depends(require_verified)])   # confirmed emails only
+app.include_router(skills_routes.router)  # public: skill names for autocomplete
+app.include_router(places_routes.router)  # public: place names for the pickers
+app.include_router(matches_routes.router, dependencies=[Depends(require_verified)])  # confirmed emails only
 app.include_router(resumes_routes.router, dependencies=[Depends(require_verified)])
 app.include_router(applications_routes.router, dependencies=[Depends(require_verified)])
 app.include_router(feedback_routes.router, dependencies=[Depends(require_verified)])
+
 
 def _plain(msg: str) -> str:
     """Pydantic wording -> plain English."""
@@ -44,7 +57,10 @@ def _plain(msg: str) -> str:
 @app.exception_handler(RequestValidationError)
 async def validation_error_without_echo(request: Request, exc: RequestValidationError):
     """Same 422 shape, minus 'input'/'ctx': never send a submitted value (like a password) back."""
-    errors = [{**{k: v for k, v in e.items() if k not in ("input", "ctx")}, "msg": _plain(e["msg"])} for e in exc.errors()]
+    errors = [
+        {**{k: v for k, v in e.items() if k not in ("input", "ctx")}, "msg": _plain(e["msg"])}
+        for e in exc.errors()
+    ]
     return JSONResponse(status_code=422, content={"detail": jsonable_encoder(errors)})
 
 
@@ -60,11 +76,10 @@ async def security_headers(request: Request, call_next):
     h["X-Content-Type-Options"] = "nosniff"
     h["X-Frame-Options"] = "DENY"
     h["Referrer-Policy"] = "no-referrer"
-    h["Cache-Control"] = "no-store"                       # API responses are personal; never cache them
-    if not request.url.path.startswith(("/docs", "/redoc")):   # Swagger needs its CDN scripts
+    h["Cache-Control"] = "no-store"  # API responses are personal; never cache them
+    if not request.url.path.startswith(("/docs", "/redoc")):  # Swagger needs its CDN scripts
         h["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
     return response
-
 
 
 @app.get("/health", include_in_schema=False)

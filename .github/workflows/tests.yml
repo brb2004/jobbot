@@ -40,6 +40,8 @@ jobs:
           pip install uv
           uv pip compile requirements.in --python-version 3.12 --python-platform linux --generate-hashes -q -o /tmp/req.txt
           diff <(grep -v '^#' requirements.txt) <(grep -v '^#' /tmp/req.txt) || { echo "requirements.txt is stale: recompile (command in requirements.in)"; exit 1; }
+      - name: Lint and format (ruff; config in backend/pyproject.toml)
+        run: ruff check . && ruff format --check .
       - name: Migrations build the schema the models describe
         env:
           DATABASE_URL: postgresql+asyncpg://jobbot:jobbot123@localhost:5432/jobbot_test

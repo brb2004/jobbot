@@ -6,7 +6,7 @@ BLOCK = ("p", "div", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6", "section")
 
 
 def html_to_text(raw: str) -> str:
-    if "&lt;" in raw:                                  # Greenhouse double-encodes
+    if "&lt;" in raw:  # Greenhouse double-encodes
         raw = htmllib.unescape(raw)
     tree = LexborHTMLParser(raw)
     for node in tree.css("script, style, noscript"):

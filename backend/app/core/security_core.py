@@ -1,8 +1,7 @@
-from datetime import datetime, timedelta, timezone
-
 import hashlib
 import hmac
 import time
+from datetime import UTC, datetime, timedelta
 
 import bcrypt
 import jwt
@@ -20,8 +19,10 @@ def verify_password(password: str, hashed: str) -> bool:
 
 def create_access_token(sub: str) -> str:
     s = get_settings()
-    expire = datetime.now(timezone.utc) + timedelta(minutes=s.ACCESS_TOKEN_EXPIRE_MINUTES)
-    return jwt.encode({"sub": sub, "exp": expire, "iat": time.time()}, s.JWT_SECRET_KEY, algorithm=s.JWT_ALGORITHM)
+    expire = datetime.now(UTC) + timedelta(minutes=s.ACCESS_TOKEN_EXPIRE_MINUTES)
+    return jwt.encode(
+        {"sub": sub, "exp": expire, "iat": time.time()}, s.JWT_SECRET_KEY, algorithm=s.JWT_ALGORITHM
+    )
 
 
 def decode_token(token: str) -> dict:
@@ -35,7 +36,9 @@ RESET_TTL_S = 30 * 60
 
 
 def _reset_sig(user_id: str, exp: int, password_hash: str) -> str:
-    msg = f"pwreset|{user_id}|{exp}|{password_hash}".encode()   # "pwreset|": can't pass for any other signed value
+    msg = (
+        f"pwreset|{user_id}|{exp}|{password_hash}".encode()
+    )  # "pwreset|": can't pass for any other signed value
     return hmac.new(get_settings().JWT_SECRET_KEY.encode(), msg, hashlib.sha256).hexdigest()
 
 
@@ -56,7 +59,7 @@ def reset_token_valid(token: str, password_hash: str, now: float | None = None) 
     user_id, exp, sig = token.split(".")
     if int(exp) < (time.time() if now is None else now):
         return False
-    return hmac.compare_digest(sig, _reset_sig(user_id, int(exp), password_hash))   # constant-time compare
+    return hmac.compare_digest(sig, _reset_sig(user_id, int(exp), password_hash))  # constant-time compare
 
 
 # Email confirmation links: same token shape as resets, different purpose prefix ("verify|"), so a reset
@@ -85,7 +88,7 @@ def verify_token_valid(token: str, email: str, now: float | None = None) -> bool
 
 # Unsubscribe links: no expiry (an old email's link must keep working), only power is the weekly email.
 def _unsub_sig(user_id: str) -> str:
-    msg = f"unsubscribe|{user_id}".encode()                       # "unsubscribe|": can't pass for another token
+    msg = f"unsubscribe|{user_id}".encode()  # "unsubscribe|": can't pass for another token
     return hmac.new(get_settings().JWT_SECRET_KEY.encode(), msg, hashlib.sha256).hexdigest()
 
 

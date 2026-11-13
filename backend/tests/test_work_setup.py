@@ -21,7 +21,7 @@ def test_no_remote():
     p = Preferences(locations=["dallas"], remote=False)
     assert allowed(job("Plano, TX"), p)
     assert not allowed(job("Remote - US"), p)
-    assert allowed(job("Plano, TX; Remote, US"), p)          # the on-site part still counts
+    assert allowed(job("Plano, TX; Remote, US"), p)  # the on-site part still counts
 
 
 def test_remote_only():

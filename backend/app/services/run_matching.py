@@ -13,7 +13,9 @@ async def main(k: int) -> None:
         resumes = await tag_resumes(s)
         saved = await match_all(s, k)
     await engine.dispose()
-    print(f"requirements filled: {reqs}  jobs tagged: {jobs}  resumes tagged: {resumes}  matches saved: {saved}")
+    print(
+        f"requirements filled: {reqs}  jobs tagged: {jobs}  resumes tagged: {resumes}  matches saved: {saved}"
+    )
 
 
 if __name__ == "__main__":

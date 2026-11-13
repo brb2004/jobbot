@@ -38,5 +38,7 @@ def list_places() -> list[dict]:
     for alias, name in [*t.folded.items(), *t.exact.items()]:
         names.setdefault(name, set()).add(alias)
     kinds, labels = _sections()
-    return [{"name": n, "label": labels.get(n, n), "kind": kinds.get(n), "aliases": sorted(a - {n.lower()})}
-            for n, a in sorted(names.items())]
+    return [
+        {"name": n, "label": labels.get(n, n), "kind": kinds.get(n), "aliases": sorted(a - {n.lower()})}
+        for n, a in sorted(names.items())
+    ]

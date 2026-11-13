@@ -11,8 +11,9 @@ def test_location_suffixes_collapse_to_one_role():
 
 
 def test_punctuation_differences_collapse():
-    assert role_key("Systems Engineer (Data Intelligence & Analytics Team)") == \
-           role_key("Systems Engineer, Data Intelligence & Analytics Team")
+    assert role_key("Systems Engineer (Data Intelligence & Analytics Team)") == role_key(
+        "Systems Engineer, Data Intelligence & Analytics Team"
+    )
 
 
 def test_real_differences_stay_different():
@@ -47,19 +48,25 @@ def test_city_suffixes_collapse():
 
 
 def test_title_synonyms_collapse_but_teams_stay_apart():
-    assert role_key("Principal Software Developer - Vector Search - Elasticsearch") == \
-           role_key("Principal Software Engineer - Vector Search - Elasticsearch")
+    assert role_key("Principal Software Developer - Vector Search - Elasticsearch") == role_key(
+        "Principal Software Engineer - Vector Search - Elasticsearch"
+    )
     assert role_key("Sr. Backend Engineer") == role_key("Senior Backend Engineer")
-    assert role_key("Principal Software Engineer - Vector Search - Elasticsearch") != \
-           role_key("Principal Software Engineer - Search Algorithms - Elasticsearch")
+    assert role_key("Principal Software Engineer - Vector Search - Elasticsearch") != role_key(
+        "Principal Software Engineer - Search Algorithms - Elasticsearch"
+    )
 
 
 def test_presales_roles_are_excluded_unless_opted_in():
     default = Preferences()
-    for title in ("Enterprise Sales Engineer", "Presales Customer Engineer", "Senior Solutions Architect",
-                  "Major Account Executive, France"):
+    for title in (
+        "Enterprise Sales Engineer",
+        "Presales Customer Engineer",
+        "Senior Solutions Architect",
+        "Major Account Executive, France",
+    ):
         assert not allowed(Job(title=title), default), title
-    assert allowed(Job(title="Salesforce Developer"), default)          # whole words: not "sales"
+    assert allowed(Job(title="Salesforce Developer"), default)  # whole words: not "sales"
     assert allowed(Job(title="Backend Engineer"), default)
     opted = Preferences(include_presales=True)
     assert allowed(Job(title="Enterprise Sales Engineer"), opted)

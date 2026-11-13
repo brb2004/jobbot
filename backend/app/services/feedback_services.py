@@ -5,9 +5,10 @@ its email being queued. The email goes out right after the response (acknowledge
 a slow or hanging SMTP server never delays the page); anything that fails there stays queued, and the CronJob
 (python -m app.services.run_feedback, every 5 minutes) retries it. FOR UPDATE SKIP LOCKED lets both run at
 once without double-sending; after MAX_ATTEMPTS a send is marked failed."""
+
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
@@ -26,20 +27,36 @@ def ref_of(feedback_id: UUID) -> str:
     return str(feedback_id)[:8].upper()
 
 
-async def submit(s: AsyncSession, user_id: UUID, kind: str, message: str,
-                 page: str | None, user_agent: str | None) -> UUID:
-    fid = uuid4()                                   # set here: no attribute reads after commit
-    s.add(Feedback(id=fid, user_id=user_id, kind=kind, message=message, page=page, user_agent=user_agent,
-                   status="open", ack_status="queued", attempts=0))
+async def submit(
+    s: AsyncSession, user_id: UUID, kind: str, message: str, page: str | None, user_agent: str | None
+) -> UUID:
+    fid = uuid4()  # set here: no attribute reads after commit
+    s.add(
+        Feedback(
+            id=fid,
+            user_id=user_id,
+            kind=kind,
+            message=message,
+            page=page,
+            user_agent=user_agent,
+            status="open",
+            ack_status="queued",
+            attempts=0,
+        )
+    )
     await s.commit()
     return fid
 
 
 async def drain(s: AsyncSession, send, limit: int = 20, only: UUID | None = None) -> int:
-    stmt = (select(Feedback, User.email).join(User, User.id == Feedback.user_id)
-            .where(Feedback.ack_status == "queued", Feedback.attempts < MAX_ATTEMPTS)
-            .order_by(Feedback.created_at).limit(limit)
-            .with_for_update(skip_locked=True, of=Feedback))
+    stmt = (
+        select(Feedback, User.email)
+        .join(User, User.id == Feedback.user_id)
+        .where(Feedback.ack_status == "queued", Feedback.attempts < MAX_ATTEMPTS)
+        .order_by(Feedback.created_at)
+        .limit(limit)
+        .with_for_update(skip_locked=True, of=Feedback)
+    )
     if only is not None:
         stmt = stmt.where(Feedback.id == only)
     rows = (await s.execute(stmt)).all()
@@ -48,13 +65,15 @@ async def drain(s: AsyncSession, send, limit: int = 20, only: UUID | None = None
     for fb, email in rows:
         fb.attempts += 1
         try:
-            await asyncio.wait_for(send(feedback_email(st.EMAIL_FROM, email, ref_of(fb.id), fb.kind)), timeout=SEND_TIMEOUT_S)
+            await asyncio.wait_for(
+                send(feedback_email(st.EMAIL_FROM, email, ref_of(fb.id), fb.kind)), timeout=SEND_TIMEOUT_S
+            )
         except Exception:
             log.exception("feedback acknowledgement failed (attempt %s) for %s", fb.attempts, fb.id)
             if fb.attempts >= MAX_ATTEMPTS:
                 fb.ack_status = "failed"
             continue
-        fb.ack_status, fb.acked_at = "sent", datetime.now(timezone.utc)
+        fb.ack_status, fb.acked_at = "sent", datetime.now(UTC)
         sent += 1
     await s.commit()
     return sent

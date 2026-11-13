@@ -1,12 +1,13 @@
 """Place names -> canonical places. Reuses the skills Tagger: same file format, whole-word and
 longest-match rules, and implications ("Plano" -> Dallas-Fort Worth -> United States -> North America)."""
+
 import re
 from functools import lru_cache
 from pathlib import Path
 
 from app.services.skills_services import Tagger
 
-PLACES_FILE = Path(__file__).resolve().parents[2] / "places.txt"       # next to skills.txt
+PLACES_FILE = Path(__file__).resolve().parents[2] / "places.txt"  # next to skills.txt
 
 
 def _flat(text: str) -> str:
@@ -20,22 +21,75 @@ def places() -> Tagger:
 
 
 US_STATES = {
-    "AL": "alabama", "AK": "alaska", "AZ": "arizona", "AR": "arkansas", "CA": "california", "CO": "colorado",
-    "CT": "connecticut", "DE": "delaware", "DC": "district of columbia", "FL": "florida", "GA": "georgia",
-    "HI": "hawaii", "ID": "idaho", "IL": "illinois", "IN": "indiana", "IA": "iowa", "KS": "kansas",
-    "KY": "kentucky", "LA": "louisiana", "ME": "maine", "MD": "maryland", "MA": "massachusetts",
-    "MI": "michigan", "MN": "minnesota", "MS": "mississippi", "MO": "missouri", "MT": "montana",
-    "NE": "nebraska", "NV": "nevada", "NH": "new hampshire", "NJ": "new jersey", "NM": "new mexico",
-    "NY": "new york", "NC": "north carolina", "ND": "north dakota", "OH": "ohio", "OK": "oklahoma",
-    "OR": "oregon", "PA": "pennsylvania", "RI": "rhode island", "SC": "south carolina", "SD": "south dakota",
-    "TN": "tennessee", "TX": "texas", "UT": "utah", "VT": "vermont", "VA": "virginia", "WA": "washington",
-    "WV": "west virginia", "WI": "wisconsin", "WY": "wyoming"}
+    "AL": "alabama",
+    "AK": "alaska",
+    "AZ": "arizona",
+    "AR": "arkansas",
+    "CA": "california",
+    "CO": "colorado",
+    "CT": "connecticut",
+    "DE": "delaware",
+    "DC": "district of columbia",
+    "FL": "florida",
+    "GA": "georgia",
+    "HI": "hawaii",
+    "ID": "idaho",
+    "IL": "illinois",
+    "IN": "indiana",
+    "IA": "iowa",
+    "KS": "kansas",
+    "KY": "kentucky",
+    "LA": "louisiana",
+    "ME": "maine",
+    "MD": "maryland",
+    "MA": "massachusetts",
+    "MI": "michigan",
+    "MN": "minnesota",
+    "MS": "mississippi",
+    "MO": "missouri",
+    "MT": "montana",
+    "NE": "nebraska",
+    "NV": "nevada",
+    "NH": "new hampshire",
+    "NJ": "new jersey",
+    "NM": "new mexico",
+    "NY": "new york",
+    "NC": "north carolina",
+    "ND": "north dakota",
+    "OH": "ohio",
+    "OK": "oklahoma",
+    "OR": "oregon",
+    "PA": "pennsylvania",
+    "RI": "rhode island",
+    "SC": "south carolina",
+    "SD": "south dakota",
+    "TN": "tennessee",
+    "TX": "texas",
+    "UT": "utah",
+    "VT": "vermont",
+    "VA": "virginia",
+    "WA": "washington",
+    "WV": "west virginia",
+    "WI": "wisconsin",
+    "WY": "wyoming",
+}
 PROVINCES = {
-    "AB": "alberta", "BC": "british columbia", "MB": "manitoba", "NB": "new brunswick", "NL": "newfoundland",
-    "NS": "nova scotia", "ON": "ontario", "PE": "prince edward island", "QC": "quebec", "SK": "saskatchewan"}
+    "AB": "alberta",
+    "BC": "british columbia",
+    "MB": "manitoba",
+    "NB": "new brunswick",
+    "NL": "newfoundland",
+    "NS": "nova scotia",
+    "ON": "ontario",
+    "PE": "prince edward island",
+    "QC": "quebec",
+    "SK": "saskatchewan",
+}
 _REGIONS = US_STATES | PROVINCES
-_CODE = re.compile(r"\b(" + "|".join(_REGIONS) + r")\b")                      # upper case only: "or" isn't Oregon
-_NAME = re.compile(r"(?i)\b(" + "|".join(sorted(map(re.escape, _REGIONS.values()), key=len, reverse=True)) + r")\b")
+_CODE = re.compile(r"\b(" + "|".join(_REGIONS) + r")\b")  # upper case only: "or" isn't Oregon
+_NAME = re.compile(
+    r"(?i)\b(" + "|".join(sorted(map(re.escape, _REGIONS.values()), key=len, reverse=True)) + r")\b"
+)
 _BY_NAME = {v: k for k, v in _REGIONS.items()}
 
 
@@ -67,9 +121,9 @@ def _tag(text: str) -> set[str]:
     if not said:
         return found
     state = _state_of()
-    return {p for p in found
-            if (s := state.get(p)) is None or s in said
-            or (s in PROVINCES and said <= {"CA"})}                # "Toronto, CA": CA means Canada here
+    return {
+        p for p in found if (s := state.get(p)) is None or s in said or (s in PROVINCES and said <= {"CA"})
+    }  # "Toronto, CA": CA means Canada here
 
 
 @lru_cache(maxsize=65536)

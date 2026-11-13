@@ -1,8 +1,9 @@
-from pydantic import computed_field
-
-from app.services.scoring_services import tier as _tier, years_note as _years_note
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field
+
+from pydantic import BaseModel, ConfigDict, Field, computed_field
+
+from app.services.scoring_services import tier as _tier
+from app.services.scoring_services import years_note as _years_note
 
 
 class MatchOut(BaseModel):
@@ -14,7 +15,7 @@ class MatchOut(BaseModel):
     score: float
     url: str | None = None
     detail: dict | None = None
-    resume: str | None = Field(default=None, exclude=True)   # which resume matched (weekly email sections)
+    resume: str | None = Field(default=None, exclude=True)  # which resume matched (weekly email sections)
 
     @computed_field
     @property

@@ -14,53 +14,111 @@ Word = Annotated[str, Field(min_length=1, max_length=50)]
 DEFAULT_TITLES = ("engineer", "developer", "sre", "devops", "architect", "programmer", "scientist")
 # Sales / pre-sales ROLES (not any title that says "sales": "Software Engineer, Sales Platform" builds software).
 # Hidden unless the user opts in.
-PRESALES_TITLES = ("sales engineer", "sales engineering", "sales architect", "sales consultant",
-                   "sales representative", "sales development", "sales executive", "sales manager",
-                   "sales specialist", "presales", "pre-sales", "customer engineer", "solutions architect",
-                   "solution architect", "solutions engineer", "solution engineer", "account executive",
-                   "customer success")
+PRESALES_TITLES = (
+    "sales engineer",
+    "sales engineering",
+    "sales architect",
+    "sales consultant",
+    "sales representative",
+    "sales development",
+    "sales executive",
+    "sales manager",
+    "sales specialist",
+    "presales",
+    "pre-sales",
+    "customer engineer",
+    "solutions architect",
+    "solution architect",
+    "solutions engineer",
+    "solution engineer",
+    "account executive",
+    "customer success",
+)
 
 
 # Titles with "engineer"/"developer" that aren't software-building roles. Hidden unless the user lists
 # one of these phrases in include titles (a generic "engineer" doesn't reopen them).
-NON_DEV_TITLES = ("support engineer", "technical support", "customer support", "curriculum",
-                  "creative engineer", "enterprise engineer", "help desk", "helpdesk")
+NON_DEV_TITLES = (
+    "support engineer",
+    "technical support",
+    "customer support",
+    "curriculum",
+    "creative engineer",
+    "enterprise engineer",
+    "help desk",
+    "helpdesk",
+)
 
 # Hardware and other physical-engineering roles: same rule (list e.g. "mechanical engineer" to see them).
-HARDWARE_TITLES = ("hardware engineer", "hardware design", "electrical engineer", "mechanical engineer",
-                   "asic", "fpga", "rtl", "pcb", "analog", "mixed-signal", "silicon", "physical design",
-                   "design verification", "rf engineer", "manufacturing engineer", "process engineer",
-                   "chemical engineer", "civil engineer", "structural engineer", "optical engineer",
-                   "thermal engineer", "packaging engineer")
+HARDWARE_TITLES = (
+    "hardware engineer",
+    "hardware design",
+    "electrical engineer",
+    "mechanical engineer",
+    "asic",
+    "fpga",
+    "rtl",
+    "pcb",
+    "analog",
+    "mixed-signal",
+    "silicon",
+    "physical design",
+    "design verification",
+    "rf engineer",
+    "manufacturing engineer",
+    "process engineer",
+    "chemical engineer",
+    "civil engineer",
+    "structural engineer",
+    "optical engineer",
+    "thermal engineer",
+    "packaging engineer",
+)
 
 # A title that says it builds software is never hidden by the three lists above.
-BUILDER_TITLES = ("software", "backend", "back-end", "frontend", "front-end", "full stack", "full-stack",
-                  "fullstack", "data scientist", "machine learning", "ml engineer", "site reliability",
-                  "platform engineer", "data engineer", "devops")
+BUILDER_TITLES = (
+    "software",
+    "backend",
+    "back-end",
+    "frontend",
+    "front-end",
+    "full stack",
+    "full-stack",
+    "fullstack",
+    "data scientist",
+    "machine learning",
+    "ml engineer",
+    "site reliability",
+    "platform engineer",
+    "data engineer",
+    "devops",
+)
 
 
 class Preferences(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    include_titles: list[Word] = Field(default=[], max_length=50)   # title must contain one (empty = DEFAULT_TITLES)
-    exclude_titles: list[Word] = Field(default=[], max_length=50)   # title must contain none
-    locations: list[Word] = Field(default=[], max_length=50)        # a job location must contain one (if set)
-    remote: bool = True                                              # show remote jobs open to your locations
-    onsite: bool = True                                              # show on-site/hybrid jobs in your locations
+    include_titles: list[Word] = Field(
+        default=[], max_length=50
+    )  # title must contain one (empty = DEFAULT_TITLES)
+    exclude_titles: list[Word] = Field(default=[], max_length=50)  # title must contain none
+    locations: list[Word] = Field(default=[], max_length=50)  # a job location must contain one (if set)
+    remote: bool = True  # show remote jobs open to your locations
+    onsite: bool = True  # show on-site/hybrid jobs in your locations
     years_experience: int | None = Field(default=None, ge=0, le=60)  # jobs asking > this + 1 sink
-    extra_skills: list[Word] = Field(default=[], max_length=50)     # skills not on the resume
-    include_presales: bool = False                                   # opt in to PRESALES_TITLES
+    extra_skills: list[Word] = Field(default=[], max_length=50)  # skills not on the resume
+    include_presales: bool = False  # opt in to PRESALES_TITLES
 
     @field_validator("include_titles", "exclude_titles", "locations", "extra_skills")
     @classmethod
     def _clean(cls, words: list[str], info) -> list[str]:
-        keep_case = info.field_name == "extra_skills"          # "Go", "REST" are case-sensitive skills
+        keep_case = info.field_name == "extra_skills"  # "Go", "REST" are case-sensitive skills
         out, seen = [], set()
         for w in words:
             w = w.strip()
             if not w:
                 raise ValueError("entries can't be blank")
             w = w if keep_case else w.lower()
-            if w.lower() not in seen:                          # dedupe case-insensitively, keep the first
+            if w.lower() not in seen:  # dedupe case-insensitively, keep the first
                 seen.add(w.lower())
                 out.append(w)
         return out
@@ -73,13 +131,13 @@ class Preferences(BaseModel):
         if not isinstance(data, dict):
             return data
         old = list(data.get("locations") or [])
-        if "remote_regions" not in data and not any(str(l).strip().lower() == "remote" for l in old):
+        if "remote_regions" not in data and not any(str(loc).strip().lower() == "remote" for loc in old):
             return data
         data = dict(data)
         regions = data.pop("remote_regions", None) or []
-        places = [l for l in old if str(l).strip().lower() != "remote"]
+        places = [loc for loc in old if str(loc).strip().lower() != "remote"]
         wants_remote = len(places) != len(old)
-        if wants_remote and not places:                 # remote-only: the regions said where
+        if wants_remote and not places:  # remote-only: the regions said where
             data.update(locations=list(regions), remote=True, onsite=False)
         else:
             data.update(locations=places, remote=wants_remote or not old, onsite=True)
@@ -97,6 +155,7 @@ class Preferences(BaseModel):
 
 class ResumePrefs(BaseModel):
     """One resume's own job titles and years. None = use the account's Preferences."""
+
     model_config = ConfigDict(extra="forbid")
     include_titles: list[Word] | None = Field(default=None, max_length=50)
     exclude_titles: list[Word] | None = Field(default=None, max_length=50)
@@ -164,7 +223,7 @@ def _wants(entries: tuple[str, ...]) -> tuple[frozenset[str], tuple[str, ...]]:
         else:
             words.append(e)
     if "remote" in words:
-        words.append("distributed")                         # "Distributed" postings are remote too
+        words.append("distributed")  # "Distributed" postings are remote too
     return frozenset(ids), tuple(words)
 
 
@@ -179,9 +238,11 @@ def location_ok(location: str | None, prefs: Preferences) -> bool:
     Dallas-Fort Worth; "Remote - Mexico" doesn't; plain "Remote" fits everyone). Nothing picked = anywhere."""
     want_ids, want_words = _wants(tuple(prefs.locations))
     anywhere = not want_ids and not want_words
-    pieces = [p.strip() for p in re.split(r"[;|\u2022]", location or "") if p.strip()]   # "SF, CA; Remote, US" = 2
+    pieces = [
+        p.strip() for p in re.split(r"[;|\u2022]", location or "") if p.strip()
+    ]  # "SF, CA; Remote, US" = 2
     if not pieces:
-        return anywhere                                     # unknown location: only with no place filter
+        return anywhere  # unknown location: only with no place filter
     near = _around(want_ids)
     for piece in pieces:
         if _blocked(piece):
@@ -190,10 +251,10 @@ def location_ok(location: str | None, prefs: Preferences) -> bool:
         if (remote and not prefs.remote) or (not remote and not prefs.onsite):
             continue
         if anywhere or places_in(piece) & want_ids or has_any(piece, want_words):
-            return True                                     # in (or inside) a place you picked
-        bare = not re.sub(r"(?i)remote|distributed|[\W_]", "", piece)       # just "Remote"
+            return True  # in (or inside) a place you picked
+        bare = not re.sub(r"(?i)remote|distributed|[\W_]", "", piece)  # just "Remote"
         if remote and (bare or places_named(piece) & near):
-            return True                                     # remote, open to where you are
+            return True  # remote, open to where you are
     return False
 
 
@@ -206,9 +267,10 @@ def allowed(job: Job, prefs: Preferences) -> bool:
     if not has_any(title, BUILDER_TITLES, hyphen_joins=True):
         if not prefs.include_presales and has_any(title, PRESALES_TITLES, hyphen_joins=True):
             return False
-        for hidden in (NON_DEV_TITLES, HARDWARE_TITLES):          # reopened only by naming one of them
-            if has_any(title, hidden, hyphen_joins=True) and \
-                    not any(has_any(t, hidden, hyphen_joins=True) for t in prefs.include_titles):
+        for hidden in (NON_DEV_TITLES, HARDWARE_TITLES):  # reopened only by naming one of them
+            if has_any(title, hidden, hyphen_joins=True) and not any(
+                has_any(t, hidden, hyphen_joins=True) for t in prefs.include_titles
+            ):
                 return False
     if not has_any(title, prefs.include_titles or DEFAULT_TITLES, hyphen_joins=True):
         return False
@@ -226,6 +288,7 @@ async def save_for(s: AsyncSession, user_id: UUID, prefs: Preferences) -> Prefer
         return None
     user.preferences = prefs.model_dump()
     await s.commit()
-    from app.services.matching_services import rematch_user   # local import: matching imports this module
-    await rematch_user(s, user_id)                             # new filters show up now, off the event loop
+    from app.services.matching_services import rematch_user  # local import: matching imports this module
+
+    await rematch_user(s, user_id)  # new filters show up now, off the event loop
     return prefs

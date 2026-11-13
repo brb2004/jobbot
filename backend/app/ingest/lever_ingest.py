@@ -7,17 +7,26 @@ benefits, ...) and additional; they're joined back into one HTML page with each 
 so the requirements section is found the same way as on Greenhouse. EU-hosted sites (api.eu.lever.co)
 aren't crawled.
 """
+
 import html as htmllib
 import logging
 
 import httpx
 
-from app.ingest.crawl_ingest import Listing, Posting, Source, _get, fingerprint, name_from_slug, remote_location
+from app.ingest.crawl_ingest import (
+    Listing,
+    Posting,
+    Source,
+    _get,
+    fingerprint,
+    name_from_slug,
+    remote_location,
+)
 from app.ingest.text_ingest import html_to_text
 
 API = "https://api.lever.co/v0/postings"
-PAGE = 100           # postings per request
-MAX_PAGES = 100      # 10,000 postings: far past any real board; stops a misbehaving one
+PAGE = 100  # postings per request
+MAX_PAGES = 100  # 10,000 postings: far past any real board; stops a misbehaving one
 log = logging.getLogger(__name__)
 
 
@@ -46,11 +55,15 @@ def posting(job: dict) -> Posting:
         external_id=str(job["id"]),
         title=job["text"],
         url=job.get("hostedUrl") or job.get("applyUrl") or "",
-        location=remote_location([p for p in places if isinstance(p, str)], job.get("workplaceType") == "remote"),
+        location=remote_location(
+            [p for p in places if isinstance(p, str)], job.get("workplaceType") == "remote"
+        ),
         version=fingerprint(html, str(lo), str(hi)),
         content_html=html,
         description=html_to_text(html) if html else "",
-        salary_min=lo, salary_max=hi, salary_currency=cur,
+        salary_min=lo,
+        salary_max=hi,
+        salary_currency=cur,
     )
 
 
@@ -74,9 +87,9 @@ async def fetch_board(client: httpx.AsyncClient, slug: str) -> Listing | None:
                 postings.append(posting(j))
             except Exception as e:
                 log.warning("lever site %s: skipped a malformed posting: %s", slug, repr(e)[:200])
-        if len(page) < PAGE or not fresh:                   # last page (or paging ignored: nothing new)
+        if len(page) < PAGE or not fresh:  # last page (or paging ignored: nothing new)
             return postings, ids
-    raise RuntimeError(f"lever {slug}: more than {MAX_PAGES} pages")   # partial list: fail, close nothing
+    raise RuntimeError(f"lever {slug}: more than {MAX_PAGES} pages")  # partial list: fail, close nothing
 
 
 async def fetch_name(client: httpx.AsyncClient, slug: str) -> str | None:

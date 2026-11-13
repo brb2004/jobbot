@@ -41,7 +41,7 @@ Python Developer — Acme   Remote  |  Jan 2023 – Present
 Built Python APIs
 Education
 """
-    assert years_from_resume(text, TODAY) == 6                        # every role: 2020-01..2026-11
+    assert years_from_resume(text, TODAY) == 6  # every role: 2020-01..2026-11
     assert years_from_resume(text, TODAY, has_skills=has_python) == 3  # warehouse skipped: 2023-01..2026-11
 
 

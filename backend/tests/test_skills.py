@@ -61,5 +61,6 @@ def test_tagging_itself_does_not_expand():
 
 def test_implication_to_unknown_skill_is_an_error():
     import pytest
+
     with pytest.raises(ValueError, match="Gen AI"):
         Tagger.from_text("LLM\nLLM > Gen AI")

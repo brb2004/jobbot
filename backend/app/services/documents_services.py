@@ -3,6 +3,7 @@
 pypdf and python-docx are synchronous and CPU-heavy; a crafted 2 MB PDF (thousands of pages, deep object
 streams) could otherwise freeze the API's event loop for everyone. Here each extraction runs in a child
 process forked from a clean "forkserver" (no API state, no event loop), and is killed if it runs too long."""
+
 import asyncio
 import io
 import multiprocessing
@@ -10,14 +11,14 @@ import resource
 import threading
 import zipfile
 
-MAX_PAGES = 15                       # a resume is 1-3 pages; anything far past that isn't one
-MAX_UNZIPPED = 10 * 1024 * 1024      # a .docx is a zip: cap what it expands to (zip bombs)
+MAX_PAGES = 15  # a resume is 1-3 pages; anything far past that isn't one
+MAX_UNZIPPED = 10 * 1024 * 1024  # a .docx is a zip: cap what it expands to (zip bombs)
 MAX_ZIP_ENTRIES = 1000
 TIMEOUT_S = 10
-PARSE_SLOTS = 2                      # children at once: each may use up to 512 MB, the API pod has 1 GiB
-QUEUE_WAIT_S = 30                    # an upload waits this long for a slot, then is told to retry
+PARSE_SLOTS = 2  # children at once: each may use up to 512 MB, the API pod has 1 GiB
+QUEUE_WAIT_S = 30  # an upload waits this long for a slot, then is told to retry
 _slots = threading.BoundedSemaphore(PARSE_SLOTS)
-MEMORY_LIMIT = 512 * 1024 * 1024     # address space for the child: a decompression bomb dies alone
+MEMORY_LIMIT = 512 * 1024 * 1024  # address space for the child: a decompression bomb dies alone
 
 
 class TooLarge(Exception):
@@ -39,7 +40,7 @@ def sniff(data: bytes) -> str:
     if data.startswith(b"PK\x03\x04"):
         return "docx"
     if b"\x00" in data:
-        raise UnsupportedType                      # binary pretending to be text
+        raise UnsupportedType  # binary pretending to be text
     return "txt"
 
 
@@ -59,13 +60,17 @@ def extract_text(data: bytes) -> str:
     try:
         if kind == "pdf":
             from pypdf import PdfReader
+
             pages = PdfReader(io.BytesIO(data)).pages
             if len(pages) > MAX_PAGES:
-                raise Unreadable(f"This PDF has {len(pages)} pages. Upload a resume of {MAX_PAGES} pages or fewer.")
+                raise Unreadable(
+                    f"This PDF has {len(pages)} pages. Upload a resume of {MAX_PAGES} pages or fewer."
+                )
             return "\n".join(p.extract_text() or "" for p in pages)
         if kind == "docx":
             _check_zip(data)
             from docx import Document
+
             return "\n".join(p.text for p in Document(io.BytesIO(data)).paragraphs)
     except Unreadable:
         raise
@@ -83,7 +88,7 @@ def _child(conn, data: bytes, target) -> None:
         conn.send(("unsupported", ""))
     except Unreadable as e:
         conn.send(("unreadable", str(e)))
-    except BaseException:                          # MemoryError included: no details, see extract_text
+    except BaseException:  # MemoryError included: no details, see extract_text
         conn.send(("unreadable", "Couldn't read this file. Try saving it again as a PDF or .docx."))
     finally:
         conn.close()
@@ -111,13 +116,13 @@ def _run_child(data: bytes, timeout: float, target) -> tuple[str, str] | None:
     child.close()
     try:
         return parent.recv() if parent.poll(timeout) else None
-    except EOFError:                               # killed by the memory limit before it could answer
+    except EOFError:  # killed by the memory limit before it could answer
         return ("unreadable", "Couldn't read this file. Try saving it again as a PDF or .docx.")
     finally:
         parent.close()
         p.join(0.5)
         if p.is_alive():
-            p.kill()                               # over time: it never gets to finish
+            p.kill()  # over time: it never gets to finish
             p.join()
 
 

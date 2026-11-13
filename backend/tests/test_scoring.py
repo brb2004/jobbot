@@ -1,4 +1,11 @@
-from app.services.scoring_services import idf_weights, score_job, top_matches
+from app.services.scoring_services import (
+    idf_weights,
+    score_job,
+    top_matches,
+    years_from_title,
+    years_note,
+    years_required,
+)
 
 
 def test_rare_skills_weigh_more():
@@ -35,22 +42,21 @@ def test_top_matches_ranks_skips_unrelated_jobs_and_breaks_ties_by_id():
 def test_thin_jobs_are_pulled_down():
     w = {"APIs": 1.0, "Python": 1.0, "React": 1.0}
     me = {"APIs", "Python", "React"}
-    thin = score_job("t", {"APIs"}, me, w).score                       # 1 / (1 + 2)
-    thick = score_job("k", {"APIs", "Python", "React"}, me, w).score   # 3 / (3 + 2)
+    thin = score_job("t", {"APIs"}, me, w).score  # 1 / (1 + 2)
+    thick = score_job("k", {"APIs", "Python", "React"}, me, w).score  # 3 / (3 + 2)
     assert thin < thick < 1.0
 
 
 def test_prior_is_measured_in_average_skills_so_scale_doesnt_matter():
-    small = score_job("j", {"A"}, {"A"}, {"A": 1.0}).score     # 1 / (1 + 2*1)
-    big = score_job("j", {"A"}, {"A"}, {"A": 5.0}).score       # 5 / (5 + 2*5)
+    small = score_job("j", {"A"}, {"A"}, {"A": 1.0}).score  # 1 / (1 + 2*1)
+    big = score_job("j", {"A"}, {"A"}, {"A": 5.0}).score  # 5 / (5 + 2*5)
     assert small == big == 0.33
 
 
-from app.services.scoring_services import years_required
-
-
 def test_years_required_uses_each_asks_floor_and_the_max_across_bullets():
-    assert years_required(["3+ years of Go", "2–12+ years of experience", "5-7 yrs in prod", "no number"]) == 5
+    assert (
+        years_required(["3+ years of Go", "2–12+ years of experience", "5-7 yrs in prod", "no number"]) == 5
+    )
     assert years_required(["Python", "Strong SQL"]) is None
 
 
@@ -60,35 +66,36 @@ def test_over_asking_jobs_are_halved_and_flagged():
     close = score_job("j", {"Python"}, {"Python"}, w, prior=0, job_years=2, user_years=1)
     unknown = score_job("j", {"Python"}, {"Python"}, w, prior=0, job_years=5, user_years=None)
     assert (asked.score, asked.years_asked, asked.over_years) == (0.5, 4, True)
-    assert (close.score, close.years_asked, close.over_years) == (1.0, 2, False)       # within 1 year: no penalty
-    assert (unknown.score, unknown.years_asked, unknown.over_years) == (1.0, 5, False) # user never said: no penalty
+    assert (close.score, close.years_asked, close.over_years) == (1.0, 2, False)  # within 1 year: no penalty
+    assert (unknown.score, unknown.years_asked, unknown.over_years) == (
+        1.0,
+        5,
+        False,
+    )  # user never said: no penalty
 
 
 def test_top_matches_applies_allow_filter_only_to_candidates():
     jobs = {"j1": {"Python"}, "j2": {"Python"}, "j3": {"Rust"}}
     seen = []
-    allow = lambda j: seen.append(j) or j != "j1"
+
+    def allow(j):
+        return seen.append(j) or j != "j1"
+
     result = top_matches({"Python"}, jobs, {"Python": 1.0, "Rust": 1.0}, allow=allow)
     assert [m.job_id for m in result] == ["j2"]
-    assert "j3" not in seen                      # never even checked: shares no skill
+    assert "j3" not in seen  # never even checked: shares no skill
 
 
 def test_allow_is_only_checked_until_k_matches_pass():
-    jobs = {f"j{i}": {"Python"} for i in range(1, 6)}          # all tie; heap pops j1, j2, j3...
+    jobs = {f"j{i}": {"Python"} for i in range(1, 6)}  # all tie; heap pops j1, j2, j3...
     seen = []
-    allow = lambda j: seen.append(j) or j != "j1"
+
+    def allow(j):
+        return seen.append(j) or j != "j1"
+
     result = top_matches({"Python"}, jobs, {"Python": 1.0}, k=2, allow=allow)
     assert [m.job_id for m in result] == ["j2", "j3"]
-    assert seen == ["j1", "j2", "j3"]                           # stopped once 2 passed; j4, j5 never checked
-
-
-def test_allow_is_only_checked_until_k_matches_pass():
-    jobs = {f"j{i}": {"Python"} for i in range(1, 6)}          # all tie; heap pops j1, j2, j3...
-    seen = []
-    allow = lambda j: seen.append(j) or j != "j1"
-    result = top_matches({"Python"}, jobs, {"Python": 1.0}, k=2, allow=allow)
-    assert [m.job_id for m in result] == ["j2", "j3"]
-    assert seen == ["j1", "j2", "j3"]                           # stopped once 2 passed; j4, j5 never checked
+    assert seen == ["j1", "j2", "j3"]  # stopped once 2 passed; j4, j5 never checked
 
 
 def test_within_restricts_candidates_before_scoring():
@@ -104,15 +111,12 @@ def test_dedupe_key_keeps_only_the_best_posting_per_key():
     assert [m.job_id for m in result] == ["j1", "j3"]
 
 
-from app.services.scoring_services import years_from_title, years_note
-
-
 def test_years_from_title_when_the_posting_gives_no_number():
     assert years_from_title("Senior Backend Engineer") == 5
     assert years_from_title("Sr. Engineer") == 5
     assert years_from_title("Staff Software Engineer") == 8
     assert years_from_title("Principal Engineer") == 10
-    assert years_from_title("Software Engineer II") == 2          # level number: mid-level
+    assert years_from_title("Software Engineer II") == 2  # level number: mid-level
 
 
 def test_years_note_wording():
@@ -123,7 +127,14 @@ def test_years_note_wording():
 
 def test_years_in_education_clauses_are_not_work_experience():
     assert years_required(["At least 1 year of university education, or equivalent work experience."]) is None
-    assert years_required(["Must be currently enrolled in an accredited Bachelor's degree program or within 1 year of graduation"]) is None
+    assert (
+        years_required(
+            [
+                "Must be currently enrolled in an accredited Bachelor's degree program or within 1 year of graduation"
+            ]
+        )
+        is None
+    )
     assert years_required(["2+ years of coursework in data structures"]) is None
     assert years_required(["5+ years of auditing experience, including IT/Information Security."]) == 5
     assert years_required(["Degree in CS, plus 3+ years of industry experience"]) == 3

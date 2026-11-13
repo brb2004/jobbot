@@ -54,5 +54,7 @@ def test_no_reply_to_by_default(monkeypatch):
 def test_existing_reply_to_kept(monkeypatch):
     monkeypatch.setattr(email_services.smtplib, "SMTP", FakeSMTP)
     FakeSMTP.sent = []
-    asyncio.run(smtp_transport("h", 587, "u", "p", reply_to="support@example.com")(_msg(Reply_To="x@example.com")))
+    asyncio.run(
+        smtp_transport("h", 587, "u", "p", reply_to="support@example.com")(_msg(Reply_To="x@example.com"))
+    )
     assert FakeSMTP.sent[0].get_all("Reply-To") == ["x@example.com"]

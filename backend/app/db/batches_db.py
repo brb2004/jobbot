@@ -1,4 +1,5 @@
 """Walk a big query a slice at a time so memory stays flat no matter how many rows match."""
+
 from collections.abc import AsyncIterator
 
 from sqlalchemy import Select

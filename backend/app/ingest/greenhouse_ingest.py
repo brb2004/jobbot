@@ -1,4 +1,5 @@
 """Greenhouse adapter. The board listing has no descriptions: fill_descriptions fetches each posting."""
+
 import asyncio
 import html as htmllib
 import logging
@@ -10,13 +11,40 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.batches_db import batches
 from app.db.models_db import Job
-from app.ingest.crawl_ingest import (CrawlSummary, Posting, Source, _get, close_missing as _close_missing,
-                                     crawl_source, note_missing, retire_dropped, save_name, save_postings)
+from app.ingest.crawl_ingest import (
+    CrawlSummary,
+    Posting,
+    Source,
+    _get,
+    crawl_source,
+    note_missing,
+    retire_dropped,
+    save_name,
+    save_postings,
+)
+from app.ingest.crawl_ingest import (
+    close_missing as _close_missing,
+)
 from app.ingest.text_ingest import html_to_text
 
-__all__ = ["API", "BoardJob", "JobDetails", "CrawlSummary", "fetch_board", "fetch_board_name", "fetch_details",
-           "save_board", "save_name", "close_missing", "note_missing", "retire_dropped", "crawl",
-           "fill_descriptions", "GREENHOUSE", "_get"]
+__all__ = [
+    "API",
+    "BoardJob",
+    "JobDetails",
+    "CrawlSummary",
+    "fetch_board",
+    "fetch_board_name",
+    "fetch_details",
+    "save_board",
+    "save_name",
+    "close_missing",
+    "note_missing",
+    "retire_dropped",
+    "crawl",
+    "fill_descriptions",
+    "GREENHOUSE",
+    "_get",
+]
 
 API = "https://boards-api.greenhouse.io/v1/boards"
 log = logging.getLogger(__name__)
@@ -35,8 +63,13 @@ class BoardJob(BaseModel):
         return v.get("name") if isinstance(v, dict) else v
 
     def posting(self) -> Posting:
-        return Posting(external_id=str(self.id), title=self.title, url=self.absolute_url,
-                       location=self.location, version=self.updated_at)
+        return Posting(
+            external_id=str(self.id),
+            title=self.title,
+            url=self.absolute_url,
+            location=self.location,
+            version=self.updated_at,
+        )
 
 
 class JobDetails(BaseModel):
@@ -54,7 +87,7 @@ async def fetch_board(client: httpx.AsyncClient, slug: str) -> tuple[list[BoardJ
     if r.status_code == 404:
         return None
     r.raise_for_status()
-    raw = r.json()["jobs"]                                  # not JSON / no "jobs": the whole board fails
+    raw = r.json()["jobs"]  # not JSON / no "jobs": the whole board fails
     jobs, ids = [], []
     for j in raw:
         if isinstance(j, dict) and isinstance(j.get("id"), int):
@@ -93,7 +126,9 @@ async def close_missing(s: AsyncSession, board: str, listed_ids: list[int | str]
     return await _close_missing(s, board, [str(i) for i in listed_ids])
 
 
-async def crawl(client: httpx.AsyncClient, s: AsyncSession, slugs: list[str], concurrency: int = 4) -> CrawlSummary:
+async def crawl(
+    client: httpx.AsyncClient, s: AsyncSession, slugs: list[str], concurrency: int = 4
+) -> CrawlSummary:
     return await crawl_source(client, s, GREENHOUSE, slugs, concurrency)
 
 
@@ -108,7 +143,7 @@ async def fetch_details(client: httpx.AsyncClient, board: str, job_id: int | str
 
     raw = data.get("content") or ""
     if "&lt;" in raw:
-        raw = htmllib.unescape(raw)     # Greenhouse double-encodes
+        raw = htmllib.unescape(raw)  # Greenhouse double-encodes
     return JobDetails(
         description=html_to_text(raw),
         content_html=raw,
@@ -118,17 +153,16 @@ async def fetch_details(client: httpx.AsyncClient, board: str, job_id: int | str
     )
 
 
-async def fill_descriptions(client: httpx.AsyncClient, s: AsyncSession,
-                            concurrency: int = 8) -> int:
+async def fill_descriptions(client: httpx.AsyncClient, s: AsyncSession, concurrency: int = 8) -> int:
     """Details for open Greenhouse jobs that lack them, a batch at a time: memory stays flat and each batch
     is committed, so a killed run keeps what it finished and the next run picks up the rest. Other sources
     carry the posting in their listing and never land here."""
     stmt = select(Job).where(
         Job.description.is_(None),
         Job.board.is_not(None),
-        Job.board.not_like("%:%"),                              # Greenhouse keys have no source prefix
+        Job.board.not_like("%:%"),  # Greenhouse keys have no source prefix
         Job.external_id.is_not(None),
-        Job.closed_at.is_(None),                                # don't fetch details for dead postings
+        Job.closed_at.is_(None),  # don't fetch details for dead postings
     )
     sem = asyncio.Semaphore(concurrency)
 
@@ -136,7 +170,7 @@ async def fill_descriptions(client: httpx.AsyncClient, s: AsyncSession,
         async with sem:
             try:
                 return job, await fetch_details(client, job.board, job.external_id)
-            except Exception as e:                              # one bad posting never stops the run
+            except Exception as e:  # one bad posting never stops the run
                 log.warning("details %s/%s failed: %s", job.board, job.external_id, repr(e)[:200])
                 return job, None
 
@@ -144,12 +178,15 @@ async def fill_descriptions(client: httpx.AsyncClient, s: AsyncSession,
     async for jobs in batches(s, stmt, Job.id):
         for job, d in await asyncio.gather(*(fetch(j) for j in jobs)):
             if d is None:
-                continue                                        # stays empty: retried next run
+                continue  # stays empty: retried next run
             job.description = d.description
             job.content_html = d.content_html
-            job.salary_min, job.salary_max, job.salary_currency = d.salary_min, d.salary_max, d.salary_currency
-            job.requirements, job.skills_version = None, None    # re-extracted and re-tagged from the new text
+            job.salary_min, job.salary_max, job.salary_currency = (
+                d.salary_min,
+                d.salary_max,
+                d.salary_currency,
+            )
+            job.requirements, job.skills_version = None, None  # re-extracted and re-tagged from the new text
             filled += 1
         await s.commit()
     return filled
-

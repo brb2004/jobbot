@@ -25,7 +25,8 @@ def test_note_says_mid_or_senior():
 
 def test_architect_titles_are_senior():
     from app.services.scoring_services import years_from_title
+
     assert years_from_title("AI Architect") == 5
     assert years_from_title("Solutions Architect (FedS062)") == 5
-    assert years_from_title("Principal Architect") == 10                 # the stronger word wins
+    assert years_from_title("Principal Architect") == 10  # the stronger word wins
     assert years_from_title("Software Engineer, Architecture Tooling") is None

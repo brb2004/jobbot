@@ -31,5 +31,9 @@ async def test_places_say_what_kind_they_are(client):
 
 async def test_places_carry_city_state_labels(client):
     label = {p["name"]: p["label"] for p in (await client.get("/places")).json()}
-    assert (label["Vancouver"], label["Vancouver WA"], label["London"]) == ("Vancouver, BC", "Vancouver, WA", "London, United Kingdom")
+    assert (label["Vancouver"], label["Vancouver WA"], label["London"]) == (
+        "Vancouver, BC",
+        "Vancouver, WA",
+        "London, United Kingdom",
+    )
     assert label["Canada"] == "Canada"

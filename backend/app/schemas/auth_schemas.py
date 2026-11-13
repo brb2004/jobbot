@@ -1,5 +1,6 @@
 from datetime import datetime
 from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
@@ -22,7 +23,7 @@ class LoginIn(BaseModel):
 
 
 class TokenOut(BaseModel):
-    access_token: str | None = None      # only with ?token=1 (scripts); browsers use the cookie
+    access_token: str | None = None  # only with ?token=1 (scripts); browsers use the cookie
     token_type: str = "bearer"
 
 

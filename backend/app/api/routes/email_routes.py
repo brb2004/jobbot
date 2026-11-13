@@ -2,7 +2,8 @@
 
 POST only. A GET never changes anything, so link scanners and prefetchers can't unsubscribe anyone;
 the page at /unsubscribe asks for a click, and mail apps use RFC 8058 one-click (POST to the header URL)."""
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -39,10 +40,10 @@ async def unsubscribe(request: Request, token: str | None = None, s=Depends(get_
         try:
             token = TokenIn.model_validate(await request.json()).token
         except Exception:
-            raise BAD_LINK
+            raise BAD_LINK from None
     user = await _user(s, token or "")
     if user.digest_opt_out_at is None:
-        user.digest_opt_out_at = datetime.now(timezone.utc)
+        user.digest_opt_out_at = datetime.now(UTC)
         await s.commit()
 
 
