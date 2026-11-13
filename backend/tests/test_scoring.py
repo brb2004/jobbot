@@ -1,11 +1,5 @@
-from app.services.scoring_services import (
-    idf_weights,
-    score_job,
-    top_matches,
-    years_from_title,
-    years_note,
-    years_required,
-)
+from app.services.requirements_services import years_from_title, years_note, years_required
+from app.services.scoring_services import idf_weights, score_job, top_matches
 
 
 def test_rare_skills_weigh_more():

@@ -3,7 +3,8 @@ import sys
 
 from app.core.db_core import SessionLocal, engine
 from app.services.extraction_services import fill_job_requirements
-from app.services.matching_services import match_all, tag_jobs, tag_resumes
+from app.services.matching_services import match_all
+from app.services.tagging_services import tag_jobs, tag_resumes
 
 
 async def main(k: int) -> None:

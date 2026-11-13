@@ -19,6 +19,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api import deps_api, limits_api
 from app.core.db_core import engine, get_session, get_sessionmaker
 from app.core.security_core import create_access_token
 from app.db.models_db import Base
@@ -79,43 +80,30 @@ async def auth_headers(session):
 @pytest.fixture(autouse=True)
 def _reset_rate_limits():
     """Rate limiters are process-wide; give every test a clean slate."""
-    from app.api.routes import auth_routes
-
-    for limiter in (
-        auth_routes.LOGIN_FAILS,
-        auth_routes.LOGIN_IP,
-        auth_routes.REGISTER_IP,
-        auth_routes.FORGOT_IP,
-        auth_routes.FORGOT_EMAIL,
-        auth_routes.VERIFY_RESEND,
-        auth_routes.LOGIN_EMAIL,
-        auth_routes.SIGNUP_EMAIL,
-    ):
-        limiter.reset()
+    limits_api.reset_all()
     yield
 
 
 @pytest.fixture(autouse=True)
 def _no_real_email():
-    """.envrc holds real SMTP credentials: tests must never send mail. Tests that check mail swap in an outbox."""
-    from app.api.routes import auth_routes
+    """.envrc holds real SMTP credentials: tests never send mail. Tests that check mail swap in an outbox."""
 
     async def drop(msg):
         pass
 
-    app.dependency_overrides[auth_routes.get_mailer] = lambda: drop
+    app.dependency_overrides[deps_api.get_mailer] = lambda: drop
     yield
-    app.dependency_overrides.pop(auth_routes.get_mailer, None)
+    app.dependency_overrides.pop(deps_api.get_mailer, None)
 
 
 @pytest.fixture(autouse=True)
 def _fresh_job_index():
     """The cached job index is process-wide; each test starts without one."""
-    from app.services import matching_services
+    from app.services import job_index_services
 
-    matching_services._cached = None
+    job_index_services._cached = None
     yield
-    matching_services._cached = None
+    job_index_services._cached = None
 
 
 @pytest.fixture(autouse=True)

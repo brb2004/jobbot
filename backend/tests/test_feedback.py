@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import select
 
-from app.api.routes import auth_routes, feedback_routes
+from app.api import deps_api, limits_api
 from app.core.security_core import create_access_token
 from app.db.models_db import Feedback, User
 from app.main import app
@@ -15,13 +15,13 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.fixture(autouse=True)
 def _fresh_limits():
-    feedback_routes.FEEDBACK_USER.reset()
-    feedback_routes.FEEDBACK_IP.reset()
+    limits_api.FEEDBACK_USER.reset()
+    limits_api.FEEDBACK_IP.reset()
     yield
 
 
 def use_mailer(send):
-    app.dependency_overrides[auth_routes.get_mailer] = lambda: send
+    app.dependency_overrides[deps_api.get_mailer] = lambda: send
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def outbox():
 
     use_mailer(capture)
     yield sent
-    app.dependency_overrides.pop(auth_routes.get_mailer, None)
+    app.dependency_overrides.pop(deps_api.get_mailer, None)
 
 
 async def account(session, verified=True):
@@ -55,7 +55,7 @@ async def cron(session):
     """What the feedback CronJob does: drain the queue with the current mailer."""
     from app.services.feedback_services import drain
 
-    await drain(session, app.dependency_overrides[auth_routes.get_mailer]())
+    await drain(session, app.dependency_overrides[deps_api.get_mailer]())
 
 
 async def rows(session, user):

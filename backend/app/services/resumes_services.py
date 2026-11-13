@@ -14,9 +14,10 @@ from app.services.documents_services import (
     extract_text_safely,
 )
 from app.services.experience_services import years_from_resume
-from app.services.matching_services import rematch_user, tag_resumes
+from app.services.matching_services import rematch_user
 from app.services.preferences_services import Preferences, ResumePrefs, for_resume
 from app.services.skills_services import default_tagger
+from app.services.tagging_services import tag_resumes
 
 MAX_BYTES = 2 * 1024 * 1024
 ALLOWED = (".pdf", ".docx", ".txt")

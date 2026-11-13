@@ -1,5 +1,5 @@
-import re
-from functools import lru_cache
+"""A user's job preferences, and the filter that applies them to a job."""
+
 from typing import Annotated
 from uuid import UUID
 
@@ -7,92 +7,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Job, User
-from app.services.places_services import place_of, places_in, places_named
+from app.services.locations_services import location_blocked, location_ok
+from app.services.title_rules_services import title_ok
 
 Word = Annotated[str, Field(min_length=1, max_length=50)]
-# Tech-only product: with no include list, show engineering roles. Users can override with their own list.
-DEFAULT_TITLES = ("engineer", "developer", "sre", "devops", "architect", "programmer", "scientist")
-# Sales / pre-sales ROLES (not any title that says "sales": "Software Engineer, Sales Platform" builds software).
-# Hidden unless the user opts in.
-PRESALES_TITLES = (
-    "sales engineer",
-    "sales engineering",
-    "sales architect",
-    "sales consultant",
-    "sales representative",
-    "sales development",
-    "sales executive",
-    "sales manager",
-    "sales specialist",
-    "presales",
-    "pre-sales",
-    "customer engineer",
-    "solutions architect",
-    "solution architect",
-    "solutions engineer",
-    "solution engineer",
-    "account executive",
-    "customer success",
-)
-
-
-# Titles with "engineer"/"developer" that aren't software-building roles. Hidden unless the user lists
-# one of these phrases in include titles (a generic "engineer" doesn't reopen them).
-NON_DEV_TITLES = (
-    "support engineer",
-    "technical support",
-    "customer support",
-    "curriculum",
-    "creative engineer",
-    "enterprise engineer",
-    "help desk",
-    "helpdesk",
-)
-
-# Hardware and other physical-engineering roles: same rule (list e.g. "mechanical engineer" to see them).
-HARDWARE_TITLES = (
-    "hardware engineer",
-    "hardware design",
-    "electrical engineer",
-    "mechanical engineer",
-    "asic",
-    "fpga",
-    "rtl",
-    "pcb",
-    "analog",
-    "mixed-signal",
-    "silicon",
-    "physical design",
-    "design verification",
-    "rf engineer",
-    "manufacturing engineer",
-    "process engineer",
-    "chemical engineer",
-    "civil engineer",
-    "structural engineer",
-    "optical engineer",
-    "thermal engineer",
-    "packaging engineer",
-)
-
-# A title that says it builds software is never hidden by the three lists above.
-BUILDER_TITLES = (
-    "software",
-    "backend",
-    "back-end",
-    "frontend",
-    "front-end",
-    "full stack",
-    "full-stack",
-    "fullstack",
-    "data scientist",
-    "machine learning",
-    "ml engineer",
-    "site reliability",
-    "platform engineer",
-    "data engineer",
-    "devops",
-)
 
 
 class Preferences(BaseModel):
@@ -181,100 +99,11 @@ def for_resume(account: Preferences, own: dict | None) -> Preferences:
     return Preferences.model_validate(merged)
 
 
-def has_word(text: str, word: str) -> bool:
-    return has_any(text, (word,))
-
-
-@lru_cache(maxsize=4096)
-def _any_word(words: tuple[str, ...], hyphen_joins: bool) -> re.Pattern:
-    """All words -> ONE compiled pattern, cached. hyphen_joins: 'go' must not match inside 'Go-to-Market'."""
-    edge = r"[\w-]" if hyphen_joins else r"\w"
-    alts = "|".join(re.escape(w) for w in sorted(words, key=len, reverse=True))
-    return re.compile(rf"(?<!{edge})(?:{alts})(?!{edge})", re.IGNORECASE)
-
-
-def has_any(text: str, words, hyphen_joins: bool = False) -> bool:
-    return bool(words) and _any_word(tuple(words), hyphen_joins).search(text) is not None
-
-
-REMOTE = ("remote", "distributed")
-# Product decision: locations JobMatch doesn't list. A job whose only locations are here is never shown,
-# and a blocked location is never the reason a job matches.
-BLOCKED_PLACES = ("tel aviv",)
-
-
-def _blocked(piece: str) -> bool:
-    return has_any(piece, BLOCKED_PLACES)
-
-
-def location_blocked(location: str | None) -> bool:
-    pieces = [p.strip() for p in re.split(r"[;|\u2022]", location or "") if p.strip()]
-    return bool(pieces) and all(_blocked(p) for p in pieces)
-
-
-@lru_cache(maxsize=4096)
-def _wants(entries: tuple[str, ...]) -> tuple[frozenset[str], tuple[str, ...]]:
-    """User entries -> (known places, leftover words). Leftovers keep the old word matching."""
-    ids, words = set(), []
-    for e in entries:
-        p = place_of(e)
-        if p:
-            ids.add(p)
-        else:
-            words.append(e)
-    if "remote" in words:
-        words.append("distributed")  # "Distributed" postings are remote too
-    return frozenset(ids), tuple(words)
-
-
-@lru_cache(maxsize=4096)
-def _around(ids: frozenset[str]) -> frozenset[str]:
-    """Your places plus everything that contains them: Dallas-Fort Worth -> United States -> North America."""
-    return frozenset().union(*(places_in(i) for i in ids)) if ids else frozenset()
-
-
-def location_ok(location: str | None, prefs: Preferences) -> bool:
-    """On-site/hybrid jobs: inside a place you picked. Remote jobs: open to where you are ("Remote - US" fits
-    Dallas-Fort Worth; "Remote - Mexico" doesn't; plain "Remote" fits everyone). Nothing picked = anywhere."""
-    want_ids, want_words = _wants(tuple(prefs.locations))
-    anywhere = not want_ids and not want_words
-    pieces = [
-        p.strip() for p in re.split(r"[;|\u2022]", location or "") if p.strip()
-    ]  # "SF, CA; Remote, US" = 2
-    if not pieces:
-        return anywhere  # unknown location: only with no place filter
-    near = _around(want_ids)
-    for piece in pieces:
-        if _blocked(piece):
-            continue
-        remote = has_any(piece, REMOTE)
-        if (remote and not prefs.remote) or (not remote and not prefs.onsite):
-            continue
-        if anywhere or places_in(piece) & want_ids or has_any(piece, want_words):
-            return True  # in (or inside) a place you picked
-        bare = not re.sub(r"(?i)remote|distributed|[\W_]", "", piece)  # just "Remote"
-        if remote and (bare or places_named(piece) & near):
-            return True  # remote, open to where you are
-    return False
-
-
 def allowed(job: Job, prefs: Preferences) -> bool:
     if location_blocked(job.location):
         return False
-    title = job.title or ""
-    if has_any(title, prefs.exclude_titles, hyphen_joins=True):
-        return False
-    if not has_any(title, BUILDER_TITLES, hyphen_joins=True):
-        if not prefs.include_presales and has_any(title, PRESALES_TITLES, hyphen_joins=True):
-            return False
-        for hidden in (NON_DEV_TITLES, HARDWARE_TITLES):  # reopened only by naming one of them
-            if has_any(title, hidden, hyphen_joins=True) and not any(
-                has_any(t, hidden, hyphen_joins=True) for t in prefs.include_titles
-            ):
-                return False
-    if not has_any(title, prefs.include_titles or DEFAULT_TITLES, hyphen_joins=True):
-        return False
-    return location_ok(job.location, prefs)
+    title_fits = title_ok(job.title or "", prefs.include_titles, prefs.exclude_titles, prefs.include_presales)
+    return title_fits and location_ok(job.location, prefs)
 
 
 async def get_for(s: AsyncSession, user_id: UUID) -> Preferences | None:
@@ -288,7 +117,4 @@ async def save_for(s: AsyncSession, user_id: UUID, prefs: Preferences) -> Prefer
         return None
     user.preferences = prefs.model_dump()
     await s.commit()
-    from app.services.matching_services import rematch_user  # local import: matching imports this module
-
-    await rematch_user(s, user_id)  # new filters show up now, off the event loop
     return prefs

@@ -6,7 +6,7 @@ import pytest
 from app.db.models_db import Job
 from app.services.experience_services import years_from_resume
 from app.services.preferences_services import Preferences, allowed
-from app.services.scoring_services import years_required
+from app.services.requirements_services import years_required
 
 DEFAULT = Preferences()
 

@@ -1,6 +1,7 @@
 from app.db.models_db import Job
 from app.services.preferences_services import Preferences, allowed
-from app.services.scoring_services import TIERS, needs_clearance, score_job
+from app.services.requirements_services import needs_clearance
+from app.services.scoring_services import TIERS, score_job
 
 
 def test_support_and_teaching_roles_are_out_by_default():

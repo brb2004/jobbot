@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models_db import DigestSent, Job, MatchScore, Resume, User
 from app.schemas.matches_schemas import MatchOut
 from app.services.matches_services import marked
-from app.services.scoring_services import TIERS, tier, years_note  # noqa: F401  (re-exported)
+from app.services.requirements_services import years_note
+from app.services.scoring_services import TIERS, tier  # noqa: F401  (re-exported)
 
 SHOW = 3  # requirements shown per list
 log = logging.getLogger(__name__)

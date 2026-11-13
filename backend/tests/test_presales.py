@@ -1,4 +1,5 @@
-from app.services.preferences_services import PRESALES_TITLES, has_any
+from app.core.words_core import has_any
+from app.services.title_rules_services import PRESALES_TITLES
 
 
 def test_customer_success_is_a_sales_role():

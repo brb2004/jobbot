@@ -42,6 +42,8 @@ jobs:
           diff <(grep -v '^#' requirements.txt) <(grep -v '^#' /tmp/req.txt) || { echo "requirements.txt is stale: recompile (command in requirements.in)"; exit 1; }
       - name: Lint and format (ruff; config in backend/pyproject.toml)
         run: ruff check . && ruff format --check .
+      - name: Size rules (warnings only)
+        run: python tools/check_size.py app
       - name: Migrations build the schema the models describe
         env:
           DATABASE_URL: postgresql+asyncpg://jobbot:jobbot123@localhost:5432/jobbot_test

@@ -16,7 +16,7 @@ def test_blocks_after_max_hits_until_the_window_slides():
 
 
 async def test_login_is_throttled_after_5_failures(client):
-    from app.api.routes.auth_routes import LOGIN_FAILS, LOGIN_IP
+    from app.api.limits_api import LOGIN_FAILS, LOGIN_IP
 
     LOGIN_FAILS.reset()
     LOGIN_IP.reset()

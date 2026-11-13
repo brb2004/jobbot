@@ -4,7 +4,7 @@ import time
 import pytest
 from sqlalchemy import select
 
-from app.api.routes import auth_routes
+from app.api import deps_api
 from app.core.config_core import get_settings
 from app.core.security_core import make_reset_token
 from app.db.models_db import User
@@ -22,9 +22,9 @@ def outbox(client):
         if msg["Subject"].startswith("Reset"):  # sign-up also sends a confirmation email
             sent.append(msg)
 
-    app.dependency_overrides[auth_routes.get_mailer] = lambda: capture
+    app.dependency_overrides[deps_api.get_mailer] = lambda: capture
     yield sent
-    app.dependency_overrides.pop(auth_routes.get_mailer, None)
+    app.dependency_overrides.pop(deps_api.get_mailer, None)
 
 
 def link_token(msg) -> str:

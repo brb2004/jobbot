@@ -5,6 +5,7 @@ import time
 import jwt
 import pytest
 
+from app.api import limits_api
 from app.api.routes import auth_routes
 from app.core.config_core import Settings, get_settings
 from tests.conftest import signup
@@ -23,7 +24,7 @@ def test_refuses_to_start_with_a_short_jwt_secret():
 
 
 def test_account_delay_grows_then_caps():
-    delays = [auth_routes.account_delay(n) for n in range(12)]
+    delays = [limits_api.account_delay(n) for n in range(12)]
     assert delays[:5] == [0] * 5
     assert delays[5:10] == [1, 2, 4, 8, 16] and max(delays) == 16
 
@@ -54,7 +55,7 @@ async def test_guessing_one_account_from_many_ips_slows_down_but_never_locks_out
         json={"email": "target@slow.example.com", "password": "correct-horse"},
     )
     assert ok.status_code == 200  # the owner still gets in (after a wait)
-    assert auth_routes.LOGIN_EMAIL.count("target@slow.example.com") == 0  # and the slowdown resets
+    assert limits_api.LOGIN_EMAIL.count("target@slow.example.com") == 0  # and the slowdown resets
     client.cookies.clear()
 
 

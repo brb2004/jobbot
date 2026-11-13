@@ -1,4 +1,4 @@
-from app.services.scoring_services import years_from_title, years_note
+from app.services.requirements_services import years_from_title, years_note
 
 
 def test_level_numbers_in_titles_imply_years():
@@ -24,7 +24,7 @@ def test_note_says_mid_or_senior():
 
 
 def test_architect_titles_are_senior():
-    from app.services.scoring_services import years_from_title
+    from app.services.requirements_services import years_from_title
 
     assert years_from_title("AI Architect") == 5
     assert years_from_title("Solutions Architect (FedS062)") == 5

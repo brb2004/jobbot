@@ -3,8 +3,9 @@ import uuid
 from sqlalchemy import select
 
 from app.db.models_db import Job, MatchScore, Resume, User
-from app.services.matching_services import match_all, tag_jobs, tag_resumes
+from app.services.matching_services import match_all
 from app.services.skills_services import Tagger, default_tagger
+from app.services.tagging_services import tag_jobs, tag_resumes
 from tests.conftest import user_row
 
 

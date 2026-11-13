@@ -10,6 +10,7 @@ from app.core.config_core import get_settings
 from app.core.db_core import get_session
 from app.core.security_core import create_access_token, decode_token
 from app.db.models_db import User
+from app.services.email_services import smtp_transport
 
 bearer = HTTPBearer(auto_error=False)
 UNAUTHORIZED = HTTPException(401, "Not authenticated", headers={"WWW-Authenticate": "Bearer"})
@@ -81,3 +82,9 @@ async def require_verified(
     if user.email_verified_at is None:
         raise NOT_CONFIRMED
     return user_id
+
+
+def get_mailer():
+    """Overridden in tests to capture messages instead of sending them."""
+    st = get_settings()
+    return smtp_transport(st.SMTP_HOST, st.SMTP_PORT, st.SMTP_USER, st.SMTP_PASSWORD, st.EMAIL_REPLY_TO)

@@ -9,16 +9,19 @@ from sqlalchemy import text
 
 from app.api.deps_api import require_verified
 from app.api.routes import (
+    account_routes,
     applications_routes,
     auth_routes,
     email_routes,
     feedback_routes,
     jobs_routes,
     matches_routes,
+    password_routes,
     places_routes,
     preferences_routes,
     resumes_routes,
     skills_routes,
+    verify_routes,
 )
 from app.core.config_core import get_settings
 from app.core.db_core import get_session
@@ -34,7 +37,10 @@ app = FastAPI(
 )
 app.include_router(preferences_routes.router)
 app.include_router(auth_routes.router)
-app.include_router(auth_routes.account)  # DELETE /me
+app.include_router(account_routes.router)
+app.include_router(account_routes.account)  # DELETE /me
+app.include_router(password_routes.router)
+app.include_router(verify_routes.router)
 app.include_router(email_routes.router)  # public: unsubscribe links carry a signed token
 app.include_router(jobs_routes.router)
 app.include_router(skills_routes.router)  # public: skill names for autocomplete

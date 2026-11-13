@@ -2,8 +2,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
+from app.services.requirements_services import years_note as _years_note
 from app.services.scoring_services import tier as _tier
-from app.services.scoring_services import years_note as _years_note
 
 
 class MatchOut(BaseModel):

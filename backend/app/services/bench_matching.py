@@ -12,7 +12,8 @@ from sqlalchemy import select
 from app.core.db_core import SessionLocal, engine
 from app.db.models_db import Job, User
 from app.services.preferences_services import Preferences, allowed
-from app.services.scoring_services import build_index, idf_weights, top_matches, years_required
+from app.services.requirements_services import years_required
+from app.services.scoring_services import build_index, idf_weights, top_matches
 
 OLD_MAX = 1000  # the old way is slow; above this, extrapolate from its per-user time
 

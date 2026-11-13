@@ -1,13 +1,13 @@
 import pytest
 from sqlalchemy import select
 
+from app.api import deps_api, limits_api
 from app.db.models_db import User
 from tests.conftest import signup
 
 
 @pytest.fixture
 def outbox(client):
-    from app.api.routes import auth_routes
     from app.main import app
 
     sent = []
@@ -15,9 +15,9 @@ def outbox(client):
     async def capture(msg):
         sent.append(msg)
 
-    app.dependency_overrides[auth_routes.get_mailer] = lambda: capture
+    app.dependency_overrides[deps_api.get_mailer] = lambda: capture
     yield sent
-    app.dependency_overrides.pop(auth_routes.get_mailer, None)
+    app.dependency_overrides.pop(deps_api.get_mailer, None)
 
 
 def link_token(msg) -> str:
@@ -68,9 +68,8 @@ async def test_signing_up_again_before_confirming_resends_the_link(client, outbo
 async def test_already_registered_mails_are_capped_per_address(client, outbox):
     await signup(client, "cap@x.com")
     client.cookies.clear()
-    from app.api.routes import auth_routes
 
-    auth_routes.REGISTER_IP.reset()
+    limits_api.REGISTER_IP.reset()
     for _ in range(5):
         assert (
             await client.post(
@@ -190,12 +189,11 @@ async def test_logout_revokes_tokens_but_a_fresh_login_works(client):
 
 
 async def test_noisy_ip_is_slowed_not_locked_out(client, monkeypatch):
-    from app.api.routes import auth_routes
 
-    monkeypatch.setattr(auth_routes, "TARPIT_S", 0)
+    monkeypatch.setattr(limits_api, "TARPIT_S", 0)
     await signup(client, "nat@auth.com", "correct-horse")
     for _ in range(30):
-        auth_routes.LOGIN_IP.hit("127.0.0.1")  # someone else on this network
+        limits_api.LOGIN_IP.hit("127.0.0.1")  # someone else on this network
     r = await client.post("/auth/login?token=1", json={"email": "nat@auth.com", "password": "correct-horse"})
     assert r.status_code == 200
     client.cookies.clear()

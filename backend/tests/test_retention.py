@@ -9,8 +9,8 @@ from app.db.models_db import Application, Job, MatchScore, Resume
 from app.ingest import greenhouse_ingest as gh
 from app.ingest.greenhouse_ingest import BoardJob, save_board
 from app.services.extraction_services import fill_job_requirements
-from app.services.matching_services import tag_jobs
 from app.services.retention_services import prune
+from app.services.tagging_services import tag_jobs
 from tests.conftest import user_row
 
 NOW = datetime(2026, 11, 11, tzinfo=UTC)

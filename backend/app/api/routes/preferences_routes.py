@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.api.deps_api import get_current_user
 from app.core.db_core import get_session
 from app.services import preferences_services as prefs_service
+from app.services.matching_services import rematch_user
 from app.services.preferences_services import Preferences
 
 router = APIRouter(prefix="/me", tags=["me"])
@@ -21,4 +22,5 @@ async def put_preferences(body: Preferences, s=Depends(get_session), user_id=Dep
     prefs = await prefs_service.save_for(s, user_id, body)
     if prefs is None:
         raise HTTPException(401, "Not authenticated")
+    await rematch_user(s, user_id)  # the new filters show up now, not at the next nightly run
     return prefs

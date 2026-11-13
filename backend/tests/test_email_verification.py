@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy import select
 
-from app.api.routes import auth_routes
+from app.api import deps_api
 from app.core.security_core import make_reset_token
 from app.db.models_db import Job, MatchScore, Resume, User
 from app.main import app
@@ -20,9 +20,9 @@ def outbox(client):
     async def capture(msg):
         sent.append(msg)
 
-    app.dependency_overrides[auth_routes.get_mailer] = lambda: capture
+    app.dependency_overrides[deps_api.get_mailer] = lambda: capture
     yield sent
-    app.dependency_overrides.pop(auth_routes.get_mailer, None)
+    app.dependency_overrides.pop(deps_api.get_mailer, None)
 
 
 def link_token(msg) -> str:
@@ -66,7 +66,7 @@ async def test_resend_is_limited_and_stops_once_confirmed(client, outbox):
         assert (await client.post("/auth/verify/resend")).status_code == 202
     assert len(outbox) == 1 + 3
     await client.post("/auth/verify", json={"token": link_token(outbox[0])})
-    from app.api.routes.auth_routes import VERIFY_RESEND
+    from app.api.limits_api import VERIFY_RESEND
 
     VERIFY_RESEND.reset()
     await client.post("/auth/verify/resend")

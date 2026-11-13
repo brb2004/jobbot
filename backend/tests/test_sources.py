@@ -11,7 +11,8 @@ from app.ingest.ashby_ingest import ASHBY
 from app.ingest.crawl_ingest import crawl_source, name_from_slug, remote_location, retire_dropped
 from app.ingest.lever_ingest import LEVER
 from app.services.extraction_services import fill_job_requirements
-from app.services.preferences_services import Preferences, location_ok
+from app.services.locations_services import location_ok
+from app.services.preferences_services import Preferences
 
 REQS = "<h2>What you'll bring</h2><ul><li>3+ years of Python</li><li>PostgreSQL</li></ul>"
 
