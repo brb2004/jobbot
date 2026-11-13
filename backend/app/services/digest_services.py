@@ -48,8 +48,6 @@ def _blocks(best: list[MatchOut]) -> list[str]:
 
 
 def render(matches: list[MatchOut], top_n: int) -> str:
-    """Best first. With two resumes: a section per resume (top_n split between them), each job once,
-    under the resume it matched best."""
     if not matches:
         return "No new matches this week."
     best: dict = {}

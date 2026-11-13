@@ -1,5 +1,3 @@
-"""Email confirmation links."""
-
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
 
 from app.api import limits_api as limits
@@ -22,8 +20,6 @@ def queue_verify(tasks: BackgroundTasks, send, user) -> None:
 
 @router.post("", status_code=204)
 async def verify(body: VerifyIn, response: Response, s=Depends(get_session)):
-    """The click that confirms the address also logs that browser in. An old link clicked again only
-    confirms: it's never a way to log in."""
     confirmed = await auth_services.confirm_email(s, body.token)
     if confirmed is None:
         raise HTTPException(

@@ -52,7 +52,6 @@ app.include_router(feedback_routes.router, dependencies=[Depends(require_verifie
 
 
 def _plain(msg: str) -> str:
-    """Pydantic wording -> plain English."""
     msg = msg.removeprefix("Value error, ")
     msg = re.sub(r"^String should have at least (\d+) characters?$", r"must be at least \1 characters", msg)
     msg = re.sub(r"^String should have at most (\d+) characters?$", r"must be at most \1 characters", msg)
@@ -62,7 +61,6 @@ def _plain(msg: str) -> str:
 
 @app.exception_handler(RequestValidationError)
 async def validation_error_without_echo(request: Request, exc: RequestValidationError):
-    """Same 422 shape, minus 'input'/'ctx': never send a submitted value (like a password) back."""
     errors = [
         {**{k: v for k, v in e.items() if k not in ("input", "ctx")}, "msg": _plain(e["msg"])}
         for e in exc.errors()
@@ -90,15 +88,11 @@ async def security_headers(request: Request, call_next):
 
 @app.get("/health", include_in_schema=False)
 async def health():
-    """Liveness for Docker/Kubernetes. No auth, no DB: 'the process is up and serving'."""
     return {"ok": True}
 
 
 @app.get("/ready", include_in_schema=False)
 async def ready(s=Depends(get_session)):
-    """Readiness: the API can reach Postgres. For the uptime monitor and Kubernetes readiness.
-    Kept apart from /health on purpose: a database outage should take the API out of rotation,
-    not make Kubernetes restart healthy API pods in a loop."""
     try:
         await asyncio.wait_for(s.execute(text("SELECT 1")), timeout=3)
     except Exception:

@@ -1,6 +1,3 @@
-"""Ashby and Lever adapters + the shared crawl core. Payloads follow each API's documented shape:
-developers.ashbyhq.com/docs/public-job-posting-api and github.com/lever/postings-api."""
-
 import httpx
 from sqlalchemy import select
 

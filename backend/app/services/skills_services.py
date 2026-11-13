@@ -23,7 +23,6 @@ def _lines(text: str):
 
 
 def parse_taxonomy(text: str) -> list[Alias]:
-    """'PostgreSQL: postgres, psql' -> label + aliases. Leading '=' means match case-sensitively."""
     aliases: list[Alias] = []
     for line in _lines(text):
         if ">" in line:
@@ -38,7 +37,6 @@ def parse_taxonomy(text: str) -> list[Alias]:
 
 
 def parse_implications(text: str) -> dict[str, set[str]]:
-    """'RAG > LLM, AI' -> having RAG means you also have LLM and AI."""
     implies: dict[str, set[str]] = {}
     for line in _lines(text):
         if ">" in line:
@@ -76,7 +74,6 @@ class Tagger:
         }
 
     def expand(self, skills: set[str]) -> set[str]:
-        """Add everything the skills imply, transitively (depth-first; cycles are harmless)."""
         out, stack = set(skills), list(skills)
         while stack:
             for implied in self.implies.get(stack.pop(), ()):

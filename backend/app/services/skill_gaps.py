@@ -1,12 +1,3 @@
-"""Which tech terms do postings ask for that skills.txt doesn't know? A read-only report for a person to review.
-
-    python -m app.services.skill_gaps [top_n] [min_companies]
-
-Known skills are blanked out first (so "GitHub Actions" doesn't leave "Actions" behind), then what's left is
-scanned for words that look technical: inner capitals (SQLAlchemy, gRPC), digits or symbols (Node.js, C#, x86),
-short acronyms (JWT, SIEM), and capitalised words mid-sentence (Kafka, Snowflake), plus pairs of those
-("Spring Boot"). Ranked by how many COMPANIES ask: one company repeating its own product name can't win."""
-
 import asyncio
 import re
 import sys
@@ -241,7 +232,6 @@ def _techy(tok: str, first: bool) -> bool:
 
 
 def candidates(text: str, tagger) -> set[str]:
-    """Technical-looking terms in one bullet that the tagger doesn't already know."""
     rest = tagger.pattern.sub(" | ", text or "")  # known skills out; '|' stops pairs forming across them
     found, prev = set(), None
     for i, m in enumerate(TOKEN.finditer(rest)):
@@ -260,8 +250,6 @@ def candidates(text: str, tagger) -> set[str]:
 
 
 class Tally:
-    """Counts as postings stream past, so the whole table never sits in memory. Each term once per posting."""
-
     def __init__(self, tagger):
         self.tagger, self.postings_seen = tagger, 0
         self.companies, self.postings, self.example = defaultdict(set), defaultdict(int), {}
@@ -279,7 +267,6 @@ class Tally:
             self.postings[term] += 1
 
     def ranked(self, min_companies: int = 3) -> list[tuple[str, int, int, str]]:
-        """[(term, companies, postings, example)], most companies first."""
         out = [
             (t, len(c), self.postings[t], self.example[t])
             for t, c in self.companies.items()

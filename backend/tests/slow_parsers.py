@@ -1,5 +1,3 @@
-"""Stand-ins for hostile files, run inside the extraction child process (must be importable top-level)."""
-
 import time
 
 

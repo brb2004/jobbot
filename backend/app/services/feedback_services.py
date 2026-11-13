@@ -1,11 +1,3 @@
-"""Bug reports and feedback, with a Postgres-backed queue for the acknowledgement emails.
-
-Transactional outbox: the report and its pending email commit together, so a report never exists without
-its email being queued. The email goes out right after the response (acknowledge_now, a background task, so
-a slow or hanging SMTP server never delays the page); anything that fails there stays queued, and the CronJob
-(python -m app.services.run_feedback, every 5 minutes) retries it. FOR UPDATE SKIP LOCKED lets both run at
-once without double-sending; after MAX_ATTEMPTS a send is marked failed."""
-
 import asyncio
 import logging
 from datetime import UTC, datetime
@@ -80,7 +72,6 @@ async def drain(s: AsyncSession, send, limit: int = 20, only: UUID | None = None
 
 
 async def acknowledge_now(sessionmaker, send, feedback_id: UUID) -> None:
-    """Right after the response: send this report's email now. Whatever goes wrong leaves it queued for the CronJob."""
     try:
         async with sessionmaker() as s:
             await drain(s, send, limit=1, only=feedback_id)

@@ -13,8 +13,6 @@ SUBJECT = "Your top job matches this week"
 
 
 class EmailSender:
-    """Same shape send_weekly expects: send(user_id, body). Looks up the address, hands off to a transport."""
-
     def __init__(self, s: AsyncSession, from_addr: str, transport):
         self.s = s
         self.from_addr = from_addr
@@ -38,8 +36,6 @@ class EmailSender:
 
 
 def smtp_transport(host: str, port: int, username: str, password: str, reply_to: str = ""):
-    """Real transport: STARTTLS + login. smtplib blocks, so it runs in a thread.
-    reply_to is added to every message that doesn't already set one."""
 
     async def send(msg: EmailMessage) -> None:
         if reply_to and "Reply-To" not in msg:
@@ -84,8 +80,6 @@ def verify_email(from_addr: str, to: str, link: str) -> EmailMessage:
 
 
 def account_exists_email(from_addr: str, to: str, app_url: str) -> EmailMessage:
-    """Sent instead of an error when someone signs up with a registered address: the sign-up page
-    answers the same either way, so it can't be used to check who has an account."""
     msg = EmailMessage()
     msg["From"] = from_addr
     msg["To"] = to
@@ -100,7 +94,6 @@ def account_exists_email(from_addr: str, to: str, app_url: str) -> EmailMessage:
 
 
 def feedback_email(from_addr: str, to: str, ref: str, kind: str) -> EmailMessage:
-    """Doesn't quote the report back: the form can't be used to send arbitrary text from our address."""
     what = {"bug": "bug report", "idea": "feature idea"}.get(kind, "feedback")
     msg = EmailMessage()
     msg["From"] = from_addr

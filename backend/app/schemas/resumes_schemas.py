@@ -18,7 +18,6 @@ class ResumeOut(BaseModel):
     @computed_field
     @property
     def own(self) -> ResumePrefs:
-        """This resume's own titles/years; null fields follow the account's Preferences."""
         return ResumePrefs.model_validate(self.title_prefs or {})
 
 

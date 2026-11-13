@@ -1,5 +1,3 @@
-"""Everything matching derives from the open jobs, built once and shared by every user's rematch."""
-
 import asyncio
 import time
 from dataclasses import dataclass
@@ -21,8 +19,6 @@ _ROWS = select(Job.id, Job.board, Job.title, Job.location, Job.skills, Job.requi
 
 @dataclass(frozen=True)
 class JobRow:
-    """What the preference filter reads about a job."""
-
     id: object
     board: str | None
     title: str | None
@@ -45,7 +41,6 @@ class JobIndex:
 
 
 def build_job_index(rows, fingerprint: tuple = ()) -> JobIndex:
-    """Pure CPU, no database, so it can run in a worker thread."""
     rows = [r for r in rows if r.skills]
     skills = {r.id: set(r.skills) for r in rows}
     stated = {r.id: years_required(r.requirements or []) for r in rows}
@@ -70,7 +65,6 @@ async def fresh_index(s: AsyncSession, fingerprint: tuple = ()) -> JobIndex:
 
 
 async def _fingerprint(s: AsyncSession) -> tuple:
-    """Changes when any job opens, closes or gets tagged, or skills.txt changes. Milliseconds to compute."""
     ids_hash = func.coalesce(func.sum(func.hashtext(cast(Job.id, String))), 0)
     n, h = (await s.execute(select(func.count(), ids_hash).where(*OPEN))).one()
     return (n, int(h), default_tagger().version)
@@ -80,7 +74,6 @@ _cached: JobIndex | None = None
 
 
 async def cached_index(s: AsyncSession) -> JobIndex:
-    """The process-wide index, rebuilt only when the open jobs changed."""
     global _cached
     fp = await _fingerprint(s)
     idx = _cached

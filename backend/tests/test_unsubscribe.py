@@ -1,5 +1,3 @@
-"""Weekly email unsubscribe: footer link + RFC 8058 one-click header; signed token, POST only."""
-
 from datetime import UTC, datetime
 
 from app.core.security_core import make_reset_token, make_unsubscribe_token

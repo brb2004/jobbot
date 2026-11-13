@@ -1,5 +1,3 @@
-"""Deterministic matching: IDF-weighted skill coverage, an inverted index, and a heap for the top k."""
-
 import heapq
 import math
 from collections import Counter
@@ -28,7 +26,6 @@ class Match:
 
 
 def idf_weights(job_skill_sets: list[set[str]]) -> dict[str, float]:
-    """Smoothed IDF: a skill in every job weighs 1.0; rarer skills weigh more."""
     n = len(job_skill_sets)
     df = Counter(s for skills in job_skill_sets for s in skills)
     return {s: math.log((1 + n) / (1 + d)) + 1 for s, d in df.items()}
@@ -60,7 +57,6 @@ def _average(weights: dict[str, float]) -> float:
 
 
 def build_index(jobs: dict[object, set[str]]) -> dict[str, set]:
-    """skill -> ids of the jobs that ask for it."""
     index: dict[str, set] = {}
     for job_id, skills in jobs.items():
         for s in skills:
@@ -70,8 +66,6 @@ def build_index(jobs: dict[object, set[str]]) -> dict[str, set]:
 
 @dataclass
 class _Picker:
-    """Takes matches best-first, one per role (dedupe_key) and at most per_company per company."""
-
     k: int
     dedupe_key: dict | None
     company: dict | None
@@ -106,7 +100,6 @@ def top_matches(
     company=None,
     per_company=None,
 ) -> list[Match]:
-    """within: a cheap filter applied before scoring. allow: an expensive check, run lazily best-first."""
     index = index if index is not None else build_index(jobs)
     job_years, avg = job_years or {}, _average(weights)
     candidates = set().union(*(index.get(s, set()) for s in user_skills))

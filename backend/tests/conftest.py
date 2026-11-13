@@ -1,5 +1,3 @@
-"""Shared fixtures. The environment is set before anything from app/ is imported: settings are read at import."""
-
 import os
 
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-that-is-at-least-32-bytes")
@@ -61,7 +59,6 @@ async def client(session):
 
 @pytest_asyncio.fixture
 async def auth_headers(session):
-    """A real user row (tokens for users that don't exist are rejected), rolled back with the test."""
     from datetime import datetime
 
     from app.db.models_db import User
@@ -79,14 +76,12 @@ async def auth_headers(session):
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limits():
-    """Rate limiters are process-wide; give every test a clean slate."""
     limits_api.reset_all()
     yield
 
 
 @pytest.fixture(autouse=True)
 def _no_real_email():
-    """.envrc holds real SMTP credentials: tests never send mail. Tests that check mail swap in an outbox."""
 
     async def drop(msg):
         pass
@@ -98,7 +93,6 @@ def _no_real_email():
 
 @pytest.fixture(autouse=True)
 def _fresh_job_index():
-    """The cached job index is process-wide; each test starts without one."""
     from app.services import job_index_services
 
     job_index_services._cached = None
@@ -108,15 +102,12 @@ def _fresh_job_index():
 
 @pytest.fixture(autouse=True)
 def _no_retry_sleep(monkeypatch):
-    """Crawler retries back off for real in production; tests don't wait."""
     from app.ingest import crawl_ingest
 
     monkeypatch.setattr(crawl_ingest, "BACKOFF", 0)
 
 
 def user_row(**kw):
-    """An unsaved verified User with a random id/email. resumes.user_id is a real FK now: give each
-    test resume an owner, e.g. Resume(user=user_row()); the ORM inserts the user first."""
     from datetime import datetime
 
     from app.db.models_db import User
@@ -133,7 +124,6 @@ def user_row(**kw):
 
 
 async def signup(client, email: str, password: str = "correct-horse-battery") -> str:
-    """Register (which only emails a link now) then log in; returns a bearer token."""
     r = await client.post("/auth/register", json={"email": email, "password": password})
     assert r.status_code == 202, r.text
     r = await client.post("/auth/login?token=1", json={"email": email, "password": password})

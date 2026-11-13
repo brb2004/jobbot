@@ -1,5 +1,3 @@
-"""The logged-in account: who am I, log out, delete."""
-
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Response

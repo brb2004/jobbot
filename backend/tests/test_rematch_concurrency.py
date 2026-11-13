@@ -1,7 +1,3 @@
-"""Two rematches of one user at once (double click, or a click during the nightly run) must not collide.
-
-Uses real, committed rows on separate connections: the per-test savepoint session can't show a race."""
-
 import asyncio
 from uuid import uuid4
 
@@ -46,7 +42,6 @@ async def test_concurrent_rematches_of_one_user_dont_crash():
 
 
 async def test_uploads_at_once_never_pass_the_two_resume_cap():
-    """The user-row lock makes the count check race-free: 4 at once -> exactly 2 saved, 2 told to replace."""
     from sqlalchemy import select
 
     from app.services import resumes_services

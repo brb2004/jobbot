@@ -1,9 +1,3 @@
-"""Resume files -> text, in a separate short-lived process with a time limit, a memory limit and a page cap.
-
-pypdf and python-docx are synchronous and CPU-heavy; a crafted 2 MB PDF (thousands of pages, deep object
-streams) could otherwise freeze the API's event loop for everyone. Here each extraction runs in a child
-process forked from a clean "forkserver" (no API state, no event loop), and is killed if it runs too long."""
-
 import asyncio
 import io
 import multiprocessing
@@ -30,11 +24,10 @@ class UnsupportedType(Exception):
 
 
 class Unreadable(Exception):
-    """The file parsed but is unusable as a resume. str(exc) is the user-facing reason."""
+    pass
 
 
 def sniff(data: bytes) -> str:
-    """Decide the file type from its first bytes, not its name."""
     if data.startswith(b"%PDF"):
         return "pdf"
     if data.startswith(b"PK\x03\x04"):
@@ -55,7 +48,6 @@ def _check_zip(data: bytes) -> None:
 
 
 def extract_text(data: bytes) -> str:
-    """The parsing itself. Synchronous: call extract_text_safely() from async code."""
     kind = sniff(data)
     try:
         if kind == "pdf":
@@ -99,8 +91,6 @@ _ctx.set_forkserver_preload(["app.services.documents_services", "pypdf", "docx"]
 
 
 def _run(data: bytes, timeout: float, target) -> tuple[str, str] | None:
-    """Runs in a worker thread. At most PARSE_SLOTS children exist at once, so a burst of uploads queues
-    instead of pushing the API past its memory limit."""
     if not _slots.acquire(timeout=QUEUE_WAIT_S):
         return ("busy", "Lots of uploads right now. Try again in a minute.")
     try:
@@ -127,7 +117,6 @@ def _run_child(data: bytes, timeout: float, target) -> tuple[str, str] | None:
 
 
 async def extract_text_safely(data: bytes, timeout: float | None = None, target=extract_text) -> str:
-    """extract_text() in a child process, off the event loop, killed after `timeout` seconds."""
     result = await asyncio.to_thread(_run, data, TIMEOUT_S if timeout is None else timeout, target)
     if result is None:
         raise Unreadable("This file took too long to read. Try saving it again as a simple PDF or .docx.")

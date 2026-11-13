@@ -1,5 +1,3 @@
-"""CronJob: send the queued feedback acknowledgements. Keeps SMTP (and its timeouts) out of the request."""
-
 import asyncio
 
 from app.core.config_core import get_settings

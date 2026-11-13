@@ -1,5 +1,3 @@
-"""Resume parsing can't freeze or crash the API: child process, time limit, memory limit, page cap."""
-
 import asyncio
 import io
 import time
@@ -66,7 +64,6 @@ async def test_a_long_pdf_upload_is_a_clean_422(client, auth_headers):
 
 
 async def test_at_most_two_files_are_parsed_at_once():
-    """A burst of uploads queues: never more than PARSE_SLOTS children (512 MB each) inside the 1 GiB pod."""
     start = time.monotonic()
     results = await asyncio.gather(
         *(docs.extract_text_safely(b"x", target=slow_parsers.nap) for _ in range(4))

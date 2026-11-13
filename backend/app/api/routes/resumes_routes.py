@@ -20,7 +20,6 @@ async def upload(
     s=Depends(get_session),
     user_id=Depends(get_current_user),
 ):
-    """A new resume, or ?replace=<id> to swap that one's file (its name and title settings stay)."""
     data = await file.read(resumes_service.MAX_BYTES + 1)  # never read more than limit + 1
     try:
         return await resumes_service.upload(s, user_id, file.filename or "", data, replace=replace, name=name)

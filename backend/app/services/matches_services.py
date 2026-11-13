@@ -9,12 +9,10 @@ SHOW = 20  # matches on the dashboard; more are stored as a reserve (matching_se
 
 
 def marked(user_id: UUID):
-    """Jobs this user applied to or dismissed: never shown as matches."""
     return select(Application.job_id).where(Application.user_id == user_id)
 
 
 async def for_user(s: AsyncSession, user_id: UUID, resume_id: UUID | None = None):
-    """One resume's matches: the given one (if it's theirs), else their first. Applied/dismissed are per account."""
     if resume_id is None:
         resume_id = await s.scalar(
             select(Resume.id).where(Resume.user_id == user_id).order_by(Resume.created_at, Resume.id).limit(1)

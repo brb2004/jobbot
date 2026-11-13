@@ -1,5 +1,3 @@
-"""Rate limits for the public endpoints. In memory, which is correct for one API process."""
-
 import math
 
 from fastapi import HTTPException
@@ -29,7 +27,6 @@ DELAY_S, MAX_DELAY_S = 1.0, 16.0
 
 
 def account_delay(fails: int) -> float:
-    """Seconds to wait before checking a password: 1, 2, 4... after FREE_FAILS, never a lockout."""
     if fails < FREE_FAILS:
         return 0.0
     return min(MAX_DELAY_S, DELAY_S * 2 ** (fails - FREE_FAILS))

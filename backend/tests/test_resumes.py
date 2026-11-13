@@ -104,7 +104,6 @@ async def test_file_with_no_skills_is_rejected_and_keeps_the_old_resume(client, 
 
 
 async def _user(session):
-    """A real user row: tokens for users that don't exist are now rejected."""
     from datetime import datetime
 
     from app.db.models_db import User

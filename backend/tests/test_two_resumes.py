@@ -1,5 +1,3 @@
-"""Two resumes per account: each matched on its own titles/years, its own page on the dashboard."""
-
 from sqlalchemy import select
 
 from app.core.security_core import create_access_token

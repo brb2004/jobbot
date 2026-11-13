@@ -1,9 +1,3 @@
-"""Crawl every board in boards.txt (all sources), close what's gone, fill Greenhouse details, prune.
-
-python -m app.ingest.run_ingest                    # full crawl
-python -m app.ingest.run_ingest stripe ashby:ramp  # just these (retires nothing)
-"""
-
 import asyncio
 import sys
 

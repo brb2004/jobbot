@@ -1,5 +1,3 @@
-"""Sliding-window counter. In-memory = one process; with several workers or servers, move this to Redis."""
-
 import time
 from collections import deque
 
@@ -21,12 +19,10 @@ class RateLimiter:
         return q
 
     def blocked(self, key: str) -> float:
-        """Seconds until `key` may try again; 0 means allowed now."""
         q = self._recent(key)
         return q[0] + self.window_s - self.clock() if len(q) >= self.max_hits else 0
 
     def count(self, key: str) -> int:
-        """Hits inside the window."""
         return len(self._recent(key))
 
     def hit(self, key: str) -> None:

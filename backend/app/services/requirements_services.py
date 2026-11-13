@@ -1,5 +1,3 @@
-"""What a posting asks for besides skills: years of experience, and clearance or citizenship."""
-
 import re
 
 # "5+ years", "3-5 yrs", "2–12+ years": group 1 is the floor of the ask.
@@ -36,7 +34,6 @@ TITLE_YEARS = [  # checked in order; level numbers count only right after the ro
 
 
 def years_required(bullets: list[str]) -> int | None:
-    """The largest experience ask in the requirements, or None."""
     asks = [n for b in bullets for clause in re.split(r"[;,]|\.\s", b) for n in _asks(clause)]
     return max(asks) if asks else None
 
@@ -54,7 +51,6 @@ def years_from_title(title: str | None) -> int | None:
 
 
 def years_note(detail: dict) -> str | None:
-    """The wording used on the page and in the email."""
     y = detail.get("years_asked")
     if y is None:
         return None
@@ -64,5 +60,4 @@ def years_note(detail: dict) -> str | None:
 
 
 def needs_clearance(title: str | None, bullets: list[str]) -> bool:
-    """A badge, never a filter: government titles, or requirements asking for clearance or citizenship."""
     return bool(GOV_TITLE.search(title or "")) or any(CLEARANCE.search(b) for b in bullets)

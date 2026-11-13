@@ -1,10 +1,3 @@
-"""The crawl loop every job source shares. A source is an adapter: fetch one board -> normalized Postings.
-
-Board keys: Greenhouse boards keep their plain slug ("stripe"); other sources are namespaced
-("ashby:ramp", "lever:spotify"). jobs.board and boards.slug hold the key, so matching, per-company
-limits and company names work the same for every source.
-"""
-
 import asyncio
 import contextlib
 import hashlib
@@ -28,9 +21,6 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class Posting:
-    """One job as every source reports it. content_html None = the source sends details separately
-    (Greenhouse: fill_descriptions fetches them); set = the listing carried the full posting."""
-
     external_id: str
     title: str
     url: str
@@ -67,7 +57,6 @@ class CrawlSummary:
 
 
 async def _get(client: httpx.AsyncClient, url: str, params: dict | None = None) -> httpx.Response:
-    """GET with retries for the failures that pass: 429 (rate limited), 5xx and dropped connections."""
     for attempt in range(TRIES):
         wait = BACKOFF * 2**attempt
         try:
@@ -85,19 +74,15 @@ async def _get(client: httpx.AsyncClient, url: str, params: dict | None = None) 
 
 
 def fingerprint(*parts: str | None) -> str:
-    """Version for sources without an updated_at: changes exactly when the posting's content does."""
     return hashlib.sha256("\x1f".join(p or "" for p in parts).encode()).hexdigest()[:32]
 
 
 def name_from_slug(slug: str) -> str:
-    """Display name when the source's API doesn't send one: "acme-corp" -> "Acme Corp"."""
     words = re.split(r"[-_.\s]+", slug.strip())
     return " ".join(w[:1].upper() + w[1:] for w in words if w)[:200] or slug
 
 
 def remote_location(pieces: list[str], remote: bool) -> str | None:
-    """Join locations with "; " (how matching splits them). A remote job's pieces say so, so
-    preferences treat "Remote - United States" like a Greenhouse posting that wrote it that way."""
     pieces = [p.strip() for p in pieces if p and p.strip()]
     pieces = list(dict.fromkeys(pieces))  # dedupe, keep order
     if remote:
@@ -135,7 +120,6 @@ def _row(key: str, p: Posting) -> dict:
 
 
 async def save_postings(s: AsyncSession, key: str, postings: list[Posting]) -> int:
-    """Upsert one board's postings; returns how many are new. Listed again -> open again."""
     if not postings:
         return 0
     inline = [p for p in postings if p.content_html is not None]
@@ -190,7 +174,6 @@ async def save_postings(s: AsyncSession, key: str, postings: list[Posting]) -> i
 
 
 async def close_missing(s: AsyncSession, key: str, listed_ids: list[str]) -> int:
-    """Close this board's open jobs that the board no longer lists. Only call after a SUCCESSFUL fetch."""
     stmt = (
         update(Job)
         .where(Job.board == key, Job.closed_at.is_(None), Job.external_id.not_in(listed_ids or ["-"]))
@@ -202,7 +185,6 @@ async def close_missing(s: AsyncSession, key: str, listed_ids: list[str]) -> int
 
 
 async def note_missing(s: AsyncSession, key: str) -> int:
-    """A board answered 404. After MAX_MISSES crawls in a row, close its jobs (one 404 can be a blip)."""
     stmt = insert(Board).values(slug=key, misses=1, checked_at=func.now())
     stmt = stmt.on_conflict_do_update(
         index_elements=[Board.slug], set_={"misses": Board.misses + 1, "checked_at": func.now()}
@@ -220,8 +202,6 @@ async def note_missing(s: AsyncSession, key: str) -> int:
 
 
 async def retire_dropped(s: AsyncSession, keys: list[str]) -> int:
-    """Close open jobs from boards no longer in the crawl list (every source's keys).
-    Run only after crawling the FULL list of every source."""
     closed = (
         await s.execute(
             update(Job)

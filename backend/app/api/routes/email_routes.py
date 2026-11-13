@@ -1,8 +1,3 @@
-"""Unsubscribe / resubscribe for the weekly email. No login: the signed token in the link is the proof.
-
-POST only. A GET never changes anything, so link scanners and prefetchers can't unsubscribe anyone;
-the page at /unsubscribe asks for a click, and mail apps use RFC 8058 one-click (POST to the header URL)."""
-
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -34,8 +29,6 @@ async def _user(s, token: str) -> User:
 
 @router.post("/unsubscribe", status_code=204)
 async def unsubscribe(request: Request, token: str | None = None, s=Depends(get_session)):
-    """The page sends JSON {"token"}; mail apps' one-click POSTs to ?token= with the form body
-    "List-Unsubscribe=One-Click", which is ignored."""
     if token is None and request.headers.get("content-type", "").startswith("application/json"):
         try:
             token = TokenIn.model_validate(await request.json()).token

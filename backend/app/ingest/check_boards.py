@@ -1,5 +1,3 @@
-"""Check every board in boards.txt against its source's API. 404 = wrong slug or not on that source."""
-
 import asyncio
 
 import httpx

@@ -1,5 +1,3 @@
-"""Forgot / reset password."""
-
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from app.api import limits_api as limits
@@ -19,7 +17,6 @@ FORGOT_REPLY = {"detail": "If that account exists, we sent a reset link."}
 async def forgot(
     body: ForgotIn, request: Request, tasks: BackgroundTasks, s=Depends(get_session), send=Depends(get_mailer)
 ):
-    """Same answer whether or not the account exists, or the per-address limit was hit."""
     ip = client_ip(request)
     if wait := limits.FORGOT_IP.blocked(ip):
         raise limits.too_many(wait, "Too many reset requests. Try again later.")

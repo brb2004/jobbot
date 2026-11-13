@@ -52,7 +52,6 @@ BUG = {"kind": "bug", "message": "The Apply button does nothing", "page": "/matc
 
 
 async def cron(session):
-    """What the feedback CronJob does: drain the queue with the current mailer."""
     from app.services.feedback_services import drain
 
     await drain(session, app.dependency_overrides[deps_api.get_mailer]())
@@ -126,7 +125,6 @@ async def test_only_confirmed_accounts_and_sane_input(client, session, outbox):
 
 
 async def test_the_page_gets_its_answer_before_any_email_is_sent(session):
-    """The send runs after the response is out, so a slow SMTP server never delays the page."""
     from httpx import ASGITransport, AsyncClient
 
     _, h = await account(session)

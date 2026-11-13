@@ -1,5 +1,3 @@
-"""A user's job preferences, and the filter that applies them to a job."""
-
 from typing import Annotated
 from uuid import UUID
 
@@ -44,8 +42,6 @@ class Preferences(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _legacy_locations(cls, data):
-        """Old shape: "remote" as a location word plus a remote_regions list. New: places + two switches.
-        Converted on read, so saved preferences keep matching the same jobs."""
         if not isinstance(data, dict):
             return data
         old = list(data.get("locations") or [])
@@ -72,8 +68,6 @@ class Preferences(BaseModel):
 
 
 class ResumePrefs(BaseModel):
-    """One resume's own job titles and years. None = use the account's Preferences."""
-
     model_config = ConfigDict(extra="forbid")
     include_titles: list[Word] | None = Field(default=None, max_length=50)
     exclude_titles: list[Word] | None = Field(default=None, max_length=50)
@@ -86,7 +80,6 @@ class ResumePrefs(BaseModel):
 
 
 def for_resume(account: Preferences, own: dict | None) -> Preferences:
-    """The account's preferences with this resume's titles/years laid over them."""
     over = {k: v for k, v in (own or {}).items() if v is not None}
     if not over:
         return account

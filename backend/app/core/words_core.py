@@ -1,5 +1,3 @@
-"""Whole-word phrase matching, one cached regex per word list."""
-
 import re
 from functools import lru_cache
 

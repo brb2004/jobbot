@@ -1,5 +1,3 @@
-"""boards.txt: which boards to crawl, on which source. No database here, so tools can use it standalone."""
-
 from pathlib import Path
 
 from app.ingest.ashby_ingest import ASHBY
@@ -13,8 +11,6 @@ SOURCES = (GREENHOUSE, ASHBY, LEVER)
 
 
 def load_slugs(text: str) -> list[str]:
-    """Board keys, one per line: "stripe" (Greenhouse), "ashby:ramp", "lever:spotify". Greenhouse slugs are
-    lowercased; other sources keep their case (it's part of the URL)."""
     slugs: list[str] = []
     for line in text.splitlines():
         slug = line.split("#", 1)[0].strip()
@@ -26,7 +22,6 @@ def load_slugs(text: str) -> list[str]:
 
 
 def by_source(keys: list[str]) -> dict[Source, list[str]]:
-    """{source: its slugs}; an unknown "xyz:" prefix is an error, not a Greenhouse slug."""
     out: dict[Source, list[str]] = {src: [] for src in SOURCES}
     for key in keys:
         src = next((s for s in SOURCES if s.prefix and key.startswith(s.prefix)), None)

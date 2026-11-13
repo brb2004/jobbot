@@ -1,13 +1,3 @@
-"""Lever adapter (github.com/lever/postings-api): public, unauthenticated, descriptions in the listing.
-
-  GET https://api.lever.co/v0/postings/{site}?mode=json&skip=N&limit=M
-
-A posting's text is split into description (opening + body), lists ({text, content}: requirements,
-benefits, ...) and additional; they're joined back into one HTML page with each list's name as a heading,
-so the requirements section is found the same way as on Greenhouse. EU-hosted sites (api.eu.lever.co)
-aren't crawled.
-"""
-
 import html as htmllib
 import logging
 
@@ -68,8 +58,6 @@ def posting(job: dict) -> Posting:
 
 
 async def fetch_board(client: httpx.AsyncClient, slug: str) -> Listing | None:
-    """Every page of a site, or None for 404. A page that isn't a list fails the whole board (nothing
-    closes); a malformed posting is skipped but still counts as listed."""
     postings, ids, seen = [], [], set()
     for n in range(MAX_PAGES):
         r = await _get(client, f"{API}/{slug}", params={"mode": "json", "skip": n * PAGE, "limit": PAGE})

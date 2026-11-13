@@ -1,5 +1,3 @@
-"""Each resume's stored top matches, recomputed from the job index."""
-
 import asyncio
 from uuid import UUID
 
@@ -21,9 +19,6 @@ LOCK_NS = 7342  # advisory-lock namespace for per-resume rematches
 async def match_all(
     s: AsyncSession, k: int = 20, user_id: UUID | None = None, index: JobIndex | None = None
 ) -> int:
-    """Stores k + RESERVE matches per resume, plus room for the jobs the user marked (hidden on read), so
-    marking a job never needs a rematch. Each resume is locked and committed on its own, so two rematches
-    of one user take turns instead of colliding."""
     idx = index or await fresh_index(s)
     users, marked = await _users_and_marks(s, user_id)
     resumes = select(Resume).where(Resume.skills.is_not(None))
@@ -43,7 +38,6 @@ async def match_all(
 
 
 async def rematch_user(s: AsyncSession, user_id: UUID) -> int:
-    """After an upload or a preferences save: one user against the shared cached index."""
     return await match_all(s, user_id=user_id, index=await job_index_services.cached_index(s))
 
 

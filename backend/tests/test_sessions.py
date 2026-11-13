@@ -1,5 +1,3 @@
-"""Secure defaults, per-account login slowdown, sliding sessions."""
-
 import time
 
 import jwt

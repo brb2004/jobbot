@@ -7,7 +7,6 @@ SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 
 def get_sessionmaker():
-    """For work that runs after the response (background tasks): the request's session is closed by then."""
     return SessionLocal
 
 

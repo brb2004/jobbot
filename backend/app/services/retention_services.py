@@ -1,7 +1,3 @@
-"""Keep the database from only growing. Closed postings lose their big text after CLEAR_AFTER and the
-row itself after DELETE_AFTER, unless someone applied to it or dismissed it (their Applied tab keeps it).
-Their match scores go with them (ON DELETE CASCADE, indexed on job_id)."""
-
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 

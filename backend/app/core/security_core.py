@@ -48,7 +48,6 @@ def make_reset_token(user_id: str, password_hash: str, now: float | None = None)
 
 
 def reset_token_user(token: str) -> str | None:
-    """The user id the token claims. Unverified until reset_token_valid says so."""
     parts = token.split(".")
     return parts[0] if len(parts) == 3 and parts[1].isdigit() else None
 

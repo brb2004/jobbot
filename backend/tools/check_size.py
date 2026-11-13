@@ -1,8 +1,3 @@
-"""Warn (never fail) about files over 100 lines and functions over 20, the house rule of thumb.
-
-python tools/check_size.py app          # GitHub Actions shows each line as a warning annotation
-"""
-
 import ast
 import sys
 from pathlib import Path

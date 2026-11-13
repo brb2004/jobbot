@@ -1,5 +1,3 @@
-"""Edited postings are fetched again; old closed postings shrink, then go (unless someone applied)."""
-
 from datetime import UTC, datetime, timedelta
 
 import httpx

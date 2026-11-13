@@ -109,7 +109,6 @@ async def test_fill_descriptions_only_fetches_jobs_missing_one(session):
 
 
 async def test_fill_descriptions_works_in_batches_and_commits_each(session, monkeypatch):
-    """Big crawls: one batch in memory at a time, each committed, so a crash mid-run loses nothing finished."""
     import app.db.batches_db as batches_db
 
     monkeypatch.setattr(batches_db, "BATCH", 2)

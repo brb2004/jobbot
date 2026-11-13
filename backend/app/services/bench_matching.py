@@ -1,6 +1,3 @@
-"""Benchmark: per-user pool + index (old) vs one shared index (new).
-Run: python -m app.services.bench_matching 100,1000,10000"""
-
 import asyncio
 import random
 import sys

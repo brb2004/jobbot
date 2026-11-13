@@ -1,5 +1,3 @@
-"""One bad board, job or posting never stops the crawl; dead and dropped boards stop showing jobs."""
-
 import httpx
 import pytest
 from sqlalchemy import select

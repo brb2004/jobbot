@@ -12,7 +12,6 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.fixture(autouse=True)
 def _show_two(monkeypatch):
-    """Show 2 matches so a third stored one is the reserve that moves up."""
     import app.services.matches_services as matches
 
     monkeypatch.setattr(matches, "SHOW", 2)
@@ -90,7 +89,6 @@ async def test_not_interested_hides_it_without_listing_it_as_applied(client, ses
 
 
 async def test_marking_and_undo_never_rerun_matching(client, session, monkeypatch):
-    """The whole point of the reserve: a click is a cheap insert, not a full rematch over every job."""
     h, jobs = await setup(session)
     import app.services.matching_services as matching
 

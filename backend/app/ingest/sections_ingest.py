@@ -29,8 +29,6 @@ def clean(text: str) -> str:
 
 
 def is_heading(node) -> bool:
-    """h1-h6 always. <strong>: only when it's the whole text of its parent.
-    <p>: only a short, plain line ending in ':' (no bold or links inside), like <p>What we look for:</p>."""
     if node.tag == "p":
         raw = text_of(node).strip()
         plain = next(node.iter(include_text=False), None) is None

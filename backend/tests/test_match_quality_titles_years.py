@@ -1,6 +1,3 @@
-"""Phase 6: titles that build software stay visible; years only count when they're an experience ask
-(job side) or the writer's own claim (resume side)."""
-
 import pytest
 
 from app.db.models_db import Job

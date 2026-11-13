@@ -1,5 +1,3 @@
-"""Dev tool. No args: coverage report.  With a board: save its first missed posting as a fixture + show headings."""
-
 import asyncio
 import re
 import sys

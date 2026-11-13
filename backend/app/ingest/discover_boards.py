@@ -1,11 +1,3 @@
-"""Find job boards we don't crawl yet, from Common Crawl's public URL index, then check each one live on
-its source's public API. Report first; --add appends the good ones to boards.txt.
-
-  python -m app.ingest.discover_boards                       # Greenhouse, report only
-  python -m app.ingest.discover_boards --source ashby --check 500
-  python -m app.ingest.discover_boards --source lever --add  # also append boards with engineering jobs
-"""
-
 import argparse
 import csv
 import gzip
@@ -71,7 +63,6 @@ FALLBACK_CRAWL = "CC-MAIN-2026-43"
 
 
 def chunk(url: str, start: int, end: int) -> bytes:
-    """Bytes start..end of a remote file (HTTP Range), with retries."""
     for i in range(5):
         try:
             req = urllib.request.Request(url, headers={**UA, "Range": f"bytes={start}-{end}"})
@@ -89,7 +80,6 @@ def size_of(url: str) -> int:
 
 
 def key_at(url: str, pos: int, size: int) -> str:
-    """The first whole index line at or after byte pos -> its sort key."""
     data = chunk(url, pos, min(pos + 8191, size - 1))
     if pos:
         data = data[data.index(b"\n") + 1 :]  # skip the partial line we landed in
@@ -97,8 +87,6 @@ def key_at(url: str, pos: int, size: int) -> str:
 
 
 def blocks_for(idx_url: str, prefix: str) -> list[list[str]]:
-    """Binary search the sorted cluster.idx over HTTP Range requests for the first key >= prefix,
-    then read forward and return every block that can hold keys with this prefix."""
     size = size_of(idx_url)
     lo, hi = 0, size
     while hi - lo > 65536:  # ~20 small reads for a few hundred MB
@@ -135,7 +123,6 @@ def blocks_for(idx_url: str, prefix: str) -> list[list[str]]:
 
 
 def urls_in(crawl: str, block: list[str], prefix: str) -> list[str]:
-    """One compressed block of ~3,000 index lines ("surt timestamp {json}") -> the URLs under prefix."""
     off, length = int(block[2]), int(block[3])
     raw = chunk(f"{DATA}cc-index/collections/{crawl}/indexes/{block[1]}", off, off + length - 1)
     out = []
@@ -151,8 +138,6 @@ def urls_in(crawl: str, block: list[str], prefix: str) -> list[str]:
 def from_common_crawl(
     indexes: int, max_blocks: int, crawl: str | None, source: str = "greenhouse"
 ) -> set[str]:
-    """Companies with a board on this source, from Common Crawl's index FILES (data.commoncrawl.org), which
-    stay up when the index search server is overloaded."""
     if crawl:
         crawls = [crawl]
     else:
@@ -183,7 +168,6 @@ def from_common_crawl(
 
 
 def listing(source: str, slug: str) -> list[tuple[str, str]]:
-    """(title, location) of each open job, locations normalized the way the crawler stores them."""
     q = urllib.parse.quote(slug)
     if source == "ashby":
         data = json.loads(get(f"{ashby_ingest.API}/{q}", tries=2))
@@ -197,7 +181,6 @@ def listing(source: str, slug: str) -> list[tuple[str, str]]:
 
 
 def check(slug: str, source: str = "greenhouse") -> tuple[int, int, int]:
-    """(open jobs, jobs our matcher would show, of those: US or remote)."""
     jobs = listing(source, slug)
     eng = [(t, loc) for t, loc in jobs if allowed(Job(title=t), Preferences())]  # same rules as matching
     us = [

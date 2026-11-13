@@ -1,5 +1,3 @@
-"""Greenhouse adapter. The board listing has no descriptions: fill_descriptions fetches each posting."""
-
 import asyncio
 import html as htmllib
 import logging
@@ -81,8 +79,6 @@ class JobDetails(BaseModel):
 
 
 async def fetch_board(client: httpx.AsyncClient, slug: str) -> tuple[list[BoardJob], list[int]] | None:
-    """(jobs that parsed, ids of everything listed) or None for 404. One malformed job is skipped, not fatal,
-    and its id still counts as listed, so it isn't closed by mistake."""
     r = await _get(client, f"{API}/{slug}/jobs")
     if r.status_code == 404:
         return None
@@ -100,7 +96,6 @@ async def fetch_board(client: httpx.AsyncClient, slug: str) -> tuple[list[BoardJ
 
 
 async def fetch_board_name(client: httpx.AsyncClient, slug: str) -> str | None:
-    """The company's real name: slugs can be "accenturefederalservices" or a random id like "a3c41b8b71eff8c4"."""
     r = await _get(client, f"{API}/{slug}")
     if r.status_code != 200:
         return None
@@ -154,9 +149,6 @@ async def fetch_details(client: httpx.AsyncClient, board: str, job_id: int | str
 
 
 async def fill_descriptions(client: httpx.AsyncClient, s: AsyncSession, concurrency: int = 8) -> int:
-    """Details for open Greenhouse jobs that lack them, a batch at a time: memory stays flat and each batch
-    is committed, so a killed run keeps what it finished and the next run picks up the rest. Other sources
-    carry the posting in their listing and never land here."""
     stmt = select(Job).where(
         Job.description.is_(None),
         Job.board.is_not(None),

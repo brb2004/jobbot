@@ -60,7 +60,6 @@ async def test_dashboard_includes_the_job_link(client, session):
 
 
 def _my_id(headers):
-    """User id = the JWT's 'sub' claim (test-only: decode without verifying)."""
     import base64
     import json
     import uuid
@@ -122,7 +121,6 @@ async def test_dashboard_sends_company_and_location(client, auth_headers, sessio
 
 
 async def _user(session):
-    """A real user row: tokens for users that don't exist are now rejected."""
     from datetime import datetime
 
     from app.db.models_db import User

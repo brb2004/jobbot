@@ -1,6 +1,3 @@
-"""Applied or dismissed jobs leave the matches list. No rematch: the user's stored matches already include a
-reserve, and the dashboard hides marked jobs, so the next match moves up instantly and undo is instant too."""
-
 from uuid import UUID
 
 from sqlalchemy import delete, func, select

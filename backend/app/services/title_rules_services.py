@@ -1,5 +1,3 @@
-"""Which job titles a user sees: engineering roles by default, minus sales, support and hardware roles."""
-
 from app.core.words_core import has_any
 
 DEFAULT_TITLES = ("engineer", "developer", "sre", "devops", "architect", "programmer", "scientist")

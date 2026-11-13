@@ -23,7 +23,6 @@ def html_to_text(raw: str) -> str:
 
 
 def tidy(raw: str) -> str:
-    """Trim each line, collapse runs of blank lines into one."""
     out, blank = [], 0
     for line in raw.splitlines():
         line = " ".join(line.split())

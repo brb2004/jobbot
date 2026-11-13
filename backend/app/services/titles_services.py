@@ -1,5 +1,3 @@
-"""Title normalization, so the same role posted per location counts once."""
-
 import re
 
 PLACE = re.compile(

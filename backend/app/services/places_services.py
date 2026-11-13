@@ -1,6 +1,3 @@
-"""Place names -> canonical places. Reuses the skills Tagger: same file format, whole-word and
-longest-match rules, and implications ("Plano" -> Dallas-Fort Worth -> United States -> North America)."""
-
 import re
 from functools import lru_cache
 from pathlib import Path
@@ -11,7 +8,6 @@ PLACES_FILE = Path(__file__).resolve().parents[2] / "places.txt"  # next to skil
 
 
 def _flat(text: str) -> str:
-    """Commas don't matter in place names: "Vancouver, WA" reads as "Vancouver WA" (names can't hold commas)."""
     return re.sub(r"[\s,]+", " ", text).strip()
 
 
@@ -95,7 +91,6 @@ _BY_NAME = {v: k for k, v in _REGIONS.items()}
 
 @lru_cache(maxsize=1)
 def _state_of() -> dict[str, str]:
-    """Metro -> its state or province, from the labels block ("# Dallas-Fort Worth = Dallas-Fort Worth, TX")."""
     out, in_labels = {}, False
     for line in PLACES_FILE.read_text().splitlines():
         body = line.strip().lstrip("#").strip()
@@ -114,8 +109,6 @@ def _regions_said(text: str) -> set[str]:
 
 
 def _tag(text: str) -> set[str]:
-    """Tag, then drop cities the text puts in another state: "Arlington, VA" is not Arlington, TX (DFW).
-    Kept when no state is given, or when one of the states given is the city's own ("Dallas, TX / Arlington, VA")."""
     found = places().tag(_flat(text))
     said = _regions_said(text)
     if not said:
@@ -128,20 +121,16 @@ def _tag(text: str) -> set[str]:
 
 @lru_cache(maxsize=65536)
 def places_in(text: str) -> frozenset[str]:
-    """Every place a posting's location names, plus everything that contains them. Cached per string:
-    ~10k jobs share far fewer distinct location strings."""
     t = places()
     return frozenset(t.expand(_tag(text)))
 
 
 @lru_cache(maxsize=4096)
 def place_of(entry: str) -> str | None:
-    """A user's entry -> one canonical place (not expanded: "dallas" means DFW, not all of the US)."""
     found = _tag(entry)
     return next(iter(found)) if len(found) == 1 else None
 
 
 @lru_cache(maxsize=65536)
 def places_named(text: str) -> frozenset[str]:
-    """Only the places a text names, not what contains them: "Remote - Mexico" -> {Mexico}, never North America."""
     return frozenset(_tag(text))

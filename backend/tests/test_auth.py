@@ -41,7 +41,6 @@ async def test_register_starts_no_session(client):
 
 
 async def test_register_answers_the_same_for_a_taken_email(client, outbox):
-    """No 409: sign-up can't be used to check whether someone has an account."""
     body = {"email": "dup@x.com", "password": "correct-horse-battery"}
     first = await client.post("/auth/register", json=body)
     await client.post("/auth/verify", json={"token": link_token(outbox[-1])})

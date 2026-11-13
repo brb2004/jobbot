@@ -1,6 +1,3 @@
-"""Dev tool: how much of the real job data does skills.txt understand, and what is it missing?
-Run: python -m app.services.skills_coverage"""
-
 import asyncio
 import re
 from collections import Counter

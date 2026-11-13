@@ -1,10 +1,3 @@
-"""Ashby adapter: one public, unauthenticated call returns a board's whole published set, descriptions included.
-
-  GET https://api.ashbyhq.com/posting-api/job-board/{board}?includeCompensation=true
-
-The API names no company, so the display name comes from the slug.
-"""
-
 import logging
 
 import httpx
@@ -25,7 +18,6 @@ log = logging.getLogger(__name__)
 
 
 def salary(job: dict) -> tuple[float | None, float | None, str | None]:
-    """Yearly salary band from compensation.summaryComponents; anything else (hourly, equity) is skipped."""
     for c in (job.get("compensation") or {}).get("summaryComponents") or []:
         if isinstance(c, dict) and c.get("compensationType") == "Salary" and c.get("interval") == "1 YEAR":
             return c.get("minValue"), c.get("maxValue"), c.get("currencyCode")
@@ -54,8 +46,6 @@ def posting(job: dict) -> Posting:
 
 
 async def fetch_board(client: httpx.AsyncClient, slug: str) -> Listing | None:
-    """(postings that parsed, ids of everything listed) or None for 404. Unlisted postings (isListed false)
-    don't count as listed, so they close."""
     r = await _get(client, f"{API}/{slug}", params={"includeCompensation": "true"})
     if r.status_code == 404:
         return None

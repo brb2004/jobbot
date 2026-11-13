@@ -24,7 +24,6 @@ ALLOWED = (".pdf", ".docx", ".txt")
 
 
 def safe_filename(name: str) -> str:
-    """Basename only; no path, markup or control characters; capped length. Display-only, never a disk path."""
     base = name.replace("\\", "/").rsplit("/", 1)[-1]
     base = re.sub(r'[\x00-\x1f\x7f<>:"|?*]', "", base).strip(" .")
     stem, dot, ext = base.rpartition(".")
@@ -65,7 +64,6 @@ async def create(
     replace: UUID | None = None,
     name: str | None = None,
 ) -> Resume:
-    """Add a resume (up to MAX_RESUMES), or swap the file of `replace`, keeping its name and title settings."""
     filename = safe_filename(filename)
     if not filename.lower().endswith(ALLOWED):
         raise UnsupportedType
@@ -109,7 +107,6 @@ async def create(
 
 
 async def list_for(s: AsyncSession, user_id: UUID) -> list[Resume]:
-    """Oldest first: the first one is the default on the Matches page."""
     stmt = select(Resume).where(Resume.user_id == user_id).order_by(Resume.created_at, Resume.id)
     return list((await s.execute(stmt)).scalars().all())
 
@@ -122,7 +119,6 @@ async def upload(
     replace: UUID | None = None,
     name: str | None = None,
 ) -> Resume:
-    """Save, tag, and match this user now instead of at the next cron run."""
     resume = await create(s, user_id, filename, data, require_skills=True, replace=replace, name=name)
     await tag_resumes(s)
     await rematch_user(s, user_id)
@@ -132,7 +128,6 @@ async def upload(
 async def update(
     s: AsyncSession, user_id: UUID, resume_id: UUID, name: str | None, own: ResumePrefs | None
 ) -> Resume:
-    """Rename, and/or set this resume's own titles/years (None fields = use the account's). Rematches."""
     resume = await _mine(s, user_id, resume_id)
     if name is not None:
         resume.name = name.strip()[:40] or resume.name

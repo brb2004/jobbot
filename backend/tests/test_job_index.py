@@ -1,5 +1,3 @@
-"""Uploads and preference saves rematch one user against a cached index instead of rebuilding it every time."""
-
 from datetime import UTC
 from uuid import uuid4
 

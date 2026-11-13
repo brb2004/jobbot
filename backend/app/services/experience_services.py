@@ -1,6 +1,3 @@
-"""Years of experience from resume text. Deterministic: stated claims first, then work-date ranges,
-counting only roles whose entry shows a technical skill (when a skill check is given)."""
-
 import re
 from collections.abc import Callable
 from datetime import date
@@ -41,8 +38,6 @@ def _experience_section(text: str) -> str | None:
 
 
 def _roles(section: str) -> list[tuple[re.Match, str]]:
-    """Split the section into (date range, role text). A role starts at its date line, or one line
-    earlier when the title sits on its own line above the dates."""
     lines = section.splitlines()
     starts = [i for i, line in enumerate(lines) if RANGE.search(line)]
     heads = []
@@ -84,7 +79,6 @@ OTHERS = re.compile(
 
 
 def _own_claim(text: str, m: re.Match) -> bool:
-    """The words before the number, back to the start of its sentence or line, don't name other people."""
     start = (
         max(text.rfind(".", 0, m.start()), text.rfind("\n", 0, m.start()), text.rfind("•", 0, m.start())) + 1
     )

@@ -56,7 +56,6 @@ async def get(s: AsyncSession, user_id: UUID) -> User | None:
 
 
 async def delete_account(s: AsyncSession, user_id: UUID) -> None:
-    """User + resume; match scores go with the resume (ON DELETE CASCADE). Their tokens die with the row."""
     await s.execute(delete(Resume).where(Resume.user_id == user_id))
     await s.execute(delete(User).where(User.id == user_id))
     await s.commit()
@@ -91,7 +90,6 @@ async def _claimed_user(s: AsyncSession, token: str) -> User | None:
 
 
 async def confirm_email(s: AsyncSession, token: str) -> tuple[User, bool] | None:
-    """(user, True) on the click that confirms, (user, False) on later clicks, None if the link is bad."""
     user = await _claimed_user(s, token)
     if user is None or not verify_token_valid(token, user.email):
         return None

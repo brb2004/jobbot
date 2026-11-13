@@ -1,5 +1,3 @@
-"""Sign-up and login."""
-
 import asyncio
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
@@ -26,8 +24,6 @@ async def register(
     s=Depends(get_session),
     send=Depends(get_mailer),
 ):
-    """Answers the same, at the same speed, whether or not the address has an account, so it can't be
-    used to find out who's signed up. A taken address gets an email instead of an error."""
     ip = client_ip(request)
     if wait := limits.REGISTER_IP.blocked(ip):
         raise limits.too_many(wait, "Too many sign-ups from this network. Try again later.")

@@ -94,8 +94,6 @@ class MatchScore(Base):
 
 
 class Application(Base):
-    """A job the user applied to. status leaves room for "not interested" later."""
-
     __tablename__ = "applications"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -109,8 +107,6 @@ class Application(Base):
 
 
 class Feedback(Base):
-    """A bug report or feedback, plus the queue state of its acknowledgement email (transactional outbox)."""
-
     __tablename__ = "feedback"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -128,8 +124,6 @@ class Feedback(Base):
 
 
 class Board(Base):
-    """A job board: its key ("stripe" on Greenhouse, "ashby:ramp", "lever:spotify") and the company's name."""
-
     __tablename__ = "boards"
     slug: Mapped[str] = mapped_column(String(100), primary_key=True)
     name: Mapped[str | None] = mapped_column(String(200))
@@ -138,8 +132,6 @@ class Board(Base):
 
 
 class DigestSent(Base):
-    """One weekly digest per user per ISO week: claimed before sending, so a re-run never sends it twice."""
-
     __tablename__ = "digest_sent"
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     week: Mapped[str] = mapped_column(String(8), primary_key=True)  # "2026-W46"
