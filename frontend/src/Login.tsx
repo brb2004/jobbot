@@ -34,7 +34,7 @@ export function Login({ api, onDone, onSignup }: { api: Api; onDone: () => void;
     <main className="grid min-h-screen place-items-center bg-slate-50 px-4">
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-xl bg-white p-6 shadow">
         <div>
-          <h1 className="text-2xl font-semibold">JobMatch</h1>
+          <h1 className="text-2xl font-semibold">SkillFit</h1>
           <p className="text-sm text-slate-600">
             {forgot ? "Enter your email and we'll send a link to set a new password." : 'Log in to see your matches.'}
           </p>

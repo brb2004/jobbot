@@ -55,9 +55,9 @@ def reset_email(from_addr: str, to: str, link: str) -> EmailMessage:
     msg = EmailMessage()
     msg["From"] = from_addr
     msg["To"] = to
-    msg["Subject"] = "Reset your JobMatch password"
+    msg["Subject"] = "Reset your SkillFit password"
     msg.set_content(
-        "Someone asked to reset the password for this JobMatch account.\n\n"
+        "Someone asked to reset the password for this SkillFit account.\n\n"
         f"Set a new password here. The link works once, for 30 minutes:\n{link}\n\n"
         "If this wasn't you, ignore this email. Your password hasn't changed.\n"
     )
@@ -68,11 +68,11 @@ def verify_email(from_addr: str, to: str, link: str) -> EmailMessage:
     msg = EmailMessage()
     msg["From"] = from_addr
     msg["To"] = to
-    msg["Subject"] = "Confirm your email for JobMatch"
+    msg["Subject"] = "Confirm your email for SkillFit"
     msg.set_content(
         "Confirm this address to get your top job matches every week:\n"
         f"{link}\n\n"
-        "The link works for 7 days. If you didn't sign up for JobMatch, ignore this email "
+        "The link works for 7 days. If you didn't sign up for SkillFit, ignore this email "
         "and nothing will be sent to you.\n"
     )
     return msg
@@ -82,9 +82,9 @@ def account_exists_email(from_addr: str, to: str, app_url: str) -> EmailMessage:
     msg = EmailMessage()
     msg["From"] = from_addr
     msg["To"] = to
-    msg["Subject"] = "You already have a JobMatch account"
+    msg["Subject"] = "You already have a SkillFit account"
     msg.set_content(
-        "Someone tried to sign up for JobMatch with this address, but it already has an account.\n\n"
+        "Someone tried to sign up for SkillFit with this address, but it already has an account.\n\n"
         f"Log in here:\n{app_url}\n\n"
         'Forgot your password? Use "Forgot password" on that page to get a reset link.\n'
         "If this wasn't you, ignore this email. Nothing about your account has changed.\n"
@@ -101,6 +101,6 @@ def feedback_email(from_addr: str, to: str, ref: str, kind: str) -> EmailMessage
     msg.set_content(
         f"Thanks for the {what}. It's in our queue as #{ref}.\n\n"
         "We read every report. If we need more details, we'll reply to this email.\n\n"
-        "JobMatch\n"
+        "SkillFit\n"
     )
     return msg

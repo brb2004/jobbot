@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     EMAIL_FROM: str = ""
     EMAIL_REPLY_TO: str = ""
-    APP_URL: str = "https://jobmatch.bbenard.dev"
+    APP_URL: str = "https://skillfit.dev"
 
     @field_validator("JWT_SECRET_KEY")
     @classmethod

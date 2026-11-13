@@ -5,6 +5,8 @@
   value: "postgresql+asyncpg://jobbot:$(POSTGRES_PASSWORD)@db:5432/jobbot"
 - name: JWT_SECRET_KEY
   valueFrom: {secretKeyRef: {name: {{ .Values.existingSecret }}, key: JWT_SECRET_KEY}}
+- name: APP_URL
+  value: {{ .Values.app.appUrl | default (printf "https://%s" .Values.host) | quote }}
 - name: SMTP_HOST
   value: {{ .Values.app.smtpHost | quote }}
 - name: SMTP_PORT

@@ -20,7 +20,7 @@ const SECTIONS: [string, string[]][] = [
   ['Deleting your data', [
     'Preferences → Delete account removes your account, resume and matches right away.',
     'Nightly backups are kept for 7 days, so a deleted account is fully gone within a week.',
-    'Questions: reply to any JobMatch email.',
+    'Questions: reply to any SkillFit email.',
   ]],
 ]
 
@@ -40,7 +40,7 @@ export function Privacy() {
             </ul>
           </section>
         ))}
-        <a href="/" className="inline-block text-sm text-slate-600 underline">Back to JobMatch</a>
+        <a href="/" className="inline-block text-sm text-slate-600 underline">Back to SkillFit</a>
       </article>
     </main>
   )

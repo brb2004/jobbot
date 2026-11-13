@@ -79,7 +79,7 @@ function Shell() {
   return (
     <div className="min-h-screen bg-slate-50">
       <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b bg-white px-4 py-3 sm:px-6">
-        <span className="font-semibold">JobMatch</span>
+        <span className="font-semibold">SkillFit</span>
         {PAGES.map((p) => (
           <NavLink key={p.path} to={p.path} onClick={(e) => { if (!leaveOk()) { e.preventDefault(); return } setFlash(null) }}
                    className={({ isActive }) => (isActive ? 'font-medium underline' : 'text-slate-600')}>

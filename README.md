@@ -2,7 +2,7 @@
 
 ![tests](https://github.com/brb2004/jobbot/actions/workflows/tests.yml/badge.svg)
 
-**Live:** https://jobmatch.bbenard.dev
+**Live:** https://skillfit.dev
 
 Crawls Greenhouse, Ashby and Lever job boards, matches every posting against each user's resume, and emails each user their top 20 every week. **Matching is fully deterministic: no AI in the decision path.** Every score traces back to named skills and their weights, and the same input always gives the same output.
 

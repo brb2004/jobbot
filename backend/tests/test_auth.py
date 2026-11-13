@@ -61,7 +61,7 @@ async def test_signing_up_again_before_confirming_resends_the_link(client, outbo
     body = {"email": "lost@x.com", "password": "correct-horse-battery"}
     await client.post("/auth/register", json=body)
     await client.post("/auth/register", json=body)
-    assert [m["Subject"] for m in outbox] == ["Confirm your email for JobMatch"] * 2
+    assert [m["Subject"] for m in outbox] == ["Confirm your email for SkillFit"] * 2
 
 
 async def test_already_registered_mails_are_capped_per_address(client, outbox):

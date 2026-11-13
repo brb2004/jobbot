@@ -18,7 +18,7 @@ from app.ingest.boards_ingest import load_slugs
 from app.services.places_services import places_in
 from app.services.preferences_services import Preferences, allowed
 
-UA = {"User-Agent": "JobMatch board discovery (https://jobmatch.bbenard.dev)"}
+UA = {"User-Agent": "SkillFit board discovery (https://skillfit.dev)"}
 NOT_SLUGS = {"embed", "jobs", "v1", "api", "static", "assets", "favicon.ico", "robots.txt"}
 SLUG = re.compile(r"^[a-z0-9][a-z0-9_-]{1,60}$")
 US_STATE = re.compile(

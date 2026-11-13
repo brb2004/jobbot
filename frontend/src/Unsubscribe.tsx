@@ -31,7 +31,7 @@ export function Unsubscribe({ api, token }: { api: Api; token: string }) {
         </>}
         {state === 'in' && <p role="status" className="text-sm text-green-800">You're subscribed again.</p>}
         {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-        <a href="/" className="block text-center text-sm text-slate-600 underline">Go to JobMatch</a>
+        <a href="/" className="block text-center text-sm text-slate-600 underline">Go to SkillFit</a>
       </div>
     </main>
   )

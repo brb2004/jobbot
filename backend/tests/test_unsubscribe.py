@@ -19,9 +19,9 @@ async def test_digest_email_carries_both_unsubscribe_ways(session):
     await EmailSender(session, "jobs@example.com", transport).send(user.id, "Your top matches")
     token = make_unsubscribe_token(str(user.id))
     [msg] = sent
-    assert msg["List-Unsubscribe"] == f"<https://jobmatch.bbenard.dev/api/email/unsubscribe?token={token}>"
+    assert msg["List-Unsubscribe"] == f"<https://skillfit.dev/api/email/unsubscribe?token={token}>"
     assert msg["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"
-    assert f"https://jobmatch.bbenard.dev/unsubscribe#{token}" in msg.get_content()
+    assert f"https://skillfit.dev/unsubscribe#{token}" in msg.get_content()
 
 
 async def test_one_click_post_unsubscribes_and_the_digest_skips_them(client, session):
