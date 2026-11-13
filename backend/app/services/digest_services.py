@@ -21,11 +21,7 @@ def _short(items: list[str]) -> str:
     return "; ".join(trimmed) + more
 
 
-def render(matches: list[MatchOut], top_n: int) -> str:
-    if not matches:
-        return "No new matches this week."
-
-    best = sorted(matches, key=lambda m: m.score, reverse=True)[:top_n]
+def _blocks(best: list[MatchOut]) -> list[str]:
     blocks = []
     for i, m in enumerate(best, 1):
         d = m.detail or {}
@@ -47,12 +43,33 @@ def render(matches: list[MatchOut], top_n: int) -> str:
         if m.url:
             lines.append(f"   {m.url}")
         blocks.append("\n".join(lines))
-    return "Your top matches this week:\n\n" + "\n\n".join(blocks)
+    return blocks
+
+
+def render(matches: list[MatchOut], top_n: int) -> str:
+    """Best first. With two resumes: a section per resume (top_n split between them), each job once,
+    under the resume it matched best."""
+    if not matches:
+        return "No new matches this week."
+    best: dict = {}
+    for m in matches:
+        if m.job_id not in best or m.score > best[m.job_id].score:
+            best[m.job_id] = m
+    ranked = sorted(best.values(), key=lambda m: m.score, reverse=True)
+    names = list(dict.fromkeys(m.resume for m in ranked))
+    if len(names) < 2:
+        return "Your top matches this week:\n\n" + "\n\n".join(_blocks(ranked[:top_n]))
+    per = max(1, top_n // len(names))
+    sections = [f"== {name or 'Resume'} ==\n\n" + "\n\n".join(_blocks([m for m in ranked if m.resume == name][:per]))
+                for name in names]
+    return "Your top matches this week:\n\n" + "\n\n".join(sections)
+
 
 
 async def matches_for(s: AsyncSession, user_id: UUID, since: datetime):
     stmt = (
-        select(Job.id.label("job_id"), Job.title, MatchScore.score, Job.url, MatchScore.detail)
+        select(Job.id.label("job_id"), Job.title, MatchScore.score, Job.url, MatchScore.detail,
+               Resume.name.label("resume"))
         .join(MatchScore, MatchScore.job_id == Job.id)
         .join(Resume, Resume.id == MatchScore.resume_id)
         .where(Resume.user_id == user_id)

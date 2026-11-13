@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.batches_db import batches
 from app.db.models_db import Application, Job, MatchScore, Resume, User
-from app.services.preferences_services import Preferences, allowed
+from app.services.preferences_services import Preferences, allowed, for_resume
 from app.services.scoring_services import build_index, idf_weights, needs_clearance, top_matches, years_from_title, years_required
 from app.services.skills_services import default_tagger
 from app.services.titles_services import role_key
@@ -160,7 +160,7 @@ async def match_all(s: AsyncSession, k: int = 20, user_id: UUID | None = None,
     saved = 0
     for resume in (await s.scalars(resumes)).all():
         user = users.get(resume.user_id)
-        prefs = Preferences.model_validate((user.preferences if user else None) or {})
+        prefs = for_resume(Preferences.model_validate((user.preferences if user else None) or {}), resume.title_prefs)
         store = k + RESERVE + len(applied.get(resume.user_id, ()))
         mine = tagger.expand(set(resume.skills) | _extra(prefs))
         user_years = prefs.years_experience if prefs.years_experience is not None else resume.years_detected

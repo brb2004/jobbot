@@ -7,12 +7,16 @@ import asyncio
 import io
 import multiprocessing
 import resource
+import threading
 import zipfile
 
 MAX_PAGES = 15                       # a resume is 1-3 pages; anything far past that isn't one
 MAX_UNZIPPED = 10 * 1024 * 1024      # a .docx is a zip: cap what it expands to (zip bombs)
 MAX_ZIP_ENTRIES = 1000
 TIMEOUT_S = 10
+PARSE_SLOTS = 2                      # children at once: each may use up to 512 MB, the API pod has 1 GiB
+QUEUE_WAIT_S = 30                    # an upload waits this long for a slot, then is told to retry
+_slots = threading.BoundedSemaphore(PARSE_SLOTS)
 MEMORY_LIMIT = 512 * 1024 * 1024     # address space for the child: a decompression bomb dies alone
 
 
@@ -90,6 +94,17 @@ _ctx.set_forkserver_preload(["app.services.documents_services", "pypdf", "docx"]
 
 
 def _run(data: bytes, timeout: float, target) -> tuple[str, str] | None:
+    """Runs in a worker thread. At most PARSE_SLOTS children exist at once, so a burst of uploads queues
+    instead of pushing the API past its memory limit."""
+    if not _slots.acquire(timeout=QUEUE_WAIT_S):
+        return ("busy", "Lots of uploads right now. Try again in a minute.")
+    try:
+        return _run_child(data, timeout, target)
+    finally:
+        _slots.release()
+
+
+def _run_child(data: bytes, timeout: float, target) -> tuple[str, str] | None:
     parent, child = _ctx.Pipe(duplex=False)
     p = _ctx.Process(target=_child, args=(child, data, target), daemon=True)
     p.start()
@@ -114,6 +129,6 @@ async def extract_text_safely(data: bytes, timeout: float | None = None, target=
     status, value = result
     if status == "unsupported":
         raise UnsupportedType
-    if status == "unreadable":
+    if status in ("unreadable", "busy"):
         raise Unreadable(value)
     return value

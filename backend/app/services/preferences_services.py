@@ -95,6 +95,33 @@ class Preferences(BaseModel):
         return self
 
 
+class ResumePrefs(BaseModel):
+    """One resume's own job titles and years. None = use the account's Preferences."""
+    model_config = ConfigDict(extra="forbid")
+    include_titles: list[Word] | None = Field(default=None, max_length=50)
+    exclude_titles: list[Word] | None = Field(default=None, max_length=50)
+    years_experience: int | None = Field(default=None, ge=0, le=60)
+
+    @field_validator("include_titles", "exclude_titles")
+    @classmethod
+    def _clean(cls, words, info):
+        return None if words is None else Preferences._clean(words, info)
+
+
+def for_resume(account: Preferences, own: dict | None) -> Preferences:
+    """The account's preferences with this resume's titles/years laid over them."""
+    over = {k: v for k, v in (own or {}).items() if v is not None}
+    if not over:
+        return account
+    merged = {**account.model_dump(), **over}
+    # an inherited list never contradicts this resume's own: "devops" in its includes beats the account's excludes
+    if "include_titles" in over and "exclude_titles" not in over:
+        merged["exclude_titles"] = [w for w in merged["exclude_titles"] if w not in over["include_titles"]]
+    if "exclude_titles" in over and "include_titles" not in over:
+        merged["include_titles"] = [w for w in merged["include_titles"] if w not in over["exclude_titles"]]
+    return Preferences.model_validate(merged)
+
+
 def has_word(text: str, word: str) -> bool:
     return has_any(text, (word,))
 

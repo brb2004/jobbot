@@ -52,10 +52,18 @@ export interface Place {
   aliases: string[]
 }
 
+export interface ResumeOwn {                     // this resume's own settings; null = follow Preferences
+  include_titles: string[] | null
+  exclude_titles: string[] | null
+  years_experience: number | null
+}
+
 export interface ResumeInfo {
   id: string
+  name?: string | null
   filename: string | null
   years_detected?: number | null
+  own?: ResumeOwn
 }
 
 export class ApiError extends Error {
@@ -129,11 +137,16 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
     onUnauthorized: (fn: () => void) => { unauthorized.add(fn); return () => { unauthorized.delete(fn) } },
     getPreferences: () => call<Preferences>('/me/preferences'),
     savePreferences: (p: Preferences) => call<Preferences>('/me/preferences', { method: 'PUT', body: JSON.stringify(p) }),
-    uploadResume: (file: File) => {
+    uploadResume: (file: File, opts: { name?: string; replace?: string } = {}) => {
       const form = new FormData()
       form.append('file', file)
-      return call<unknown>('/resumes', { method: 'POST', body: form })   // no Content-Type: browser adds the boundary
+      if (opts.name) form.append('name', opts.name)
+      const q = opts.replace ? `?replace=${encodeURIComponent(opts.replace)}` : ''
+      return call<ResumeInfo>(`/resumes${q}`, { method: 'POST', body: form })   // no Content-Type: browser adds the boundary
     },
+    updateResume: (id: string, body: { name?: string; own?: ResumeOwn }) =>
+      call<ResumeInfo>(`/resumes/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) }),
+    deleteResume: (id: string) => call<void>(`/resumes/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     listResumes: () => call<ResumeInfo[]>('/resumes'),
     listPlaces: () => call<Place[]>('/places'),
     listSkills: () => call<Place[]>('/skills'),   // same shape: name + aliases
@@ -149,7 +162,7 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
       await call('/me', { method: 'DELETE' })
       loggedIn = false
     },
-    matches: () => call<Match[]>('/dashboard'),
+    matches: (resumeId?: string) => call<Match[]>(`/dashboard${resumeId ? `?resume=${encodeURIComponent(resumeId)}` : ''}`),
     sendFeedback: (body: { kind: string; message: string }) =>
       call<{ ref: string; detail: string }>('/feedback', { method: 'POST', body: JSON.stringify(body) }),
     applications: () => call<Application[]>('/applications'),

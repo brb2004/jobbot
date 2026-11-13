@@ -1,10 +1,14 @@
 import re
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Resume, User
+from app.services.experience_services import years_from_resume
+from app.services.matching_services import rematch_user, tag_resumes
+from app.services.preferences_services import Preferences, ResumePrefs, for_resume
+from app.services.skills_services import default_tagger
 # parsing lives in documents_services (child process, time and page limits); re-exported for callers
 from app.services.documents_services import (TooLarge, Unreadable, UnsupportedType,  # noqa: F401
                                              extract_text, extract_text_safely, sniff)
@@ -23,8 +27,32 @@ def safe_filename(name: str) -> str:
     return base[:100] or "resume"
 
 
-async def create(s: AsyncSession, user_id: UUID, filename: str, data: bytes,
-                 require_skills: bool = False) -> Resume:
+MAX_RESUMES = 2
+
+
+class TooMany(Exception):
+    pass
+
+
+class NotFound(Exception):
+    pass
+
+
+def default_name(filename: str) -> str:
+    stem = filename.rpartition(".")[0] or filename
+    return re.sub(r"[_\-]+", " ", stem).strip()[:40] or "Resume"
+
+
+async def _mine(s: AsyncSession, user_id: UUID, resume_id: UUID) -> Resume:
+    resume = await s.get(Resume, resume_id)
+    if resume is None or resume.user_id != user_id:
+        raise NotFound                                     # someone else's id looks the same as a missing one
+    return resume
+
+
+async def create(s: AsyncSession, user_id: UUID, filename: str, data: bytes, require_skills: bool = False,
+                 replace: UUID | None = None, name: str | None = None) -> Resume:
+    """Add a resume (up to MAX_RESUMES), or swap the file of `replace`, keeping its name and title settings."""
     filename = safe_filename(filename)
     if not filename.lower().endswith(ALLOWED):
         raise UnsupportedType
@@ -34,30 +62,59 @@ async def create(s: AsyncSession, user_id: UUID, filename: str, data: bytes,
     # validate BEFORE deleting anything: a bad upload must never wipe the current resume
     if not text.strip():
         raise Unreadable("Couldn't read any text from this file. If it's a scanned image, upload a text-based PDF or .docx.")
-    if require_skills:
-        from app.services.skills_services import default_tagger
-        if not default_tagger().tag(text):
-            raise Unreadable("Couldn't find any skills in this file. Check it's your resume, "
-                             "or add skills on the Preferences page.")
-    # one resume per user (UNIQUE): replace, don't pile up. ON DELETE CASCADE drops its old match scores.
-    # Lock the user row first so two uploads at once take turns instead of one hitting the constraint.
+    tagger = default_tagger()
+    if require_skills and not tagger.tag(text):
+        raise Unreadable("Couldn't find any skills in this file. Check it's your resume, "
+                         "or add skills on the Preferences page.")
+    # Lock the user row: two uploads at once take turns, so the count check below can't be raced past.
     await s.execute(select(User.id).where(User.id == user_id).with_for_update())
-    await s.execute(delete(Resume).where(Resume.user_id == user_id))
-    from app.services.experience_services import years_from_resume; from app.services.skills_services import default_tagger
-    resume = Resume(user_id=user_id, filename=filename, raw_text=text, years_detected=years_from_resume(text, has_skills=lambda t: bool(default_tagger().pattern.search(t))))
+    keep: dict = {}
+    if replace is not None:
+        old = await _mine(s, user_id, replace)
+        keep = {"name": old.name, "title_prefs": old.title_prefs, "created_at": old.created_at}
+        await s.delete(old)                                # ON DELETE CASCADE drops its old match scores
+        await s.flush()
+    elif await s.scalar(select(func.count()).select_from(Resume).where(Resume.user_id == user_id)) >= MAX_RESUMES:
+        raise TooMany
+    resume = Resume(user_id=user_id, filename=filename, raw_text=text,
+                    years_detected=years_from_resume(text, has_skills=lambda t: bool(tagger.pattern.search(t))),
+                    **{**keep, "name": (name or "").strip()[:40] or keep.get("name") or default_name(filename)})
     s.add(resume)
     await s.commit()
     return resume
 
 
 async def list_for(s: AsyncSession, user_id: UUID) -> list[Resume]:
-    return list((await s.execute(select(Resume).where(Resume.user_id == user_id))).scalars().all())
+    """Oldest first: the first one is the default on the Matches page."""
+    stmt = select(Resume).where(Resume.user_id == user_id).order_by(Resume.created_at, Resume.id)
+    return list((await s.execute(stmt)).scalars().all())
 
 
-async def upload(s: AsyncSession, user_id: UUID, filename: str, data: bytes) -> Resume:
-    """Save (replacing any previous resume), tag, and match this user now instead of at the next cron run."""
-    from app.services.matching_services import rematch_user, tag_resumes
-    resume = await create(s, user_id, filename, data, require_skills=True)
+async def upload(s: AsyncSession, user_id: UUID, filename: str, data: bytes,
+                 replace: UUID | None = None, name: str | None = None) -> Resume:
+    """Save, tag, and match this user now instead of at the next cron run."""
+    resume = await create(s, user_id, filename, data, require_skills=True, replace=replace, name=name)
     await tag_resumes(s)
     await rematch_user(s, user_id)
     return resume
+
+
+async def update(s: AsyncSession, user_id: UUID, resume_id: UUID, name: str | None,
+                 own: ResumePrefs | None) -> Resume:
+    """Rename, and/or set this resume's own titles/years (None fields = use the account's). Rematches."""
+    resume = await _mine(s, user_id, resume_id)
+    if name is not None:
+        resume.name = name.strip()[:40] or resume.name
+    if own is not None:
+        user = await s.get(User, user_id)
+        for_resume(Preferences.model_validate(user.preferences or {}), own.model_dump())   # raises on a conflict
+        resume.title_prefs = own.model_dump() if any(v is not None for v in own.model_dump().values()) else None
+    await s.commit()
+    if own is not None:
+        await rematch_user(s, user_id)
+    return resume
+
+
+async def remove(s: AsyncSession, user_id: UUID, resume_id: UUID) -> None:
+    await s.delete(await _mine(s, user_id, resume_id))     # its match scores go with it
+    await s.commit()

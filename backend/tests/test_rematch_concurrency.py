@@ -41,8 +41,8 @@ async def test_concurrent_rematches_of_one_user_dont_crash():
             await s.commit()
 
 
-async def test_two_uploads_at_once_leave_exactly_one_resume():
-    """resumes.user_id is UNIQUE: without the user-row lock one of these raised IntegrityError."""
+async def test_uploads_at_once_never_pass_the_two_resume_cap():
+    """The user-row lock makes the count check race-free: 4 at once -> exactly 2 saved, 2 told to replace."""
     from sqlalchemy import select
     from app.services import resumes_services
     user = User(id=uuid4(), email=f"{uuid4().hex[:8]}@race.test", hashed_password="x")
@@ -55,9 +55,10 @@ async def test_two_uploads_at_once_leave_exactly_one_resume():
                 return await resumes_services.create(s, user.id, "cv.txt", text)
 
         results = await asyncio.gather(*(one(f"Python {i}".encode()) for i in range(4)), return_exceptions=True)
-        assert not [r for r in results if isinstance(r, Exception)], results
+        errors = [r for r in results if isinstance(r, Exception)]
+        assert len(errors) == 2 and all(isinstance(e, resumes_services.TooMany) for e in errors), results
         async with SessionLocal() as s:
-            assert len((await s.scalars(select(Resume).where(Resume.user_id == user.id))).all()) == 1
+            assert len((await s.scalars(select(Resume).where(Resume.user_id == user.id))).all()) == 2
     finally:
         async with SessionLocal() as s:
             await s.execute(delete(User).where(User.id == user.id))     # resume goes with it (CASCADE)

@@ -53,7 +53,7 @@ async def test_uploading_again_replaces_the_previous_resume_and_its_scores(sessi
     session.add(_MatchScore(resume_id=first.id, job_id=job.id, score=0.5, detail={}))
     await session.flush()
 
-    second = await _resumes.create(session, me, "b.txt", b"Go")
+    second = await _resumes.create(session, me, "b.txt", b"Go", replace=first.id)
 
     mine = (await session.scalars(_select(_Resume).where(_Resume.user_id == me))).all()
     assert [(r.id, r.raw_text) for r in mine] == [(second.id, "Go")]

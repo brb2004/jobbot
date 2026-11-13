@@ -50,8 +50,12 @@ class Job(Base):
 class Resume(Base):
     __tablename__ = "resumes"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(                      # one resume per user; goes with the account
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE", name="fk_resumes_user_id"))
+    user_id: Mapped[uuid.UUID] = mapped_column(                      # up to MAX_RESUMES; go with the account
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE", name="fk_resumes_user_id"), index=True)
+    name: Mapped[str | None] = mapped_column(String(40))             # "Backend", "DevOps"
+    title_prefs: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))  # per-resume titles/years; unset = account's
+    # clock_timestamp, not now(): two uploads in one transaction still get an order (oldest = default tab)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.clock_timestamp())
     filename: Mapped[str | None] = mapped_column(String(255))
     raw_text: Mapped[str | None] = mapped_column(Text)
     years_detected: Mapped[int | None]                   # from the resume text; prefs override
@@ -61,8 +65,6 @@ class Resume(Base):
     experience: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
 
     user: Mapped["User"] = relationship(lazy="raise")   # never loaded; lets the ORM insert the user row first
-
-    __table_args__ = (UniqueConstraint("user_id", name="uq_resumes_user_id"),)
 
 
 class MatchScore(Base):

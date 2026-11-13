@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ApiError, type Api, type Match } from './api'
+import { ApiError, type Api, type Match, type ResumeInfo } from './api'
 
 const BADGE: Record<string, string> = {
   'Strong match': 'bg-green-100 text-green-800',
@@ -29,19 +29,22 @@ const message = (e: unknown) => (e instanceof ApiError ? e.message : 'Could not 
 export function Matches({ api, onUpload, onPreferences }:
   { api: Api; onUpload?: () => void; onPreferences?: () => void }) {
   const [matches, setMatches] = useState<Match[] | null>(null)
-  const [hasResume, setHasResume] = useState<boolean | null>(null)   // null = still checking
+  const [resumes, setResumes] = useState<ResumeInfo[] | null>(null)  // null = still checking
+  const [pick, setPick] = useState<string | undefined>(undefined)     // which resume's matches; undefined = first
+  const hasResume = resumes === null ? null : resumes.length > 0
   const [error, setError] = useState<string | null>(null)
   const [asking, setAsking] = useState<string | null>(null)          // opened this posting: "did you apply?"
   const [moved, setMoved] = useState<{ m: Match; hidden: boolean } | null>(null)  // last job moved or hidden (for Undo)
   const [notice, setNotice] = useState<string | null>(null)
 
-  const load = () => api.matches().then(setMatches).catch((e) => setError(message(e)))
+  const load = (id = pick) => api.matches(id).then(setMatches).catch((e) => setError(message(e)))
   useEffect(() => {
     load()
     Promise.resolve().then(() => api.listResumes())
-      .then((rs) => setHasResume(rs.length > 0))
-      .catch(() => setHasResume(false))
+      .then(setResumes)
+      .catch(() => setResumes([]))
   }, [api])                                                          // eslint-disable-line react-hooks/exhaustive-deps
+  const choose = (id: string) => { setPick(id); setMoved(null); setAsking(null); load(id) }
 
   async function applied(m: Match) {
     setAsking(null)
@@ -81,13 +84,28 @@ export function Matches({ api, onUpload, onPreferences }:
   if (error) return <p role="alert" className="text-red-600">{error}</p>
   if (matches === null) return <p className="text-slate-600">Loading…</p>
   if (!matches.length && hasResume === null) return <p className="text-slate-600">Loading…</p>
+
+  const current = pick ?? resumes?.[0]?.id
+  const tabs = resumes && resumes.length > 1 && (
+    <div role="tablist" aria-label="Resume" className="flex flex-wrap gap-2">
+      {resumes.map((r) => (
+        <button key={r.id} role="tab" aria-selected={r.id === current} onClick={() => choose(r.id)}
+                className={`rounded-full px-3 py-1 text-sm ${r.id === current ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 shadow-sm'}`}>
+          {r.name ?? r.filename ?? 'Resume'}
+        </button>
+      ))}
+    </div>
+  )
   if (!matches.length && hasResume)            // resume is in, so the filters are what's empty
     return (
-      <p className="text-slate-600">
-        No jobs match your preferences right now.{' '}
-        <button onClick={onPreferences} className="underline">Loosen your preferences</button>{' '}
-        (fewer excluded titles, more locations) or check back after the next crawl.
-      </p>
+      <div className="max-w-3xl space-y-3">
+        {tabs}
+        <p className="text-slate-600">
+          No jobs match your preferences right now.{' '}
+          <button onClick={onPreferences} className="underline">Loosen your preferences</button>{' '}
+          (fewer excluded titles, more locations) or check back after the next crawl.
+        </p>
+      </div>
     )
   if (!matches.length)
     return (
@@ -99,6 +117,7 @@ export function Matches({ api, onUpload, onPreferences }:
 
   return (
     <div className="max-w-3xl space-y-3">
+      {tabs}
       {moved && (
         <p role="status" className="flex flex-wrap items-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
           {moved.hidden ? <>Hid “{moved.m.title}”.</> : <>Moved “{moved.m.title}” to Applied.</>}

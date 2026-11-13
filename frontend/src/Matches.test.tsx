@@ -35,3 +35,24 @@ describe('Matches', () => {
     expect((await screen.findByRole('alert')).textContent).toBe('Not authenticated')
   })
 })
+
+describe('two resumes', () => {
+  it('switches between each resume\'s matches', async () => {
+    const matches = vi.fn(async (id?: string) => [{ ...m, job_id: id ?? 'first', title: id === 'r2' ? 'DevOps Engineer' : 'Backend Engineer' }])
+    const listResumes = vi.fn().mockResolvedValue([{ id: 'r1', name: 'Backend', filename: 'a' }, { id: 'r2', name: 'DevOps', filename: 'b' }])
+    render(<Matches api={{ matches, listResumes } as unknown as Api} />)
+    await screen.findByRole('link', { name: 'Backend Engineer' })
+    expect(screen.getByRole('tab', { name: 'Backend' }).getAttribute('aria-selected')).toBe('true')
+    screen.getByRole('tab', { name: 'DevOps' }).click()
+    await screen.findByRole('link', { name: 'DevOps Engineer' })
+    expect(matches).toHaveBeenLastCalledWith('r2')
+  })
+
+  it('shows no tabs with one resume', async () => {
+    const listResumes = vi.fn().mockResolvedValue([{ id: 'r1', name: 'Backend', filename: 'a' }])
+    render(<Matches api={{ matches: vi.fn(async () => [m]), listResumes } as unknown as Api} />)
+    await screen.findByRole('link', { name: 'Backend Engineer' })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(screen.queryByRole('tablist')).toBeNull()
+  })
+})
