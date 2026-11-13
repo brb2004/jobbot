@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     EMAIL_FROM: str = ""
     EMAIL_REPLY_TO: str = ""
     APP_URL: str = "https://skillfit.dev"
+    NOTIFY_URL: str = ""
 
     @field_validator("JWT_SECRET_KEY")
     @classmethod

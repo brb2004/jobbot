@@ -8,6 +8,7 @@ from app.core.security_core import make_verify_token
 from app.schemas.auth_schemas import VerifyIn
 from app.services import auth_services
 from app.services.email_services import verify_email
+from app.services.notify_services import confirmed_count, notify
 
 router = APIRouter(prefix="/auth/verify", tags=["auth"])
 
@@ -19,7 +20,7 @@ def queue_verify(tasks: BackgroundTasks, send, user) -> None:
 
 
 @router.post("", status_code=204)
-async def verify(body: VerifyIn, response: Response, s=Depends(get_session)):
+async def verify(body: VerifyIn, response: Response, tasks: BackgroundTasks, s=Depends(get_session)):
     confirmed = await auth_services.confirm_email(s, body.token)
     if confirmed is None:
         raise HTTPException(
@@ -28,6 +29,8 @@ async def verify(body: VerifyIn, response: Response, s=Depends(get_session)):
     user, first_time = confirmed
     if first_time:
         set_session_cookie(response, user.id)
+        count = await confirmed_count(s)
+        tasks.add_task(notify, f"New sign-up confirmed. {count} confirmed accounts so far.")
 
 
 @router.post("/resend", status_code=202)

@@ -19,6 +19,8 @@
   valueFrom: {secretKeyRef: {name: {{ .Values.existingSecret }}, key: EMAIL_FROM, optional: true}}
 - name: EMAIL_REPLY_TO
   valueFrom: {secretKeyRef: {name: {{ .Values.existingSecret }}, key: EMAIL_REPLY_TO, optional: true}}
+- name: NOTIFY_URL
+  valueFrom: {secretKeyRef: {name: {{ .Values.existingSecret }}, key: NOTIFY_URL, optional: true}}
 - name: COOKIE_SECURE
   value: {{ .Values.app.cookieSecure | quote }}
 - name: TRUST_CF_CONNECTING_IP
