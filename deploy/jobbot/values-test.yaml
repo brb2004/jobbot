@@ -1,0 +1,11 @@
+host: jobmatch.bbenard.dev
+app:
+  appUrl: https://jobmatch.bbenard.dev
+postgres:
+  storage: 1Gi
+backups:
+  enabled: false
+cronjobs:
+  digest: null
+  pipeline:
+    schedule: "43 3 * * 0"

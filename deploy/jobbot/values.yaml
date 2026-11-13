@@ -21,6 +21,7 @@ postgres:
   storage: 2Gi
 
 backups:
+  enabled: true
   storage: 2Gi
   keepDays: 3                       # copies on this machine (R2 holds the long history)
   offsite:

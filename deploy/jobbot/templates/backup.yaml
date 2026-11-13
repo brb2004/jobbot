@@ -1,3 +1,4 @@
+{{- if .Values.backups.enabled }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata: {name: backups}
@@ -85,3 +86,4 @@ spec:
           volumes:
             - {name: backups, persistentVolumeClaim: {claimName: backups}}
             - {name: work, emptyDir: {}}
+{{- end }}
