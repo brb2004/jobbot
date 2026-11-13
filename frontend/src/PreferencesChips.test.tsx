@@ -33,13 +33,13 @@ describe('chip lists', () => {
     render(<Preferences api={fakeApi() as unknown as Api} onSaved={() => {}} />)
     fireEvent.change(await screen.findByLabelText('Job titles to exclude'), { target: { value: 'senior,' } })
     fireEvent.click(screen.getByRole('button', { name: 'Remove senior' }))
-    expect(screen.queryByRole('button', { name: 'Remove senior' })).toBeNull()   // chip gone (it may still be a suggestion)
+    expect(screen.queryByRole('button', { name: 'Remove senior' })).toBeNull()
   })
 
   it('names skills properly and flags unknown ones', async () => {
     render(<Preferences api={fakeApi() as unknown as Api} onSaved={() => {}} />)
     const box = await screen.findByLabelText('Extra skills')
-    await tick()                                                   // skill list loaded
+    await tick()
     fireEvent.change(box, { target: { value: 'k8s' } })
     fireEvent.keyDown(box, { key: 'Enter' })
     screen.getByText('Kubernetes')

@@ -69,7 +69,6 @@ def _span(m: re.Match, today: date) -> tuple[int, int]:
     return start, end
 
 
-# "mentored engineers with 15 years of experience", "a team averaging 10 years": someone else's years.
 OTHERS = re.compile(
     r"\b(?:engineers|developers|team|teams|members|staff|people|clients|customers|users|"
     r"company|companies|organization|organizations|firm|colleagues|peers|mentees|interns|"
@@ -91,10 +90,10 @@ def years_from_resume(
     text = text or ""
     stated = [int(m.group(1)) for p in STATED for m in p.finditer(text) if _own_claim(text, m)]
     if stated:
-        return max(stated)  # the person's own claim
+        return max(stated)
     section = _experience_section(text)
     if not section:
-        return None  # no Experience heading: don't guess from education dates
+        return None
     today = today or date.today()
     roles = _roles(section)
     if not roles:
@@ -105,9 +104,9 @@ def years_from_resume(
         if (has_skills is None or has_skills(body)) and (s := _span(m, today))[1] > s[0]
     )
     if not spans:
-        return 0  # worked, but no technical roles
+        return 0
     total, (cur_s, cur_e) = 0, spans[0]
-    for s, e in spans[1:]:  # merge overlapping jobs: count each month once
+    for s, e in spans[1:]:
         if s <= cur_e:
             cur_e = max(cur_e, e)
         else:

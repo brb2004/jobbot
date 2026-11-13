@@ -4,7 +4,7 @@ from pathlib import Path
 
 from app.services.skills_services import Tagger
 
-PLACES_FILE = Path(__file__).resolve().parents[2] / "places.txt"  # next to skills.txt
+PLACES_FILE = Path(__file__).resolve().parents[2] / "places.txt"
 
 
 def _flat(text: str) -> str:
@@ -82,7 +82,7 @@ PROVINCES = {
     "SK": "saskatchewan",
 }
 _REGIONS = US_STATES | PROVINCES
-_CODE = re.compile(r"\b(" + "|".join(_REGIONS) + r")\b")  # upper case only: "or" isn't Oregon
+_CODE = re.compile(r"\b(" + "|".join(_REGIONS) + r")\b")
 _NAME = re.compile(
     r"(?i)\b(" + "|".join(sorted(map(re.escape, _REGIONS.values()), key=len, reverse=True)) + r")\b"
 )
@@ -116,7 +116,7 @@ def _tag(text: str) -> set[str]:
     state = _state_of()
     return {
         p for p in found if (s := state.get(p)) is None or s in said or (s in PROVINCES and said <= {"CA"})
-    }  # "Toronto, CA": CA means Canada here
+    }
 
 
 @lru_cache(maxsize=65536)

@@ -34,7 +34,7 @@ async def register(client, email="verify@example.com"):
     assert r.status_code == 202
     assert (
         await client.post("/auth/login", json={"email": email, "password": "correct-horse-1"})
-    ).status_code == 200  # cookie
+    ).status_code == 200
     return email
 
 
@@ -42,14 +42,14 @@ async def test_signup_emails_a_link_that_confirms_the_address_and_logs_in(client
     email = "verify@example.com"
     await client.post("/auth/register", json={"email": email, "password": "correct-horse-1"})
     assert len(outbox) == 1 and outbox[0]["To"] == email
-    assert (await client.get("/auth/me")).status_code == 401  # sign-up alone starts no session
+    assert (await client.get("/auth/me")).status_code == 401
     r = await client.post("/auth/verify", json={"token": link_token(outbox[0])})
     assert r.status_code == 204 and "jobbot_session=" in r.headers["set-cookie"]
     assert (await client.get("/auth/me")).json()["email_verified_at"] is not None
     client.cookies.clear()
     again = await client.post("/auth/verify", json={"token": link_token(outbox[0])})
-    assert again.status_code == 204  # clicking twice is harmless...
-    assert "set-cookie" not in again.headers  # ...but an old link is no way to log in
+    assert again.status_code == 204
+    assert "set-cookie" not in again.headers
 
 
 async def test_a_reset_token_cannot_confirm_an_email(client, session):
@@ -61,7 +61,7 @@ async def test_a_reset_token_cannot_confirm_an_email(client, session):
 
 
 async def test_resend_is_limited_and_stops_once_confirmed(client, outbox):
-    await register(client)  # 1 email at sign-up
+    await register(client)
     for _ in range(4):
         assert (await client.post("/auth/verify/resend")).status_code == 202
     assert len(outbox) == 1 + 3
@@ -70,7 +70,7 @@ async def test_resend_is_limited_and_stops_once_confirmed(client, outbox):
 
     VERIFY_RESEND.reset()
     await client.post("/auth/verify/resend")
-    assert len(outbox) == 4  # confirmed: nothing more to send
+    assert len(outbox) == 4
 
 
 async def test_digest_skips_unconfirmed_addresses(session):

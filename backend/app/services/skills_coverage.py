@@ -9,7 +9,6 @@ from app.db.models_db import Job
 from app.services.extraction_services import fill_job_requirements
 from app.services.skills_services import default_tagger
 
-# a run of capitalized / symbol-y words: "Apache Flink", "Next.js", "C/C++", "SOC2"
 NAME = re.compile(r"(?<![\w.])(?:[A-Z][\w.+#/-]*|[a-z]+[A-Z][\w]*)(?:\s+(?:[A-Z][\w.+#/-]*))*")
 ENGINEERING = re.compile(r"engineer|developer|\bsre\b|devops|scientist|architect", re.I)
 STOP = set(
@@ -127,11 +126,11 @@ STOP = set(
 
 
 def unknown_names(bullet: str, tagger) -> set[str]:
-    text = tagger.pattern.sub(" ", bullet)  # erase skills we already know
+    text = tagger.pattern.sub(" ", bullet)
     found = set()
     for m in NAME.finditer(text):
         if m.start() == 0 or text[: m.start()].rstrip().endswith((".", ":", ";")):
-            continue  # sentence start: capitalized for grammar
+            continue
         words = [w for w in m.group().split() if w.lower().strip(".,") not in STOP]
         if words and len(" ".join(words)) > 1:
             found.add(" ".join(words).strip(".,"))

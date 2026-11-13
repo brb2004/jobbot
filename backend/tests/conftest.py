@@ -1,7 +1,7 @@
 import os
 
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-that-is-at-least-32-bytes")
-os.environ.setdefault("COOKIE_SECURE", "false")  # the test client talks plain http
+os.environ.setdefault("COOKIE_SECURE", "false")
 os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+asyncpg://jobbot:jobbot123@localhost:55432/jobbot_test"
 )
@@ -41,7 +41,7 @@ async def session():
         app.dependency_overrides[get_session] = lambda: s
 
         @asynccontextmanager
-        async def same_session():  # background tasks reuse the test's session
+        async def same_session():
             yield s
 
         app.dependency_overrides[get_sessionmaker] = lambda: same_session

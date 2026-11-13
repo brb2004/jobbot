@@ -28,5 +28,5 @@ def test_architect_titles_are_senior():
 
     assert years_from_title("AI Architect") == 5
     assert years_from_title("Solutions Architect (FedS062)") == 5
-    assert years_from_title("Principal Architect") == 10  # the stronger word wins
+    assert years_from_title("Principal Architect") == 10
     assert years_from_title("Software Engineer, Architecture Tooling") is None

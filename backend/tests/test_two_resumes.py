@@ -54,7 +54,7 @@ async def test_two_resumes_then_a_third_is_refused(client, session):
     r = await up(client, me, "Go developer")
     assert r.status_code == 409 and "replace or delete" in r.json()["detail"].lower()
     listed = (await client.get("/resumes", headers=h(me))).json()
-    assert [x["name"] for x in listed] == ["Backend", "DevOps"]  # oldest first
+    assert [x["name"] for x in listed] == ["Backend", "DevOps"]
 
 
 async def test_each_resume_has_its_own_matches_and_titles(client, session):
@@ -75,12 +75,12 @@ async def test_each_resume_has_its_own_matches_and_titles(client, session):
         "Backend Engineer",
         "DevOps Engineer",
         "Platform Engineer",
-    }  # account default: all engineering
+    }
     assert {m["title"] for m in (await titles(devops["id"])).json()} == {
         "DevOps Engineer",
         "Platform Engineer",
     }
-    first = (await client.get("/dashboard", headers=h(me))).json()  # no ?resume: the first one
+    first = (await client.get("/dashboard", headers=h(me))).json()
     assert len(first) == 3
 
 
@@ -120,9 +120,7 @@ async def test_delete_removes_it_and_its_matches(client, session):
     await session.flush()
     me = await _user(session)
     a = (await up(client, me, "Python developer")).json()
-    assert (
-        await session.scalars(select(MatchScore).where(MatchScore.resume_id == a["id"]))
-    ).all()  # had some
+    assert (await session.scalars(select(MatchScore).where(MatchScore.resume_id == a["id"]))).all()
     assert (await client.delete(f"/resumes/{a['id']}", headers=h(me))).status_code == 204
     assert (await session.scalars(select(MatchScore).where(MatchScore.resume_id == a["id"]))).all() == []
     assert (await session.scalars(select(Resume).where(Resume.user_id == me))).all() == []
@@ -141,8 +139,8 @@ def test_weekly_email_has_a_section_per_resume_and_each_job_once():
     text = digest.render(rows, top_n=20)
     assert text.index("== Backend ==") < text.index("== DevOps ==")
     assert text.count("Platform Engineer") == 1
-    assert text.index("Platform Engineer") > text.index("== DevOps ==")  # under the resume it matched best
+    assert text.index("Platform Engineer") > text.index("== DevOps ==")
     one = digest.render(
         [MatchOut(job_id=j1, title="Backend Engineer", score=0.9, resume="Backend")], top_n=20
     )
-    assert "==" not in one  # one resume: no headers
+    assert "==" not in one

@@ -83,7 +83,7 @@ async def fetch_board(client: httpx.AsyncClient, slug: str) -> tuple[list[BoardJ
     if r.status_code == 404:
         return None
     r.raise_for_status()
-    raw = r.json()["jobs"]  # not JSON / no "jobs": the whole board fails
+    raw = r.json()["jobs"]
     jobs, ids = [], []
     for j in raw:
         if isinstance(j, dict) and isinstance(j.get("id"), int):
@@ -138,7 +138,7 @@ async def fetch_details(client: httpx.AsyncClient, board: str, job_id: int | str
 
     raw = data.get("content") or ""
     if "&lt;" in raw:
-        raw = htmllib.unescape(raw)  # Greenhouse double-encodes
+        raw = htmllib.unescape(raw)
     return JobDetails(
         description=html_to_text(raw),
         content_html=raw,
@@ -152,9 +152,9 @@ async def fill_descriptions(client: httpx.AsyncClient, s: AsyncSession, concurre
     stmt = select(Job).where(
         Job.description.is_(None),
         Job.board.is_not(None),
-        Job.board.not_like("%:%"),  # Greenhouse keys have no source prefix
+        Job.board.not_like("%:%"),
         Job.external_id.is_not(None),
-        Job.closed_at.is_(None),  # don't fetch details for dead postings
+        Job.closed_at.is_(None),
     )
     sem = asyncio.Semaphore(concurrency)
 
@@ -162,7 +162,7 @@ async def fill_descriptions(client: httpx.AsyncClient, s: AsyncSession, concurre
         async with sem:
             try:
                 return job, await fetch_details(client, job.board, job.external_id)
-            except Exception as e:  # one bad posting never stops the run
+            except Exception as e:
                 log.warning("details %s/%s failed: %s", job.board, job.external_id, repr(e)[:200])
                 return job, None
 
@@ -170,7 +170,7 @@ async def fill_descriptions(client: httpx.AsyncClient, s: AsyncSession, concurre
     async for jobs in batches(s, stmt, Job.id):
         for job, d in await asyncio.gather(*(fetch(j) for j in jobs)):
             if d is None:
-                continue  # stays empty: retried next run
+                continue
             job.description = d.description
             job.content_html = d.content_html
             job.salary_min, job.salary_max, job.salary_currency = (
@@ -178,7 +178,7 @@ async def fill_descriptions(client: httpx.AsyncClient, s: AsyncSession, concurre
                 d.salary_max,
                 d.salary_currency,
             )
-            job.requirements, job.skills_version = None, None  # re-extracted and re-tagged from the new text
+            job.requirements, job.skills_version = None, None
             filled += 1
         await s.commit()
     return filled

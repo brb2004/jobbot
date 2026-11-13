@@ -38,14 +38,14 @@ app = FastAPI(
 app.include_router(preferences_routes.router)
 app.include_router(auth_routes.router)
 app.include_router(account_routes.router)
-app.include_router(account_routes.account)  # DELETE /me
+app.include_router(account_routes.account)
 app.include_router(password_routes.router)
 app.include_router(verify_routes.router)
-app.include_router(email_routes.router)  # public: unsubscribe links carry a signed token
+app.include_router(email_routes.router)
 app.include_router(jobs_routes.router)
-app.include_router(skills_routes.router)  # public: skill names for autocomplete
-app.include_router(places_routes.router)  # public: place names for the pickers
-app.include_router(matches_routes.router, dependencies=[Depends(require_verified)])  # confirmed emails only
+app.include_router(skills_routes.router)
+app.include_router(places_routes.router)
+app.include_router(matches_routes.router, dependencies=[Depends(require_verified)])
 app.include_router(resumes_routes.router, dependencies=[Depends(require_verified)])
 app.include_router(applications_routes.router, dependencies=[Depends(require_verified)])
 app.include_router(feedback_routes.router, dependencies=[Depends(require_verified)])
@@ -80,8 +80,8 @@ async def security_headers(request: Request, call_next):
     h["X-Content-Type-Options"] = "nosniff"
     h["X-Frame-Options"] = "DENY"
     h["Referrer-Policy"] = "no-referrer"
-    h["Cache-Control"] = "no-store"  # API responses are personal; never cache them
-    if not request.url.path.startswith(("/docs", "/redoc")):  # Swagger needs its CDN scripts
+    h["Cache-Control"] = "no-store"
+    if not request.url.path.startswith(("/docs", "/redoc")):
         h["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
     return response
 

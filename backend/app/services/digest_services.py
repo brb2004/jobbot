@@ -11,9 +11,9 @@ from app.services.matches_services import marked
 from app.services.requirements_services import years_note
 from app.services.scoring_services import TIERS, tier  # noqa: F401  (re-exported)
 
-SHOW = 3  # requirements shown per list
+SHOW = 3
 log = logging.getLogger(__name__)
-WIDTH = 80  # characters per requirement before trimming
+WIDTH = 80
 
 
 def _short(items: list[str]) -> str:
@@ -28,7 +28,7 @@ def _blocks(best: list[MatchOut]) -> list[str]:
         d = m.detail or {}
         head = f"{i}. {m.title} — {tier(m.score)}"
         if d.get("over_years") and (note := years_note(d)):
-            head += f" · {note}"  # email: only flag when it's over your level
+            head += f" · {note}"
         if d.get("clearance"):
             head += " · may require clearance or U.S. citizenship"
         total = len(d.get("met") or []) + len(d.get("partial") or []) + len(d.get("missing") or [])
@@ -80,8 +80,8 @@ async def matches_for(s: AsyncSession, user_id: UUID, since: datetime):
         .join(Resume, Resume.id == MatchScore.resume_id)
         .where(Resume.user_id == user_id)
         .where(MatchScore.scored_at >= since)
-        .where(Job.closed_at.is_(None))  # never email a dead link
-        .where(Job.id.not_in(marked(user_id)))  # nor a job they already applied to or dismissed
+        .where(Job.closed_at.is_(None))
+        .where(Job.id.not_in(marked(user_id)))
         .order_by(MatchScore.score.desc())
     )
     return [MatchOut.model_validate(r, from_attributes=True) for r in (await s.execute(stmt)).all()]
@@ -100,18 +100,18 @@ async def send_weekly(s: AsyncSession, sender, now: datetime, top_n: int = 20) -
     sent = 0
     for user_id in user_ids:
         if user_id in done:
-            continue  # already sent this week: re-running the job is safe
+            continue
         matches = await matches_for(s, user_id, since)
         if not matches:
             continue
-        s.add(DigestSent(user_id=user_id, week=week))  # claim first: a crash after sending can't resend
+        s.add(DigestSent(user_id=user_id, week=week))
         await s.commit()
         try:
             await sender.send(user_id, render(matches, top_n))
-        except Exception:  # one bad address or SMTP hiccup: log it, keep going
+        except Exception:
             log.exception("weekly digest to %s failed", user_id)
             await s.execute(delete(DigestSent).where(DigestSent.user_id == user_id, DigestSent.week == week))
-            await s.commit()  # unclaimed: the next run retries this user
+            await s.commit()
             continue
         sent += 1
     return sent

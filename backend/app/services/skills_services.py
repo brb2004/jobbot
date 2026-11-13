@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-SKILLS_FILE = Path(__file__).resolve().parents[2] / "skills.txt"  # backend/skills.txt
-COMMENT = re.compile(r"(^|\s)#.*")  # '#' after a space = comment; 'C#' is not
+SKILLS_FILE = Path(__file__).resolve().parents[2] / "skills.txt"
+COMMENT = re.compile(r"(^|\s)#.*")
 
 
 @dataclass(frozen=True)
@@ -26,7 +26,7 @@ def parse_taxonomy(text: str) -> list[Alias]:
     aliases: list[Alias] = []
     for line in _lines(text):
         if ">" in line:
-            continue  # implication line
+            continue
         label, _, rest = line.partition(":")
         skill = label.strip().lstrip("=")
         for raw in [label, *rest.split(",")]:
@@ -47,7 +47,7 @@ def parse_implications(text: str) -> dict[str, set[str]]:
 
 class Tagger:
     def __init__(self, aliases: list[Alias], implies: dict[str, set[str]] | None = None, version: str = ""):
-        self.version = version  # hash of the taxonomy text
+        self.version = version
         self.implies = implies or {}
         known = {a.skill for a in aliases}
         unknown = {x for k, vs in self.implies.items() for x in (k, *vs)} - known
@@ -55,9 +55,9 @@ class Tagger:
             raise ValueError(f"implications name unknown skills: {sorted(unknown)}")
         self.exact = {a.text: a.skill for a in aliases if a.case_sensitive}
         self.folded = {a.text.lower(): a.skill for a in aliases if not a.case_sensitive}
-        ordered = sorted(aliases, key=lambda a: len(a.text), reverse=True)  # longest match wins
+        ordered = sorted(aliases, key=lambda a: len(a.text), reverse=True)
         parts = [re.escape(a.text) if a.case_sensitive else f"(?i:{re.escape(a.text)})" for a in ordered]
-        self.pattern = re.compile(rf"(?<!\w)(?:{'|'.join(parts)})(?!\w)")  # whole words only
+        self.pattern = re.compile(rf"(?<!\w)(?:{'|'.join(parts)})(?!\w)")
 
     @classmethod
     def from_text(cls, text: str) -> "Tagger":

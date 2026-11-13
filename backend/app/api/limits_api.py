@@ -6,9 +6,6 @@ from app.core.ratelimit_core import RateLimiter
 
 QUARTER_HOUR, HOUR = 900, 3600
 
-# Login is limited three ways. ip+email blocks one network guessing one account. ip alone only slows a
-# noisy network down, because a shared NAT must never lock out someone typing the right password.
-# email alone counts guesses from anywhere and feeds the growing delay in account_delay().
 LOGIN_FAILS = RateLimiter(5, QUARTER_HOUR)
 LOGIN_IP = RateLimiter(30, QUARTER_HOUR)
 LOGIN_EMAIL = RateLimiter(10**9, QUARTER_HOUR)

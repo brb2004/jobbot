@@ -15,7 +15,7 @@ async def mark(s: AsyncSession, user_id: UUID, job_id: UUID, status: str = "appl
         stmt.on_conflict_do_update(
             constraint="uq_applications_user_job", set_={"status": stmt.excluded.status}
         )
-    )  # idempotent; last choice wins
+    )
     await s.commit()
     return True
 

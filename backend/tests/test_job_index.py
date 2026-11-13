@@ -33,7 +33,7 @@ async def test_the_index_is_built_once_and_reused(session, monkeypatch):
     monkeypatch.setattr(job_index, "build_job_index", lambda *a, **k: builds.append(1) or real(*a, **k))
     assert await matching.rematch_user(session, user.id) > 0
     assert await matching.rematch_user(session, user.id) > 0
-    assert len(builds) == 1  # second rematch reused it
+    assert len(builds) == 1
 
 
 async def test_the_index_rebuilds_when_jobs_open_or_close(session, monkeypatch):
@@ -43,7 +43,7 @@ async def test_the_index_rebuilds_when_jobs_open_or_close(session, monkeypatch):
     session.add(Job(title="Platform Engineer", board="idxnew", skills=["Python"], requirements=["Python"]))
     await session.flush()
     await matching.rematch_user(session, user.id)
-    assert job_index._cached is not first  # a new job: new fingerprint, rebuilt
+    assert job_index._cached is not first
     second = job_index._cached
     from datetime import datetime
 

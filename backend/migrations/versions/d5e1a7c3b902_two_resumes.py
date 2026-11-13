@@ -19,7 +19,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # back to one per user: keep each user's oldest resume
     op.execute("DELETE FROM resumes a USING resumes b WHERE a.user_id = b.user_id "
                "AND (a.created_at, a.id) > (b.created_at, b.id)")
     op.drop_column("resumes", "created_at")

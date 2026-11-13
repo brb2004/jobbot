@@ -23,7 +23,7 @@ async def me(s=Depends(get_session), user_id=Depends(get_current_user)):
 @router.post("/logout", status_code=204)
 async def logout(response: Response, s=Depends(get_session), user_id=Depends(get_current_user)):
     user = await auth_services.get(s, user_id)
-    user.tokens_valid_after = datetime.now(UTC)  # revokes every token issued before now
+    user.tokens_valid_after = datetime.now(UTC)
     await s.commit()
     response.delete_cookie(get_settings().COOKIE_NAME, path="/")
 

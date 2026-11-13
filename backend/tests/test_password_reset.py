@@ -19,7 +19,7 @@ def outbox(client):
     sent = []
 
     async def capture(msg):
-        if msg["Subject"].startswith("Reset"):  # sign-up also sends a confirmation email
+        if msg["Subject"].startswith("Reset"):
             sent.append(msg)
 
     app.dependency_overrides[deps_api.get_mailer] = lambda: capture
@@ -34,9 +34,7 @@ def link_token(msg) -> str:
 async def register(client, email="reset@example.com"):
     r = await client.post("/auth/register", json={"email": email, "password": OLD})
     assert r.status_code == 202
-    assert (
-        await client.post("/auth/login", json={"email": email, "password": OLD})
-    ).status_code == 200  # cookie
+    assert (await client.post("/auth/login", json={"email": email, "password": OLD})).status_code == 200
     return email
 
 
@@ -49,7 +47,7 @@ async def test_link_resets_the_password_exactly_once(client, outbox):
     assert (await client.post("/auth/login", json={"email": email, "password": OLD})).status_code == 401
     assert (await client.post("/auth/login", json={"email": email, "password": NEW})).status_code == 200
     again = await client.post("/auth/reset", json={"token": token, "password": "third-password-3"})
-    assert again.status_code == 400  # password hash changed, so the link is dead
+    assert again.status_code == 400
 
 
 async def test_unknown_email_gets_the_same_answer_and_no_mail(client, outbox):
@@ -61,7 +59,7 @@ async def test_unknown_email_gets_the_same_answer_and_no_mail(client, outbox):
 
 
 async def test_reset_signs_out_existing_sessions(client, outbox):
-    email = await register(client)  # client now holds a session cookie
+    email = await register(client)
     assert (await client.get("/auth/me")).status_code == 200
     await client.post("/auth/forgot", json={"email": email})
     await client.post("/auth/reset", json={"token": link_token(outbox[0]), "password": NEW})

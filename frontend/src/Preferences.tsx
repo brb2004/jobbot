@@ -12,13 +12,11 @@ const INCLUDE_TIPS = ['software engineer', 'backend', 'frontend', 'full stack', 
 const EXCLUDE_TIPS = ['senior', 'staff', 'principal', 'lead', 'manager', 'director', 'intern', 'contract', 'sr.',
   'head of'].map((name) => ({ name }))
 
-// Mirrors PRESALES_TITLES on the server: warn when the exclude list cancels the sales checkbox.
 const SALES = ['customer engineer', 'solutions architect', 'solution architect', 'solutions engineer',
   'solution engineer', 'account executive', 'customer success']
 const salesWord = (t: string) => /(^|[\s-])(pre-?)?sales([\s-]|$)/i.test(t) || SALES.includes(t.toLowerCase())
 
 const YEARS_OK = /^\d{1,2}$/
-// "includes Plano, Richardson, Frisco" for a metro: real place names only, not abbreviations like dfw
 const includes = (label: string, aliases: string[]) => {
   const names = aliases.filter((a) => a.length > 3 && !a.includes('.') && !label.toLowerCase().includes(a))
     .map((a) => a.replace(/\b\w/g, (c) => c.toUpperCase())).slice(0, 3)
@@ -29,7 +27,7 @@ const input = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:bo
 export function Preferences({ api, onSaved, onDeleted, onDirty }:
   { api: Api; onSaved: () => void; onDeleted?: () => void; onDirty?: (dirty: boolean) => void }) {
   const [draft, setDraft] = useState<Draft | null>(null)
-  const [saved, setSaved] = useState('')                       // the last loaded or saved draft, as JSON
+  const [saved, setSaved] = useState('')
   const [pending, setPending] = useState(NO_PENDING)
   const [places, setPlaces] = useState<Place[] | null>(null)
   const [skills, setSkills] = useState<Place[] | null>(null)
@@ -65,10 +63,10 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
 
   const dirty = draft !== null && (JSON.stringify(draft) !== saved || Object.values(pending).some((v) => v.trim() !== ''))
   useEffect(() => { onDirty?.(dirty) }, [dirty, onDirty])
-  useEffect(() => () => onDirty?.(false), [onDirty])           // leaving the page clears the flag
+  useEffect(() => () => onDirty?.(false), [onDirty])
   useEffect(() => {
     if (!dirty) return
-    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }   // reload / close tab
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
@@ -100,7 +98,7 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
       const canonFor: Record<ListKey, (v: string) => string | undefined> = {
         include_titles: () => undefined, exclude_titles: () => undefined, locations: placeOf, extra_skills: skillOf,
       }
-      const lists = Object.fromEntries((Object.keys(draft.lists) as ListKey[]).map((k) =>   // typed but not added: keep it
+      const lists = Object.fromEntries((Object.keys(draft.lists) as ListKey[]).map((k) =>
         [k, addAll(draft.lists[k], (k === 'locations' ? [pending[k].trim()].filter(Boolean) : toList(pending[k]))
           .map((v) => canonFor[k](v) ?? v))])) as Record<ListKey, string[]>
       const final = { ...draft, lists }

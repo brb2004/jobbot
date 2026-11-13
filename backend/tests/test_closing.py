@@ -26,15 +26,15 @@ async def jobs_of(session, board):
 
 async def test_missing_jobs_close_and_reopen_when_they_come_back(session):
     await save_board(session, "acme", [bj(1), bj(2)])
-    await save_board(session, "other", [bj(2)])  # same id, different board
+    await save_board(session, "other", [bj(2)])
     assert await close_missing(session, "acme", [1]) == 1
 
     acme, other = await jobs_of(session, "acme"), await jobs_of(session, "other")
     assert acme[1].closed_at is None
     assert acme[2].closed_at is not None
-    assert other[2].closed_at is None  # other boards untouched
+    assert other[2].closed_at is None
 
-    await save_board(session, "acme", [bj(1), bj(2)])  # it's back
+    await save_board(session, "acme", [bj(1), bj(2)])
     assert (await jobs_of(session, "acme"))[2].closed_at is None
 
 

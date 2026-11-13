@@ -32,7 +32,7 @@ async def main(board: str | None) -> None:
         print(f"{board}: no misses")
         return
     path, n = f"tests/fixtures/{board}.html", 2
-    while Path(path).exists():  # never overwrite a fixture that guards an earlier fix
+    while Path(path).exists():
         path, n = f"tests/fixtures/{board}_{n}.html", n + 1
     Path(path).write_text(misses[0][1])
     print(f"{board}: {len(misses)}/{len(rows)} missed; saved one to {path}\n")

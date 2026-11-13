@@ -50,7 +50,7 @@ async def fetch_board(client: httpx.AsyncClient, slug: str) -> Listing | None:
     if r.status_code == 404:
         return None
     r.raise_for_status()
-    raw = r.json()["jobs"]  # not JSON / no "jobs": the whole board fails
+    raw = r.json()["jobs"]
     postings, ids = [], []
     for j in raw:
         if not isinstance(j, dict) or j.get("isListed") is False:
@@ -59,7 +59,7 @@ async def fetch_board(client: httpx.AsyncClient, slug: str) -> Listing | None:
             ids.append(str(j["id"]))
         try:
             postings.append(posting(j))
-        except Exception as e:  # skipped, not closed: its id still counts
+        except Exception as e:
             log.warning("ashby board %s: skipped a malformed job: %s", slug, repr(e)[:200])
     return postings, ids
 

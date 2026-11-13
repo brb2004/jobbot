@@ -5,8 +5,6 @@ from app.core.words_core import has_any
 from app.services.places_services import place_of, places_in, places_named
 
 REMOTE = ("remote", "distributed")
-# Product decision: places JobMatch doesn't list. A job only located there is never shown, and a
-# blocked place is never the reason a job matches.
 BLOCKED_PLACES = ("tel aviv",)
 
 

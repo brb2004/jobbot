@@ -9,9 +9,9 @@ export function Verify({ api, token, onDone }: { api: Api; token: string; onDone
     api.verifyEmail(token)
       .then(() => {
         setDone(true)
-        try {                                   // tell the waiting tab, if it's in this browser
+        try {
           const c = new BroadcastChannel('jobbot'); c.postMessage('email-confirmed'); c.close()
-        } catch { /* no BroadcastChannel: the waiting tab polls instead */ }
+        } catch {}
       })
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Could not reach the server'))
   }, [api, token])

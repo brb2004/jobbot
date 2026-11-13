@@ -130,7 +130,7 @@ async def _user(session):
         email=f"{uuid4().hex[:12]}@fixture.test",
         hashed_password="x",
         email_verified_at=datetime.now(UTC),
-    )  # confirmed: can use resumes and matches
+    )
     session.add(u)
     await session.flush()
     return u.id

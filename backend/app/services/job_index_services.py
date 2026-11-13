@@ -11,9 +11,8 @@ from app.services.scoring_services import build_index, idf_weights
 from app.services.skills_services import default_tagger
 from app.services.titles_services import role_key
 
-MAX_AGE_S = 3600  # requirements re-extracted in place don't change the fingerprint, so rebuild hourly too
+MAX_AGE_S = 3600
 OPEN = (Job.skills.is_not(None), Job.closed_at.is_(None))
-# Only the columns matching needs: leaving out the posting text is ~100 MB less per load.
 _ROWS = select(Job.id, Job.board, Job.title, Job.location, Job.skills, Job.requirements).where(*OPEN)
 
 
@@ -28,14 +27,14 @@ class JobRow:
 @dataclass(frozen=True)
 class JobIndex:
     jobs: list[JobRow]
-    skills: dict  # job id -> skills
-    weights: dict  # skill -> IDF weight
-    index: dict  # skill -> job ids
-    years: dict  # job id -> years asked: stated, else implied by the title
-    years_src: dict  # job id -> "requirements" | "title"
-    roles: dict  # job id -> (company, role): one posting per role
-    companies: dict  # job id -> company
-    clearance: dict  # job id -> may need clearance or citizenship
+    skills: dict
+    weights: dict
+    index: dict
+    years: dict
+    years_src: dict
+    roles: dict
+    companies: dict
+    clearance: dict
     fingerprint: tuple = ()
     built_at: float = 0.0
 

@@ -20,7 +20,7 @@ async def upload(
     s=Depends(get_session),
     user_id=Depends(get_current_user),
 ):
-    data = await file.read(resumes_service.MAX_BYTES + 1)  # never read more than limit + 1
+    data = await file.read(resumes_service.MAX_BYTES + 1)
     try:
         return await resumes_service.upload(s, user_id, file.filename or "", data, replace=replace, name=name)
     except resumes_service.UnsupportedType:
@@ -48,7 +48,7 @@ async def update(
         return await resumes_service.update(s, user_id, resume_id, body.name, body.own)
     except resumes_service.NotFound:
         raise NOT_FOUND from None
-    except ValidationError as e:  # e.g. a title both included and excluded
+    except ValidationError as e:
         raise HTTPException(422, e.errors()[0]["msg"].removeprefix("Value error, ")) from None
 
 

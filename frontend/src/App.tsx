@@ -36,21 +36,19 @@ function Shell() {
   const [status, setStatus] = useState<Status>('checking')
   const [email, setEmail] = useState('')
   const [flash, setFlash] = useState<string | null>(null)
-  const [dirty, setDirty] = useState(false)                 // unsaved edits on Preferences
+  const [dirty, setDirty] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
 
-  // Logged in, but is the address confirmed? Unconfirmed accounts only see the check-your-email page.
   const refresh = () => api.me()
     .then((u) => { setEmail(u.email); setStatus(u.email_verified_at ? 'in' : 'unconfirmed') })
     .catch(() => setStatus('out'))
 
-  // The confirmation link logs the browser in, so after it the cookie is checked again, not assumed.
   const restore = () => api.restore().then((ok) => (ok ? refresh() : setStatus('out')))
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on page load
-  useEffect(() => { restore() }, [])                                                          // survives refresh
-  useEffect(() => api.onUnauthorized(() => setStatus('out')), [])                              // expired -> login
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { restore() }, [])
+  useEffect(() => api.onUnauthorized(() => setStatus('out')), [])
 
   const leaveOk = () => {
     if (dirty && !window.confirm('You have unsaved changes on Preferences. Leave without saving?')) return false
@@ -60,7 +58,6 @@ function Shell() {
   const go = (path: string, message: string | null = null) => { setFlash(message); navigate(path) }
   const logout = async () => { await api.logout(); setStatus('out'); navigate('/', { replace: true }) }
 
-  // Emailed links work logged in or out; the token rides after '#'.
   if (location.pathname === '/privacy') return <Privacy />
   if (location.pathname === '/unsubscribe') return <Unsubscribe api={api} token={location.hash.slice(1)} />
   if (location.pathname === '/verify')

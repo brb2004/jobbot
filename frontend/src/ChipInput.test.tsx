@@ -97,7 +97,7 @@ describe('dropdown', () => {
     const box = screen.getByLabelText('Locations')
     fireEvent.click(box)
     fireEvent.focus(box)
-    expect(screen.getAllByRole('option')).toHaveLength(3)              // everything, grouped
+    expect(screen.getAllByRole('option')).toHaveLength(3)
     screen.getByText('Countries')
     fireEvent.change(box, { target: { value: 'can' } })
     expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Canada'])

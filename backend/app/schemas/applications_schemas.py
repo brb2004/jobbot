@@ -10,5 +10,5 @@ class ApplicationOut(BaseModel):
     company: str | None
     location: str | None
     url: str | None
-    closed: bool  # the company took the posting down
+    closed: bool
     applied_at: datetime

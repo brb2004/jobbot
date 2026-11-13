@@ -17,7 +17,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Only Greenhouse rows have numeric ids; drop the others first or the cast fails.
     op.execute("DELETE FROM jobs WHERE board LIKE '%:%'")
     op.alter_column("jobs", "external_id", type_=sa.BigInteger(), existing_type=sa.String(64),
                     postgresql_using="external_id::bigint")

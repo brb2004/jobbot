@@ -18,7 +18,7 @@ async def main(keys: list[str], full: bool) -> None:
         for source, slugs in groups.items():
             if slugs:
                 print(source.name, await crawl_source(client, s, source, slugs))
-        if full:  # only a full crawl may retire other boards
+        if full:
             print(f"jobs closed from boards no longer listed: {await retire_dropped(s, keys)}")
         filled = await fill_descriptions(client, s)
         pruned = await prune(s)

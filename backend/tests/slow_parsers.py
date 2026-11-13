@@ -7,7 +7,7 @@ def hang(data: bytes) -> str:
 
 
 def balloon(data: bytes) -> str:
-    return "x" * (2 * 1024**3)  # 2 GB: over the child's memory limit
+    return "x" * (2 * 1024**3)
 
 
 def nap(data: bytes) -> str:

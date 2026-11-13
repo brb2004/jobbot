@@ -53,7 +53,7 @@ async def test_register_answers_the_same_for_a_taken_email(client, outbox):
     )
     assert "already have" in outbox[-1]["Subject"] and outbox[-1]["To"] == "dup@x.com"
     login = await client.post("/auth/login", json={"email": "dup@x.com", "password": "another-password"})
-    assert login.status_code == 401  # the second sign-up changed nothing
+    assert login.status_code == 401
     client.cookies.clear()
 
 
@@ -75,7 +75,7 @@ async def test_already_registered_mails_are_capped_per_address(client, outbox):
                 "/auth/register", json={"email": "cap@x.com", "password": "correct-horse-battery"}
             )
         ).status_code == 202
-    assert len(outbox) == 1 + 3  # the signup link, then 3 resends max
+    assert len(outbox) == 1 + 3
 
 
 async def test_login_with_right_password_returns_working_token(client):
@@ -114,9 +114,7 @@ async def test_password_is_never_stored_in_plain_text(client, session):
 
 
 async def test_long_multibyte_passwords_are_rejected_cleanly_not_500(client):
-    r = await client.post(
-        "/auth/register", json={"email": "utf@auth.com", "password": "é" * 40}
-    )  # 40 chars, 80 bytes
+    r = await client.post("/auth/register", json={"email": "utf@auth.com", "password": "é" * 40})
     assert r.status_code == 422
     assert "72 bytes" in r.text
 
@@ -143,7 +141,7 @@ async def test_login_sets_an_httponly_lax_session_cookie_that_authenticates(clie
         )
         cookie = r.headers["set-cookie"].lower()
         assert "jobbot_session=" in cookie and "httponly" in cookie and "samesite=lax" in cookie
-        assert (await client.get("/auth/me")).status_code == 200  # cookie alone, no header
+        assert (await client.get("/auth/me")).status_code == 200
     finally:
         client.cookies.clear()
 
@@ -176,7 +174,7 @@ async def test_logout_revokes_tokens_but_a_fresh_login_works(client):
         h = {"Authorization": f"Bearer {tok}"}
         assert (await client.get("/auth/me", headers=h)).status_code == 200
         assert (await client.post("/auth/logout", headers=h)).status_code == 204
-        assert (await client.get("/auth/me", headers=h)).status_code == 401  # old token is dead
+        assert (await client.get("/auth/me", headers=h)).status_code == 401
         new = (
             await client.post(
                 "/auth/login?token=1", json={"email": "revoke@auth.com", "password": "correct-horse"}
@@ -192,7 +190,7 @@ async def test_noisy_ip_is_slowed_not_locked_out(client, monkeypatch):
     monkeypatch.setattr(limits_api, "TARPIT_S", 0)
     await signup(client, "nat@auth.com", "correct-horse")
     for _ in range(30):
-        limits_api.LOGIN_IP.hit("127.0.0.1")  # someone else on this network
+        limits_api.LOGIN_IP.hit("127.0.0.1")
     r = await client.post("/auth/login?token=1", json={"email": "nat@auth.com", "password": "correct-horse"})
     assert r.status_code == 200
     client.cookies.clear()
@@ -289,7 +287,7 @@ async def test_behind_cloudflare_the_limit_is_per_real_visitor(client, monkeypat
         headers={"CF-Connecting-IP": "203.0.113.2"},
         json={"email": "cfb@auth.com", "password": "correct-horse"},
     )
-    assert (blocked.status_code, other.status_code) == (429, 202)  # visitors don't share a bucket
+    assert (blocked.status_code, other.status_code) == (429, 202)
     client.cookies.clear()
 
 
@@ -305,5 +303,5 @@ async def test_without_cloudflare_the_header_is_ignored(client):
         headers={"CF-Connecting-IP": "198.51.100.99"},
         json={"email": "spoof9@auth.com", "password": "correct-horse"},
     )
-    assert r.status_code == 429  # a forged header can't dodge the limit
+    assert r.status_code == 429
     client.cookies.clear()

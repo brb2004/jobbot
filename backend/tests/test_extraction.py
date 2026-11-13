@@ -12,5 +12,5 @@ async def test_job_requirements_come_from_the_html_requirements_section(session)
 
     assert await extraction.fill_job_requirements(session) == 2
     assert with_section.requirements == ["Go", "SQL"]
-    assert without.requirements == []  # cached as empty: never re-parsed, never scored
+    assert without.requirements == []
     assert await extraction.fill_job_requirements(session) == 0

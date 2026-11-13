@@ -13,9 +13,9 @@ async def fill_job_requirements(s: AsyncSession, job_ids=None) -> int:
             return 0
         stmt = stmt.where(Job.id.in_(job_ids))
     done = 0
-    async for jobs in batches(s, stmt, Job.id):  # postings' HTML is big: a slice at a time
+    async for jobs in batches(s, stmt, Job.id):
         for job in jobs:
-            job.requirements = requirement_bullets(job.content_html)  # [] when there's no section
+            job.requirements = requirement_bullets(job.content_html)
         await s.commit()
         done += len(jobs)
     return done

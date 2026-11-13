@@ -68,9 +68,9 @@ def test_a_city_in_another_state_is_not_the_local_one():
     assert "Dallas-Fort Worth" not in places_in("Arlington, Virginia")
     assert "Dallas-Fort Worth" in places_in("Arlington, TX")
     assert "Dallas-Fort Worth" in places_in("Plano, Texas")
-    assert "Dallas-Fort Worth" in places_in("Arlington")  # no state given: same as before
-    assert "Dallas-Fort Worth" in places_in("Dallas, TX / Arlington, VA")  # one of the states is its own
-    assert "Toronto" in places_in("Toronto, CA")  # CA = Canada there
+    assert "Dallas-Fort Worth" in places_in("Arlington")
+    assert "Dallas-Fort Worth" in places_in("Dallas, TX / Arlington, VA")
+    assert "Toronto" in places_in("Toronto, CA")
     assert "Vancouver WA" in places_in("Vancouver, WA") and "Vancouver" in places_in("Vancouver, BC")
 
 

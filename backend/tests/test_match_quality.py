@@ -27,7 +27,7 @@ def test_missing_every_language_the_job_names_caps_below_strong():
     m = score_job(
         "j", {"Ruby", "Ruby on Rails", "SQL", "Git", "Docker"}, {"SQL", "Git", "Docker", "Python"}, w, prior=0
     )
-    assert m.no_language and m.score < TIERS[0][0]  # 3/5 = 0.6 uncapped
+    assert m.no_language and m.score < TIERS[0][0]
 
 
 def test_one_of_the_named_languages_is_enough():
@@ -40,7 +40,7 @@ def test_jobs_far_above_your_years_are_dropped():
     w = {"Python": 1.0}
     assert score_job("j", {"Python"}, {"Python"}, w, job_years=4, user_years=0) is None
     m = score_job("j", {"Python"}, {"Python"}, w, job_years=3, user_years=0)
-    assert m is not None and m.over_years  # +3 still shows, halved
+    assert m is not None and m.over_years
 
 
 def test_clearance_and_citizenship_asks_are_flagged():

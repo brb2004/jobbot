@@ -6,7 +6,6 @@ from collections import defaultdict
 from sqlalchemy import select
 
 TOKEN = re.compile(r"[A-Za-z.][A-Za-z0-9.#+/-]*[A-Za-z0-9#+]|[A-Za-z]")
-# Capitalised words that aren't skills. Short on purpose: the company count and a human do the rest.
 STOP = {
     w.lower()
     for w in [
@@ -223,16 +222,16 @@ def _techy(tok: str, first: bool) -> bool:
     if tok.lower() in STOP or len(tok) < 2 and tok not in {"R"}:
         return False
     if "/" in tok and all(part.lower() in STOP for part in tok.split("/") if part):
-        return False  # "and/or", "his/her"
+        return False
     return (
-        any(c.isupper() for c in tok[1:])  # SQLAlchemy, gRPC, iOS, JWT
-        or any(c.isdigit() or c in ".#+/" for c in tok)  # Node.js, C#, x86, S3
+        any(c.isupper() for c in tok[1:])
+        or any(c.isdigit() or c in ".#+/" for c in tok)
         or (tok[0].isupper() and not first)
-    )  # Kafka mid-sentence (not "Strong ..." at the start)
+    )
 
 
 def candidates(text: str, tagger) -> set[str]:
-    rest = tagger.pattern.sub(" | ", text or "")  # known skills out; '|' stops pairs forming across them
+    rest = tagger.pattern.sub(" | ", text or "")
     found, prev = set(), None
     for i, m in enumerate(TOKEN.finditer(rest)):
         tok = m.group().strip(".-/")
@@ -242,7 +241,7 @@ def candidates(text: str, tagger) -> set[str]:
         if single:
             found.add(tok)
         if prev and cap and (prev[2] or single) and not rest[prev[1] : m.start()].strip():
-            pair = f"{prev[0]} {tok}"  # "Spring Boot", "Google Cloud" ("Cloud" alone is too vague)
+            pair = f"{prev[0]} {tok}"
             if not tagger.tag(pair):
                 found.add(pair)
         prev = (tok, m.end(), single) if (single or cap) and not first else None
@@ -288,16 +287,16 @@ async def main(top_n: int, min_companies: int) -> None:
     from app.services.preferences_services import Preferences, allowed
     from app.services.skills_services import default_tagger
 
-    everyone = Preferences()  # the matcher's default title rules: engineering roles
+    everyone = Preferences()
     tally = Tally(default_tagger())
     async with SessionLocal() as s:
         stream = await s.stream(
             select(Job.board, Job.title, Job.location, Job.requirements)
             .where(Job.closed_at.is_(None), Job.requirements.is_not(None))
             .execution_options(yield_per=2000)
-        )  # streamed: flat memory
+        )
         async for board, title, location, reqs in stream:
-            if allowed(Job(title=title, location=location), everyone):  # only jobs the matcher would show
+            if allowed(Job(title=title, location=location), everyone):
                 tally.add(board, reqs)
     await engine.dispose()
     ranked = tally.ranked(min_companies)

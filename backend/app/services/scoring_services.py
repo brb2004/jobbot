@@ -3,12 +3,12 @@ import math
 from collections import Counter
 from dataclasses import dataclass, field
 
-PRIOR = 2.0  # imaginary unmet skills, in average-weight units, so a thin posting can't score 100%
-YEARS_SLACK = 1  # one year more than you have is still worth applying for
+PRIOR = 2.0
+YEARS_SLACK = 1
 YEARS_PENALTY = 0.5
-YEARS_HIDE = 3  # more than you have + 3: not shown at all
-TIERS = [(0.45, "Strong match"), (0.30, "Worth applying"), (0.0, "Stretch")]  # realistic top is ~0.5
-LANG_CAP = round(TIERS[0][0] - 0.01, 2)  # names languages you have none of: never "Strong"
+YEARS_HIDE = 3
+TIERS = [(0.45, "Strong match"), (0.30, "Worth applying"), (0.0, "Stretch")]
+LANG_CAP = round(TIERS[0][0] - 0.01, 2)
 LANGUAGES = frozenset(
     "Python Go Java Ruby JavaScript TypeScript C C++ C# Rust Kotlin Swift Scala PHP Elixir".split()
 )
@@ -18,7 +18,7 @@ LANGUAGES = frozenset(
 class Match:
     job_id: object
     score: float
-    matched: list[str]  # heaviest first
+    matched: list[str]
     missing: list[str]
     years_asked: int | None = None
     over_years: bool = False

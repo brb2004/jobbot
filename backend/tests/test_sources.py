@@ -87,12 +87,9 @@ async def rows(session, board):
     ).all()
 
 
-# ---- shared helpers ----
-
-
 def test_remote_locations_say_remote_so_preferences_read_them():
     assert remote_location(["United States", "Canada"], True) == "Remote - United States; Remote - Canada"
-    assert remote_location(["Remote (US)"], True) == "Remote (US)"  # already says it
+    assert remote_location(["Remote (US)"], True) == "Remote (US)"
     assert remote_location([], True) == "Remote"
     assert remote_location(["Dallas, TX", "Dallas, TX", " "], False) == "Dallas, TX"
     assert remote_location([], False) is None
@@ -109,9 +106,6 @@ def test_a_remote_us_posting_reaches_a_dfw_user():
 def test_names_from_slugs():
     assert name_from_slug("acme-corp") == "Acme Corp"
     assert name_from_slug("openai") == "Openai"
-
-
-# ---- Ashby ----
 
 
 def ashby_handler(jobs, status=200):
@@ -135,7 +129,7 @@ async def test_ashby_board_saves_full_postings_under_a_namespaced_key(session):
     assert (job.salary_min, job.salary_max, job.salary_currency) == (150000, 190000, "USD")
     assert "3+ years of Python" in job.description and job.content_html.startswith("<p>About us")
     assert (await session.get(Board, "ashby:acme")).name == "Acme"
-    await fill_job_requirements(session)  # same extraction path as Greenhouse
+    await fill_job_requirements(session)
     assert (await rows(session, "ashby:acme"))[0].requirements == ["3+ years of Python", "PostgreSQL"]
 
 
@@ -174,7 +168,7 @@ async def test_ashby_unlisted_postings_close_and_malformed_ones_dont(session):
     a, b, broken = (ashby_job(id=f"id-{n}") for n in "abc")
     async with client(ashby_handler([a, b, broken])) as c:
         await crawl_source(c, session, ASHBY, ["acme"])
-    del broken["title"]  # malformed now: skipped, still listed
+    del broken["title"]
     async with client(ashby_handler([a, {**b, "isListed": False}, broken])) as c:
         summary = await crawl_source(c, session, ASHBY, ["acme"])
     state = {j.external_id: j.closed_at is None for j in await rows(session, "ashby:acme")}
@@ -196,7 +190,7 @@ async def test_unchanged_posting_keeps_its_requirements_edited_one_rebuilds(sess
         await crawl_source(c, session, ASHBY, ["acme"])
     await fill_job_requirements(session)
     async with client(ashby_handler([ashby_job(title="Backend Engineer II")])) as c:
-        await crawl_source(c, session, ASHBY, ["acme"])  # same text, new title
+        await crawl_source(c, session, ASHBY, ["acme"])
     [job] = await rows(session, "ashby:acme")
     assert job.title == "Backend Engineer II" and job.requirements == ["3+ years of Python", "PostgreSQL"]
 
@@ -213,14 +207,11 @@ async def test_a_reopened_posting_gets_its_pruned_text_back(session):
     async with client(ashby_handler([ashby_job()])) as c:
         await crawl_source(c, session, ASHBY, ["acme"])
     [job] = await rows(session, "ashby:acme")
-    job.content_html, job.description = None, None  # what prune does to old closed jobs
+    job.content_html, job.description = None, None
     await session.commit()
     async with client(ashby_handler([ashby_job()])) as c:
         await crawl_source(c, session, ASHBY, ["acme"])
     assert (await rows(session, "ashby:acme"))[0].content_html.startswith("<p>About us")
-
-
-# ---- Lever ----
 
 
 def lever_handler(jobs):
@@ -250,7 +241,7 @@ async def test_lever_that_ignores_paging_isnt_read_forever(session, monkeypatch)
 
     def handler(req):
         calls.append(req)
-        return httpx.Response(200, json=jobs)  # same full list whatever skip says
+        return httpx.Response(200, json=jobs)
 
     async with client(handler) as c:
         got, ids = await lever_ingest.fetch_board(c, "acme")
@@ -261,7 +252,7 @@ async def test_lever_lists_become_headed_sections(session):
     async with client(lever_handler([lever_job()])) as c:
         await crawl_source(c, session, LEVER, ["acme"])
     [job] = await rows(session, "lever:acme")
-    assert job.location == "Dallas, TX; Austin, TX"  # hybrid: not remote
+    assert job.location == "Dallas, TX; Austin, TX"
     assert (job.salary_min, job.salary_max) == (120000, 160000)
     await fill_job_requirements(session)
     assert (await rows(session, "lever:acme"))[0].requirements == ["Go or Rust", "Kubernetes"]
@@ -277,9 +268,6 @@ async def test_lever_remote_and_non_yearly_pay():
     )
     assert p.location == "Remote - United States"
     assert p.salary_min is None
-
-
-# ---- across sources ----
 
 
 async def test_same_slug_and_id_on_two_sources_stay_separate(session):
@@ -313,7 +301,7 @@ async def test_retire_dropped_keeps_every_listed_source(session):
 
 
 async def test_greenhouse_details_run_skips_other_sources(session):
-    session.add(Job(board="ashby:acme", external_id="x", title="B"))  # no description, but not Greenhouse
+    session.add(Job(board="ashby:acme", external_id="x", title="B"))
     await session.commit()
 
     def handler(req):
@@ -324,4 +312,4 @@ async def test_greenhouse_details_run_skips_other_sources(session):
 
 
 def test_backoff_lives_in_the_shared_core():
-    assert crawl_ingest.BACKOFF == 0  # conftest disables waits for every source
+    assert crawl_ingest.BACKOFF == 0

@@ -12,8 +12,8 @@ from app.services.scoring_services import top_matches
 from app.services.skills_services import default_tagger
 
 PER_COMPANY = 2
-RESERVE = 20  # stored past the k shown, so applying or dismissing just reveals the next one
-LOCK_NS = 7342  # advisory-lock namespace for per-resume rematches
+RESERVE = 20
+LOCK_NS = 7342
 
 
 async def match_all(
@@ -52,7 +52,7 @@ async def _users_and_marks(s: AsyncSession, user_id: UUID | None) -> tuple[dict,
 
 def _pick(idx: JobIndex, resume: Resume, prefs: Preferences, store: int):
     tagger = default_tagger()
-    typed = set().union(*(tagger.tag(word) for word in prefs.extra_skills))  # "k8s" -> Kubernetes
+    typed = set().union(*(tagger.tag(word) for word in prefs.extra_skills))
     mine = tagger.expand(set(resume.skills) | typed)
     years = prefs.years_experience if prefs.years_experience is not None else resume.years_detected
     ok = {j.id for j in idx.jobs if allowed(j, prefs)}
@@ -66,7 +66,7 @@ async def _replace_scores(s: AsyncSession, idx: JobIndex, resume_id, picks) -> i
     s.add_all(
         MatchScore(resume_id=resume_id, job_id=m.job_id, score=m.score, detail=_detail(idx, m)) for m in picks
     )
-    await s.commit()  # releases the lock
+    await s.commit()
     return len(picks)
 
 

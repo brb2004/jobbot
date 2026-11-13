@@ -12,25 +12,23 @@ type Props = {
   hint: string
   values: string[]
   onValues: (v: string[]) => void
-  pending: string                                     // typed but not added yet (still saved)
+  pending: string
   onPending: (v: string) => void
-  options?: Named[]                                   // suggestions while typing
-  canon?: (v: string) => string | undefined           // any alias -> canonical name
-  unknown?: (v: string) => string | null              // note shown on a chip, or null
+  options?: Named[]
+  canon?: (v: string) => string | undefined
+  unknown?: (v: string) => string | null
   placeholder?: string
-  display?: (name: string) => string             // canonical name -> what to show ("Vancouver, BC")
-  splitOnComma?: boolean                          // false for places: "Vancouver, WA" is one entry
+  display?: (name: string) => string
+  splitOnComma?: boolean
   children?: ReactNode
 }
 
-// One list field: chips (one per canonical name), a box that turns Enter or commas into chips,
-// and a grouped suggestion list with arrow-key navigation.
 export function ChipInput({ id, label, hint, values, onValues, pending, onPending, options = [], canon,
                             unknown, placeholder, display = (n) => n, splitOnComma = true, children }: Props) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(-1)
   const keyOf = (v: string) => canon?.(v) ?? v
-  const chips = [...new Map(values.map((v) => [keyOf(v).toLowerCase(), keyOf(v)])).values()]   // "dallas", "plano" -> one chip
+  const chips = [...new Map(values.map((v) => [keyOf(v).toLowerCase(), keyOf(v)])).values()]
   const chosen = new Set(chips.map((c) => c.toLowerCase()))
 
   const q = pending.trim().toLowerCase()
@@ -38,12 +36,12 @@ export function ChipInput({ id, label, hint, values, onValues, pending, onPendin
   const available = options.filter((o) => !chosen.has(o.name.toLowerCase()))
   const matches = (q ? available.filter((o) => o.name.toLowerCase().includes(q) || shown(o).includes(q)
                                          || (o.aliases ?? []).some((a) => a.toLowerCase().startsWith(q)))
-                     : available)                                     // empty box: the whole list
+                     : available)
     .sort((a, b) => group(a) - group(b)
       || Number(!shown(a).startsWith(q)) - Number(!shown(b).startsWith(q))
       || shown(a).localeCompare(shown(b)))
   const showList = open && matches.length > 0
-  useEffect(() => {                                   // keep the highlighted row in view while arrowing
+  useEffect(() => {
     if (active >= 0) document.getElementById(`${id}-opt-${active}`)?.scrollIntoView?.({ block: 'nearest' })
   }, [active, id])
 

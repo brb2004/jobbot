@@ -1,12 +1,10 @@
-// Typed client for the FastAPI backend. The session is an httpOnly cookie set by the server:
-// page JavaScript never sees the token, so an injected script can't steal it.
 
 export interface Preferences {
   include_titles: string[]
   exclude_titles: string[]
   locations: string[]
-  remote: boolean          // show remote jobs open to your locations
-  onsite: boolean          // show on-site/hybrid jobs in your locations
+  remote: boolean
+  onsite: boolean
   years_experience: number | null
   extra_skills: string[]
   include_presales: boolean
@@ -52,7 +50,7 @@ export interface Place {
   aliases: string[]
 }
 
-export interface ResumeOwn {                     // this resume's own settings; null = follow Preferences
+export interface ResumeOwn {
   include_titles: string[] | null
   exclude_titles: string[] | null
   years_experience: number | null
@@ -74,7 +72,6 @@ export class ApiError extends Error {
   }
 }
 
-// 'include_titles' -> 'Include titles' for error messages
 const label = (field: string) => field.charAt(0).toUpperCase() + field.slice(1).replace(/_/g, ' ')
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>
@@ -87,7 +84,7 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
     const headers = new Headers(init.headers)
     if (init.body && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
     const res = await fetchFn(`${base}${path}`, { ...init, headers, credentials: 'same-origin' })
-    if (res.status === 401 && loggedIn) {       // session expired: tell the app
+    if (res.status === 401 && loggedIn) {
       loggedIn = false
       unauthorized.forEach((fn) => fn())
     }
@@ -96,26 +93,23 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
       try {
         const body = await res.json()
         if (typeof body.detail === 'string') message = body.detail
-        else if (Array.isArray(body.detail))     // FastAPI 422: list of field errors
+        else if (Array.isArray(body.detail))
           message = body.detail.map((d: { loc?: string[]; msg: string }) =>
-            String(d.loc?.at(-1) ?? 'input') === 'body'          // whole-form error: no field label
+            String(d.loc?.at(-1) ?? 'input') === 'body'
               ? d.msg
               : `${label(String(d.loc?.at(-1) ?? 'input'))}: ${d.msg}`).join('; ')
-      } catch {
-        // not JSON: keep statusText
-      }
+      } catch {}
       throw new ApiError(res.status, message)
     }
     return (res.status === 204 ? undefined : await res.json()) as T
   }
 
   async function authenticate(path: string, email: string, password: string): Promise<void> {
-    await call(path, { method: 'POST', body: JSON.stringify({ email, password }) })   // server sets the cookie
+    await call(path, { method: 'POST', body: JSON.stringify({ email, password }) })
     loggedIn = true
   }
 
   return {
-    // No session yet: the emailed link logs you in. Same answer whether or not the address is taken.
     register: async (email: string, password: string) => {
       await call('/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) })
     },
@@ -124,7 +118,7 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
       loggedIn = false
       await call('/auth/logout', { method: 'POST' }).catch(() => {})
     },
-    restore: async () => {                       // on page load: is the cookie still valid?
+    restore: async () => {
       try {
         await call('/auth/me')
         loggedIn = true
@@ -142,14 +136,14 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
       form.append('file', file)
       if (opts.name) form.append('name', opts.name)
       const q = opts.replace ? `?replace=${encodeURIComponent(opts.replace)}` : ''
-      return call<ResumeInfo>(`/resumes${q}`, { method: 'POST', body: form })   // no Content-Type: browser adds the boundary
+      return call<ResumeInfo>(`/resumes${q}`, { method: 'POST', body: form })
     },
     updateResume: (id: string, body: { name?: string; own?: ResumeOwn }) =>
       call<ResumeInfo>(`/resumes/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) }),
     deleteResume: (id: string) => call<void>(`/resumes/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     listResumes: () => call<ResumeInfo[]>('/resumes'),
     listPlaces: () => call<Place[]>('/places'),
-    listSkills: () => call<Place[]>('/skills'),   // same shape: name + aliases
+    listSkills: () => call<Place[]>('/skills'),
     me: () => call<{ id: string; email: string; email_verified_at: string | null }>('/auth/me'),
     unsubscribe: (token: string) => call<void>('/email/unsubscribe', { method: 'POST', body: JSON.stringify({ token }) }),
     resubscribe: (token: string) => call<void>('/email/resubscribe', { method: 'POST', body: JSON.stringify({ token }) }),

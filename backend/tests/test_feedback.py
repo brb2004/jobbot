@@ -76,7 +76,7 @@ async def test_a_report_is_acknowledged_by_email_right_away(client, session, out
     ref = r.json()["ref"]
     assert len(outbox) == 1, "sent just after the response, no cron wait"
     assert outbox[0]["To"] == user.email and ref in outbox[0]["Subject"]
-    assert "Apply button" not in outbox[0].get_content()  # the report isn't echoed back
+    assert "Apply button" not in outbox[0].get_content()
     [fb] = await rows(session, user)
     assert (fb.kind, fb.page, fb.ack_status, fb.attempts) == ("bug", "/matches", "sent", 1)
 
@@ -88,9 +88,7 @@ async def test_a_failed_email_stays_queued_and_goes_out_on_the_next_drain(client
         raise OSError("smtp down")
 
     use_mailer(down)
-    assert (
-        await client.post("/feedback", json=BUG, headers=h)
-    ).status_code == 202  # the report is still saved
+    assert (await client.post("/feedback", json=BUG, headers=h)).status_code == 202
     [fb] = await rows(session, user)
     assert (fb.ack_status, fb.attempts) == ("queued", 1)
 
@@ -98,10 +96,10 @@ async def test_a_failed_email_stays_queued_and_goes_out_on_the_next_drain(client
         outbox.append(msg)
 
     use_mailer(capture)
-    await client.post("/feedback", json={**BUG, "kind": "idea"}, headers=h)  # sent at once
+    await client.post("/feedback", json={**BUG, "kind": "idea"}, headers=h)
     assert len(outbox) == 1
     await cron(session)
-    assert len(outbox) == 2  # the cron retried the straggler
+    assert len(outbox) == 2
     assert [f.ack_status for f in await rows(session, user)] == ["sent", "sent"]
 
 
@@ -112,7 +110,7 @@ async def test_reports_are_rate_limited_per_account(client, session, outbox):
     r = await client.post("/feedback", json=BUG, headers=h)
     assert r.status_code == 429 and int(r.headers["Retry-After"]) > 0
     _, other = await account(session)
-    assert (await client.post("/feedback", json=BUG, headers=other)).status_code == 202  # per account
+    assert (await client.post("/feedback", json=BUG, headers=other)).status_code == 202
 
 
 async def test_only_confirmed_accounts_and_sane_input(client, session, outbox):

@@ -15,7 +15,7 @@ async def check(client: httpx.AsyncClient, sem: asyncio.Semaphore, source, slug:
 
 
 async def main() -> None:
-    sem = asyncio.Semaphore(5)  # be polite: 5 at a time
+    sem = asyncio.Semaphore(5)
     groups = by_source(load_slugs(BOARDS_FILE.read_text()))
     async with httpx.AsyncClient(timeout=15, headers=HEADERS) as client:
         results = await asyncio.gather(

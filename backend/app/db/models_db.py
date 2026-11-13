@@ -16,11 +16,9 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True)
     hashed_password: Mapped[str] = mapped_column(String(255))
     preferences: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
-    tokens_valid_after: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True)
-    )  # logout = revoke older tokens
-    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # None = no digests
-    digest_opt_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # set = unsubscribed
+    tokens_valid_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    digest_opt_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -29,7 +27,7 @@ class Job(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title: Mapped[str | None]
     board: Mapped[str | None] = mapped_column(String(100))
-    external_id: Mapped[str | None] = mapped_column(String(64))  # the source's posting id, as text
+    external_id: Mapped[str | None] = mapped_column(String(64))
     url: Mapped[str | None]
     location: Mapped[str | None]
     description: Mapped[str | None] = mapped_column(Text)
@@ -39,43 +37,36 @@ class Job(Base):
     salary_currency: Mapped[str | None] = mapped_column(String(10))
     requirements: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
     skills: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
-    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # gone from its board
-    source_updated_at: Mapped[str | None] = mapped_column(
-        String(40)
-    )  # Greenhouse updated_at, or a content hash
-    skills_version: Mapped[str | None] = mapped_column(String(12))  # skills.txt hash used to tag
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source_updated_at: Mapped[str | None] = mapped_column(String(40))
+    skills_version: Mapped[str | None] = mapped_column(String(12))
 
     __table_args__ = (
         UniqueConstraint("board", "external_id", name="uq_jobs_board_external"),
-        Index(
-            "ix_jobs_open", "id", postgresql_where=closed_at.is_(None)
-        ),  # matching/digest scan open jobs only
+        Index("ix_jobs_open", "id", postgresql_where=closed_at.is_(None)),
     )
 
 
 class Resume(Base):
     __tablename__ = "resumes"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(  # up to MAX_RESUMES; go with the account
+    user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE", name="fk_resumes_user_id"), index=True
     )
-    name: Mapped[str | None] = mapped_column(String(40))  # "Backend", "DevOps"
-    title_prefs: Mapped[dict | None] = mapped_column(
-        JSONB(none_as_null=True)
-    )  # per-resume titles/years; unset = account's
-    # clock_timestamp, not now(): two uploads in one transaction still get an order (oldest = default tab)
+    name: Mapped[str | None] = mapped_column(String(40))
+    title_prefs: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.clock_timestamp()
     )
     filename: Mapped[str | None] = mapped_column(String(255))
     raw_text: Mapped[str | None] = mapped_column(Text)
-    years_detected: Mapped[int | None]  # from the resume text; prefs override
+    years_detected: Mapped[int | None]
     skills: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
-    skills_version: Mapped[str | None] = mapped_column(String(12))  # skills.txt hash used to tag
+    skills_version: Mapped[str | None] = mapped_column(String(12))
     education: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
     experience: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
 
-    user: Mapped["User"] = relationship(lazy="raise")  # never loaded; lets the ORM insert the user row first
+    user: Mapped["User"] = relationship(lazy="raise")
 
 
 class MatchScore(Base):
@@ -89,7 +80,7 @@ class MatchScore(Base):
 
     __table_args__ = (
         UniqueConstraint("resume_id", "job_id"),
-        Index("ix_match_scores_job_id", "job_id"),  # ON DELETE CASCADE from jobs: no seq scan per deleted job
+        Index("ix_match_scores_job_id", "job_id"),
     )
 
 
@@ -112,12 +103,12 @@ class Feedback(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
-    kind: Mapped[str] = mapped_column(String(20))  # bug | feedback | idea
+    kind: Mapped[str] = mapped_column(String(20))
     message: Mapped[str] = mapped_column(Text)
     page: Mapped[str | None] = mapped_column(String(300))
     user_agent: Mapped[str | None] = mapped_column(String(300))
-    status: Mapped[str] = mapped_column(String(20), default="open")  # triage: open | done
-    ack_status: Mapped[str] = mapped_column(String(20), default="queued")  # queued | sent | failed
+    status: Mapped[str] = mapped_column(String(20), default="open")
+    ack_status: Mapped[str] = mapped_column(String(20), default="queued")
     attempts: Mapped[int] = mapped_column(default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     acked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -128,11 +119,11 @@ class Board(Base):
     slug: Mapped[str] = mapped_column(String(100), primary_key=True)
     name: Mapped[str | None] = mapped_column(String(200))
     checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    misses: Mapped[int] = mapped_column(default=0, server_default="0")  # consecutive 404 crawls
+    misses: Mapped[int] = mapped_column(default=0, server_default="0")
 
 
 class DigestSent(Base):
     __tablename__ = "digest_sent"
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    week: Mapped[str] = mapped_column(String(8), primary_key=True)  # "2026-W46"
+    week: Mapped[str] = mapped_column(String(8), primary_key=True)
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

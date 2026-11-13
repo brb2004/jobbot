@@ -5,14 +5,14 @@ import resource
 import threading
 import zipfile
 
-MAX_PAGES = 15  # a resume is 1-3 pages; anything far past that isn't one
-MAX_UNZIPPED = 10 * 1024 * 1024  # a .docx is a zip: cap what it expands to (zip bombs)
+MAX_PAGES = 15
+MAX_UNZIPPED = 10 * 1024 * 1024
 MAX_ZIP_ENTRIES = 1000
 TIMEOUT_S = 10
-PARSE_SLOTS = 2  # children at once: each may use up to 512 MB, the API pod has 1 GiB
-QUEUE_WAIT_S = 30  # an upload waits this long for a slot, then is told to retry
+PARSE_SLOTS = 2
+QUEUE_WAIT_S = 30
 _slots = threading.BoundedSemaphore(PARSE_SLOTS)
-MEMORY_LIMIT = 512 * 1024 * 1024  # address space for the child: a decompression bomb dies alone
+MEMORY_LIMIT = 512 * 1024 * 1024
 
 
 class TooLarge(Exception):
@@ -33,7 +33,7 @@ def sniff(data: bytes) -> str:
     if data.startswith(b"PK\x03\x04"):
         return "docx"
     if b"\x00" in data:
-        raise UnsupportedType  # binary pretending to be text
+        raise UnsupportedType
     return "txt"
 
 
@@ -67,7 +67,6 @@ def extract_text(data: bytes) -> str:
     except Unreadable:
         raise
     except Exception:
-        # never a 500, and never echo parser internals (which can contain resume text)
         raise Unreadable("Couldn't read this file. Try saving it again as a PDF or .docx.") from None
     return data.decode("utf-8", errors="ignore")
 
@@ -80,7 +79,7 @@ def _child(conn, data: bytes, target) -> None:
         conn.send(("unsupported", ""))
     except Unreadable as e:
         conn.send(("unreadable", str(e)))
-    except BaseException:  # MemoryError included: no details, see extract_text
+    except BaseException:
         conn.send(("unreadable", "Couldn't read this file. Try saving it again as a PDF or .docx."))
     finally:
         conn.close()
@@ -106,13 +105,13 @@ def _run_child(data: bytes, timeout: float, target) -> tuple[str, str] | None:
     child.close()
     try:
         return parent.recv() if parent.poll(timeout) else None
-    except EOFError:  # killed by the memory limit before it could answer
+    except EOFError:
         return ("unreadable", "Couldn't read this file. Try saving it again as a PDF or .docx.")
     finally:
         parent.close()
         p.join(0.5)
         if p.is_alive():
-            p.kill()  # over time: it never gets to finish
+            p.kill()
             p.join()
 
 

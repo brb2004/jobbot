@@ -36,14 +36,14 @@ def test_top_matches_ranks_skips_unrelated_jobs_and_breaks_ties_by_id():
 def test_thin_jobs_are_pulled_down():
     w = {"APIs": 1.0, "Python": 1.0, "React": 1.0}
     me = {"APIs", "Python", "React"}
-    thin = score_job("t", {"APIs"}, me, w).score  # 1 / (1 + 2)
-    thick = score_job("k", {"APIs", "Python", "React"}, me, w).score  # 3 / (3 + 2)
+    thin = score_job("t", {"APIs"}, me, w).score
+    thick = score_job("k", {"APIs", "Python", "React"}, me, w).score
     assert thin < thick < 1.0
 
 
 def test_prior_is_measured_in_average_skills_so_scale_doesnt_matter():
-    small = score_job("j", {"A"}, {"A"}, {"A": 1.0}).score  # 1 / (1 + 2*1)
-    big = score_job("j", {"A"}, {"A"}, {"A": 5.0}).score  # 5 / (5 + 2*5)
+    small = score_job("j", {"A"}, {"A"}, {"A": 1.0}).score
+    big = score_job("j", {"A"}, {"A"}, {"A": 5.0}).score
     assert small == big == 0.33
 
 
@@ -60,12 +60,12 @@ def test_over_asking_jobs_are_halved_and_flagged():
     close = score_job("j", {"Python"}, {"Python"}, w, prior=0, job_years=2, user_years=1)
     unknown = score_job("j", {"Python"}, {"Python"}, w, prior=0, job_years=5, user_years=None)
     assert (asked.score, asked.years_asked, asked.over_years) == (0.5, 4, True)
-    assert (close.score, close.years_asked, close.over_years) == (1.0, 2, False)  # within 1 year: no penalty
+    assert (close.score, close.years_asked, close.over_years) == (1.0, 2, False)
     assert (unknown.score, unknown.years_asked, unknown.over_years) == (
         1.0,
         5,
         False,
-    )  # user never said: no penalty
+    )
 
 
 def test_top_matches_applies_allow_filter_only_to_candidates():
@@ -77,11 +77,11 @@ def test_top_matches_applies_allow_filter_only_to_candidates():
 
     result = top_matches({"Python"}, jobs, {"Python": 1.0, "Rust": 1.0}, allow=allow)
     assert [m.job_id for m in result] == ["j2"]
-    assert "j3" not in seen  # never even checked: shares no skill
+    assert "j3" not in seen
 
 
 def test_allow_is_only_checked_until_k_matches_pass():
-    jobs = {f"j{i}": {"Python"} for i in range(1, 6)}  # all tie; heap pops j1, j2, j3...
+    jobs = {f"j{i}": {"Python"} for i in range(1, 6)}
     seen = []
 
     def allow(j):
@@ -89,7 +89,7 @@ def test_allow_is_only_checked_until_k_matches_pass():
 
     result = top_matches({"Python"}, jobs, {"Python": 1.0}, k=2, allow=allow)
     assert [m.job_id for m in result] == ["j2", "j3"]
-    assert seen == ["j1", "j2", "j3"]  # stopped once 2 passed; j4, j5 never checked
+    assert seen == ["j1", "j2", "j3"]
 
 
 def test_within_restricts_candidates_before_scoring():
@@ -110,7 +110,7 @@ def test_years_from_title_when_the_posting_gives_no_number():
     assert years_from_title("Sr. Engineer") == 5
     assert years_from_title("Staff Software Engineer") == 8
     assert years_from_title("Principal Engineer") == 10
-    assert years_from_title("Software Engineer II") == 2  # level number: mid-level
+    assert years_from_title("Software Engineer II") == 2
 
 
 def test_years_note_wording():

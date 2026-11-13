@@ -13,9 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Board, Job
 
-TRIES = 3  # attempts per request on 429 / 5xx / connection errors
-BACKOFF = 0.5  # seconds, doubled each retry (Retry-After wins when it's longer, capped at 10 s)
-MAX_MISSES = 3  # consecutive 404 crawls before a board's jobs are closed
+TRIES = 3
+BACKOFF = 0.5
+MAX_MISSES = 3
 log = logging.getLogger(__name__)
 
 
@@ -25,7 +25,7 @@ class Posting:
     title: str
     url: str
     location: str | None = None
-    version: str | None = None  # changes when the posting changes (Greenhouse updated_at, else a hash)
+    version: str | None = None
     content_html: str | None = None
     description: str | None = None
     salary_min: float | None = None
@@ -33,14 +33,14 @@ class Posting:
     salary_currency: str | None = None
 
 
-Listing = tuple[list[Posting], list[str]]  # (postings that parsed, ids of everything listed)
+Listing = tuple[list[Posting], list[str]]
 
 
 @dataclass(frozen=True)
 class Source:
     name: str
-    prefix: str  # "" for Greenhouse, else "ashby:" ...
-    fetch_board: Callable[[httpx.AsyncClient, str], Awaitable[Listing | None]]  # None = 404
+    prefix: str
+    fetch_board: Callable[[httpx.AsyncClient, str], Awaitable[Listing | None]]
     fetch_name: Callable[[httpx.AsyncClient, str], Awaitable[str | None]]
 
     def key(self, slug: str) -> str:
@@ -67,7 +67,7 @@ async def _get(client: httpx.AsyncClient, url: str, params: dict | None = None) 
         else:
             if (r.status_code != 429 and r.status_code < 500) or attempt == TRIES - 1:
                 return r
-            with contextlib.suppress(ValueError):  # a date-form Retry-After: keep our own backoff
+            with contextlib.suppress(ValueError):
                 wait = max(wait, float(r.headers.get("Retry-After", 0)))
         await asyncio.sleep(min(wait, 10))
     raise AssertionError("unreachable")
@@ -84,7 +84,7 @@ def name_from_slug(slug: str) -> str:
 
 def remote_location(pieces: list[str], remote: bool) -> str | None:
     pieces = [p.strip() for p in pieces if p and p.strip()]
-    pieces = list(dict.fromkeys(pieces))  # dedupe, keep order
+    pieces = list(dict.fromkeys(pieces))
     if remote:
         pieces = [p if re.search(r"(?i)\bremote\b", p) else f"Remote - {p}" for p in pieces] or ["Remote"]
     return "; ".join(pieces) or None
@@ -127,9 +127,6 @@ async def save_postings(s: AsyncSession, key: str, postings: list[Posting]) -> i
     new = 0
     if deferred:
         stmt = insert(Job).values([_row(key, p) for p in deferred])
-        # The company edited the posting since we fetched it: drop the description so fill_descriptions
-        # fetches it again. Skills and requirements stay until the new text replaces them, so the job keeps
-        # matching meanwhile. NULL before (rows from before this column existed) is not a change.
         edited = Job.source_updated_at.is_not(None) & Job.source_updated_at.is_distinct_from(
             stmt.excluded.source_updated_at
         )
@@ -148,8 +145,6 @@ async def save_postings(s: AsyncSession, key: str, postings: list[Posting]) -> i
     if inline:
         stmt = insert(Job).values([_row(key, p) for p in inline])
         x = stmt.excluded
-        # The listing carries the whole posting: take the new text when it changed (or was pruned while
-        # closed) and clear requirements/skills so extraction and tagging rebuild them from it.
         changed = Job.source_updated_at.is_distinct_from(x.source_updated_at) | Job.content_html.is_(None)
         fresh = {
             c: case((changed, getattr(x, c)), else_=getattr(Job, c))
@@ -223,30 +218,30 @@ async def crawl_source(
         async with sem:
             try:
                 got = await source.fetch_board(client, slug)
-            except Exception as e:  # any failure: this board only
+            except Exception as e:
                 log.warning("%s board %s failed: %s", source.name, slug, repr(e)[:200])
                 return slug, None, e, None
             name = None
-            if got is not None and source.key(slug) not in named:  # once per board, not every crawl
-                with contextlib.suppress(Exception):  # try again next crawl
+            if got is not None and source.key(slug) not in named:
+                with contextlib.suppress(Exception):
                     name = await source.fetch_name(client, slug)
             return slug, got, None, name
 
     summary = CrawlSummary()
     tasks = [asyncio.ensure_future(fetch(slug)) for slug in slugs]
-    for done in asyncio.as_completed(tasks):  # save each board as it lands, then drop it
+    for done in asyncio.as_completed(tasks):
         slug, got, err, name = await done
         key = source.key(slug)
         if err:
-            summary.failed += 1  # unknown state: close nothing
+            summary.failed += 1
         elif got is None:
-            summary.missing += 1  # 404: counted; closed after MAX_MISSES in a row
+            summary.missing += 1
             summary.closed += await note_missing(s, key)
         else:
             postings, listed = got
             summary.found += 1
             if name:
-                await save_name(s, key, name)  # committed with the board's jobs
+                await save_name(s, key, name)
             await s.execute(update(Board).where(Board.slug == key, Board.misses > 0).values(misses=0))
             summary.new_jobs += await save_postings(s, key, postings)
             summary.closed += await close_missing(s, key, listed)

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { ApiError, type Api } from './api'
 
-// A click, not page load: link scanners open emailed links, and they mustn't unsubscribe anyone.
 export function Unsubscribe({ api, token }: { api: Api; token: string }) {
   const [state, setState] = useState<'ask' | 'out' | 'in'>('ask')
   const [error, setError] = useState<string | null>(null)

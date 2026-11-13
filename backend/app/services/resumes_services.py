@@ -5,8 +5,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Resume, User
-
-# parsing lives in documents_services (child process, time and page limits); re-exported for callers
 from app.services.documents_services import (
     TooLarge,
     Unreadable,
@@ -51,7 +49,7 @@ def default_name(filename: str) -> str:
 async def _mine(s: AsyncSession, user_id: UUID, resume_id: UUID) -> Resume:
     resume = await s.get(Resume, resume_id)
     if resume is None or resume.user_id != user_id:
-        raise NotFound  # someone else's id looks the same as a missing one
+        raise NotFound
     return resume
 
 
@@ -69,8 +67,7 @@ async def create(
         raise UnsupportedType
     if len(data) > MAX_BYTES:
         raise TooLarge
-    text = (await extract_text_safely(data)).replace("\x00", "")  # child process, time-limited
-    # validate BEFORE deleting anything: a bad upload must never wipe the current resume
+    text = (await extract_text_safely(data)).replace("\x00", "")
     if not text.strip():
         raise Unreadable(
             "Couldn't read any text from this file. If it's a scanned image, upload a text-based PDF or .docx."
@@ -81,13 +78,12 @@ async def create(
             "Couldn't find any skills in this file. Check it's your resume, "
             "or add skills on the Preferences page."
         )
-    # Lock the user row: two uploads at once take turns, so the count check below can't be raced past.
     await s.execute(select(User.id).where(User.id == user_id).with_for_update())
     keep: dict = {}
     if replace is not None:
         old = await _mine(s, user_id, replace)
         keep = {"name": old.name, "title_prefs": old.title_prefs, "created_at": old.created_at}
-        await s.delete(old)  # ON DELETE CASCADE drops its old match scores
+        await s.delete(old)
         await s.flush()
     elif (
         await s.scalar(select(func.count()).select_from(Resume).where(Resume.user_id == user_id))
@@ -133,9 +129,7 @@ async def update(
         resume.name = name.strip()[:40] or resume.name
     if own is not None:
         user = await s.get(User, user_id)
-        for_resume(
-            Preferences.model_validate(user.preferences or {}), own.model_dump()
-        )  # raises on a conflict
+        for_resume(Preferences.model_validate(user.preferences or {}), own.model_dump())
         resume.title_prefs = (
             own.model_dump() if any(v is not None for v in own.model_dump().values()) else None
         )
@@ -146,5 +140,5 @@ async def update(
 
 
 async def remove(s: AsyncSession, user_id: UUID, resume_id: UUID) -> None:
-    await s.delete(await _mine(s, user_id, resume_id))  # its match scores go with it
+    await s.delete(await _mine(s, user_id, resume_id))
     await s.commit()

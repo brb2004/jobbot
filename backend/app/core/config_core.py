@@ -12,22 +12,21 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     COOKIE_NAME: str = "jobbot_session"
-    COOKIE_SECURE: bool = True  # HTTPS only. Local http dev: COOKIE_SECURE=false in .env
-    TRUST_CF_CONNECTING_IP: bool = False  # True ONLY when traffic can arrive solely via Cloudflare (Tunnel)
-    DOCS_ENABLED: bool = False  # no public /docs, /redoc, /openapi.json. Local dev: DOCS_ENABLED=true in .env
+    COOKIE_SECURE: bool = True
+    TRUST_CF_CONNECTING_IP: bool = False
+    DOCS_ENABLED: bool = False
 
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
-    SMTP_PASSWORD: str = ""  # set in .env, never in code
+    SMTP_PASSWORD: str = ""
     EMAIL_FROM: str = ""
-    EMAIL_REPLY_TO: str = ""  # where replies go when EMAIL_FROM is send-only; blank = no header
-    APP_URL: str = "https://jobmatch.bbenard.dev"  # links in emails; never built from the Host header
+    EMAIL_REPLY_TO: str = ""
+    APP_URL: str = "https://jobmatch.bbenard.dev"
 
     @field_validator("JWT_SECRET_KEY")
     @classmethod
     def _secret_long_enough(cls, v: str) -> str:
-        # HS256 with a short secret can be brute-forced offline from any one token: refuse to start.
         if len(v.encode()) < 32:
             raise ValueError("JWT_SECRET_KEY must be at least 32 bytes (generate one: openssl rand -hex 32)")
         return v

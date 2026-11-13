@@ -9,7 +9,6 @@ export function Signup({ api, onConfirmed, onLogin }:
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(false)
 
-  // The link opened in this browser logs it in: carry on here too.
   useEffect(() => {
     if (!sent || typeof BroadcastChannel === 'undefined') return
     const channel = new BroadcastChannel('jobbot')

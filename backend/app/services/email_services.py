@@ -28,7 +28,6 @@ class EmailSender:
         msg["Subject"] = SUBJECT
         token = make_unsubscribe_token(str(user.id))
         app_url = get_settings().APP_URL
-        # RFC 8058 one-click: mail apps show their own Unsubscribe button and POST to this URL.
         msg["List-Unsubscribe"] = f"<{app_url}/api/email/unsubscribe?token={token}>"
         msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
         msg.set_content(f"{body}\n\n--\nDon't want these? Unsubscribe: {app_url}/unsubscribe#{token}\n")

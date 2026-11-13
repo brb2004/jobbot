@@ -22,7 +22,7 @@ async def prune(s: AsyncSession, now: datetime | None = None) -> Pruned:
         await s.execute(
             update(Job)
             .where(Job.closed_at < now - CLEAR_AFTER, Job.content_html.is_not(None))
-            .values(content_html=None, description=None)  # reopened later -> fetched again
+            .values(content_html=None, description=None)
         )
     ).rowcount
     deleted = (

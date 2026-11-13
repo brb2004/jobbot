@@ -15,8 +15,8 @@ from app.ingest.crawl_ingest import (
 from app.ingest.text_ingest import html_to_text
 
 API = "https://api.lever.co/v0/postings"
-PAGE = 100  # postings per request
-MAX_PAGES = 100  # 10,000 postings: far past any real board; stops a misbehaving one
+PAGE = 100
+MAX_PAGES = 100
 log = logging.getLogger(__name__)
 
 
@@ -75,9 +75,9 @@ async def fetch_board(client: httpx.AsyncClient, slug: str) -> Listing | None:
                 postings.append(posting(j))
             except Exception as e:
                 log.warning("lever site %s: skipped a malformed posting: %s", slug, repr(e)[:200])
-        if len(page) < PAGE or not fresh:  # last page (or paging ignored: nothing new)
+        if len(page) < PAGE or not fresh:
             return postings, ids
-    raise RuntimeError(f"lever {slug}: more than {MAX_PAGES} pages")  # partial list: fail, close nothing
+    raise RuntimeError(f"lever {slug}: more than {MAX_PAGES} pages")
 
 
 async def fetch_name(client: httpx.AsyncClient, slug: str) -> str | None:

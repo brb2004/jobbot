@@ -11,7 +11,6 @@ class RegisterIn(BaseModel):
     @field_validator("password")
     @classmethod
     def fits_bcrypt(cls, v: str) -> str:
-        # bcrypt's limit is 72 BYTES; accented letters take 2, emoji 4
         if len(v.encode()) > 72:
             raise ValueError("must be at most 72 bytes (accented letters and emoji count as 2-4 each)")
         return v
@@ -23,7 +22,7 @@ class LoginIn(BaseModel):
 
 
 class TokenOut(BaseModel):
-    access_token: str | None = None  # only with ?token=1 (scripts); browsers use the cookie
+    access_token: str | None = None
     token_type: str = "bearer"
 
 

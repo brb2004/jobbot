@@ -11,7 +11,7 @@ DEFAULT = Preferences()
 @pytest.mark.parametrize(
     "title",
     [
-        "Senior Software Engineer, Sales Platform",  # used to be hidden by a bare "sales"
+        "Senior Software Engineer, Sales Platform",
         "Backend Engineer - Sales Tools",
         "Software Engineer, Customer Success Tooling",
         "Software Engineer, Hardware Platform",

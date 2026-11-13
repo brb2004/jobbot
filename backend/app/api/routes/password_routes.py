@@ -28,8 +28,6 @@ async def forgot(
     if found := await auth_services.reset_link_token(s, email):
         user, token = found
         st = get_settings()
-        # The token rides after '#', which browsers never send to a server, so it stays out of logs.
-        # The link is built from APP_URL, never the Host header, so a forged Host can't redirect it.
         tasks.add_task(send, reset_email(st.EMAIL_FROM, user.email, f"{st.APP_URL}/reset#{token}"))
     return FORGOT_REPLY
 

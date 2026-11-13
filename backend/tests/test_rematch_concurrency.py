@@ -65,5 +65,5 @@ async def test_uploads_at_once_never_pass_the_two_resume_cap():
             assert len((await s.scalars(select(Resume).where(Resume.user_id == user.id))).all()) == 2
     finally:
         async with SessionLocal() as s:
-            await s.execute(delete(User).where(User.id == user.id))  # resume goes with it (CASCADE)
+            await s.execute(delete(User).where(User.id == user.id))
             await s.commit()

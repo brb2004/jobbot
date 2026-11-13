@@ -26,9 +26,9 @@ async def open_jobs(session, board):
 async def test_a_malformed_board_fails_alone(session):
     def handler(req):
         if req.url.path == "/v1/boards/garbage/jobs":
-            return httpx.Response(200, text="<html>maintenance</html>")  # not JSON
+            return httpx.Response(200, text="<html>maintenance</html>")
         if req.url.path == "/v1/boards/nokey/jobs":
-            return httpx.Response(200, json={"oops": []})  # no "jobs"
+            return httpx.Response(200, json={"oops": []})
         if req.url.path == "/v1/boards/good/jobs":
             return httpx.Response(200, json={"jobs": [OK_JOB]})
         return httpx.Response(404)
@@ -41,10 +41,10 @@ async def test_a_malformed_board_fails_alone(session):
 async def test_one_malformed_job_is_skipped_but_not_closed(session):
     session.add(Job(board="mixed", external_id="2", title="Old Title"))
     await session.flush()
-    bad = {"id": 2, "title": None, "absolute_url": "https://x/2"}  # fails validation
+    bad = {"id": 2, "title": None, "absolute_url": "https://x/2"}
     async with client(lambda req: httpx.Response(200, json={"jobs": [OK_JOB, bad]})) as c:
         summary = await gh.crawl(c, session, ["mixed"])
-    assert summary.found == 1 and summary.closed == 0  # job 2 still listed: stays open
+    assert summary.found == 1 and summary.closed == 0
     assert {j.external_id for j in await open_jobs(session, "mixed")} == {"1", "2"}
 
 
@@ -70,7 +70,7 @@ async def test_a_board_that_404s_three_crawls_in_a_row_gets_closed(session):
     async with client(lambda req: httpx.Response(404)) as c:
         for crawl_no in (1, 2):
             await gh.crawl(c, session, ["gone"])
-            assert len(await open_jobs(session, "gone")) == 1, crawl_no  # a blip isn't enough
+            assert len(await open_jobs(session, "gone")) == 1, crawl_no
         summary = await gh.crawl(c, session, ["gone"])
     assert summary.closed == 1 and await open_jobs(session, "gone") == []
 

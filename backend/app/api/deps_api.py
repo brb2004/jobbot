@@ -48,12 +48,12 @@ async def get_current_user(
         raise UNAUTHORIZED from None
     user = await s.get(User, user_id)
     if user is None:
-        raise UNAUTHORIZED  # account deleted
+        raise UNAUTHORIZED
     cutoff = user.tokens_valid_after
     if cutoff is not None and claims.get("iat", 0) < cutoff.timestamp():
-        raise UNAUTHORIZED  # logged out after this token was issued
+        raise UNAUTHORIZED
     if from_cookie and time.time() - claims.get("iat", 0) > get_settings().ACCESS_TOKEN_EXPIRE_MINUTES * 30:
-        set_session_cookie(response, user_id)  # bearer tokens (scripts) never slide
+        set_session_cookie(response, user_id)
     return user_id
 
 

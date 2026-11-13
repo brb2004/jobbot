@@ -38,6 +38,7 @@ jobs:
       - name: Lock files match the .in files
         run: |
           pip install uv
+          cp requirements.txt /tmp/req.txt   # existing pins are kept, so a new upstream release isn't "stale"
           uv pip compile requirements.in --python-version 3.12 --python-platform linux --generate-hashes -q -o /tmp/req.txt
           diff <(grep -v '^#' requirements.txt) <(grep -v '^#' /tmp/req.txt) || { echo "requirements.txt is stale: recompile (command in requirements.in)"; exit 1; }
       - name: Lint and format (ruff; config in backend/pyproject.toml)

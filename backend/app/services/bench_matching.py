@@ -12,7 +12,7 @@ from app.services.preferences_services import Preferences, allowed
 from app.services.requirements_services import years_required
 from app.services.scoring_services import build_index, idf_weights, top_matches
 
-OLD_MAX = 1000  # the old way is slow; above this, extrapolate from its per-user time
+OLD_MAX = 1000
 
 
 async def load():
@@ -24,22 +24,22 @@ async def load():
 
 
 def fake_users(jobs, n: int, rng: random.Random) -> list[set[str]]:
-    df = Counter(s for j in jobs for s in j.skills)  # sample skills as often as jobs ask for them
+    df = Counter(s for j in jobs for s in j.skills)
     skills, freq = zip(*sorted(df.items()), strict=True)
     return [set(rng.choices(skills, weights=freq, k=rng.randint(10, 25))) for _ in range(n)]
 
 
 def old_way(users, jobs, prefs, weights, years):
     for u in users:
-        pool = {j.id: set(j.skills) for j in jobs if allowed(j, prefs)}  # every job, every user
+        pool = {j.id: set(j.skills) for j in jobs if allowed(j, prefs)}
         top_matches(u, pool, weights, 20, job_years=years, user_years=prefs.years_experience)
 
 
 def new_way(users, jobs, prefs, weights, years):
     all_jobs = {j.id: set(j.skills) for j in jobs}
-    index = build_index(all_jobs)  # once
+    index = build_index(all_jobs)
     for u in users:
-        ok = {j.id for j in jobs if allowed(j, prefs)}  # cheap filter first
+        ok = {j.id for j in jobs if allowed(j, prefs)}
         top_matches(
             u,
             all_jobs,
@@ -75,7 +75,7 @@ async def main(sizes: list[int]) -> None:
             old_per_user = old / n
             old_txt = f"{old:9.2f}s"
         else:
-            old = old_per_user * n  # extrapolated
+            old = old_per_user * n
             old_txt = f"~{old:8.0f}s"
         print(
             f"{n:>7} | {old_txt:>10} | {new:9.2f}s | {old / n * 1000:11.1f} | {new / n * 1000:11.1f} | {old / new:5.1f}x"

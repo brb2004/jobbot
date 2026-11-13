@@ -39,21 +39,21 @@ async def test_guessing_one_account_from_many_ips_slows_down_but_never_locks_out
     monkeypatch.setattr(auth_routes.asyncio, "sleep", fake_sleep)
     await signup(client, "target@slow.example.com", "correct-horse")
     client.cookies.clear()
-    for i in range(8):  # 8 ips, one guess each: the per-ip limits never trip
+    for i in range(8):
         r = await client.post(
             "/auth/login",
             headers={"CF-Connecting-IP": f"203.0.113.{i}"},
             json={"email": "target@slow.example.com", "password": "wrong-guess"},
         )
         assert r.status_code == 401
-    assert slept == [1, 2, 4]  # 6th, 7th, 8th guesses waited
+    assert slept == [1, 2, 4]
     ok = await client.post(
         "/auth/login",
         headers={"CF-Connecting-IP": "198.51.100.7"},
         json={"email": "target@slow.example.com", "password": "correct-horse"},
     )
-    assert ok.status_code == 200  # the owner still gets in (after a wait)
-    assert limits_api.LOGIN_EMAIL.count("target@slow.example.com") == 0  # and the slowdown resets
+    assert ok.status_code == 200
+    assert limits_api.LOGIN_EMAIL.count("target@slow.example.com") == 0
     client.cookies.clear()
 
 
@@ -73,7 +73,7 @@ async def test_an_active_session_slides_forward(client):
     life = get_settings().ACCESS_TOKEN_EXPIRE_MINUTES * 60
     try:
         client.cookies.set("jobbot_session", _cookie_token(me, age_s=life * 0.2))
-        assert "set-cookie" not in (await client.get("/auth/me")).headers  # fresh enough: left alone
+        assert "set-cookie" not in (await client.get("/auth/me")).headers
         client.cookies.set("jobbot_session", _cookie_token(me, age_s=life * 0.6))
         r = await client.get("/auth/me")
         assert r.status_code == 200 and "jobbot_session=" in r.headers["set-cookie"]

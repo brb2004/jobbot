@@ -30,15 +30,11 @@ def decode_token(token: str) -> dict:
     return jwt.decode(token, s.JWT_SECRET_KEY, algorithms=[s.JWT_ALGORITHM])
 
 
-# Password reset links: stateless and single-use. The signature covers the user's current password
-# hash, so changing the password (by this link or any other way) kills every outstanding link.
 RESET_TTL_S = 30 * 60
 
 
 def _reset_sig(user_id: str, exp: int, password_hash: str) -> str:
-    msg = (
-        f"pwreset|{user_id}|{exp}|{password_hash}".encode()
-    )  # "pwreset|": can't pass for any other signed value
+    msg = f"pwreset|{user_id}|{exp}|{password_hash}".encode()
     return hmac.new(get_settings().JWT_SECRET_KEY.encode(), msg, hashlib.sha256).hexdigest()
 
 
@@ -58,11 +54,9 @@ def reset_token_valid(token: str, password_hash: str, now: float | None = None) 
     user_id, exp, sig = token.split(".")
     if int(exp) < (time.time() if now is None else now):
         return False
-    return hmac.compare_digest(sig, _reset_sig(user_id, int(exp), password_hash))  # constant-time compare
+    return hmac.compare_digest(sig, _reset_sig(user_id, int(exp), password_hash))
 
 
-# Email confirmation links: same token shape as resets, different purpose prefix ("verify|"), so a reset
-# token can never confirm an email or vice versa. Signed over the address, so it only confirms that address.
 VERIFY_TTL_S = 7 * 24 * 3600
 
 
@@ -85,9 +79,8 @@ def verify_token_valid(token: str, email: str, now: float | None = None) -> bool
     return hmac.compare_digest(sig, _verify_sig(user_id, int(exp), email))
 
 
-# Unsubscribe links: no expiry (an old email's link must keep working), only power is the weekly email.
 def _unsub_sig(user_id: str) -> str:
-    msg = f"unsubscribe|{user_id}".encode()  # "unsubscribe|": can't pass for another token
+    msg = f"unsubscribe|{user_id}".encode()
     return hmac.new(get_settings().JWT_SECRET_KEY.encode(), msg, hashlib.sha256).hexdigest()
 
 

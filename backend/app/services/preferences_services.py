@@ -13,28 +13,26 @@ Word = Annotated[str, Field(min_length=1, max_length=50)]
 
 class Preferences(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    include_titles: list[Word] = Field(
-        default=[], max_length=50
-    )  # title must contain one (empty = DEFAULT_TITLES)
-    exclude_titles: list[Word] = Field(default=[], max_length=50)  # title must contain none
-    locations: list[Word] = Field(default=[], max_length=50)  # a job location must contain one (if set)
-    remote: bool = True  # show remote jobs open to your locations
-    onsite: bool = True  # show on-site/hybrid jobs in your locations
-    years_experience: int | None = Field(default=None, ge=0, le=60)  # jobs asking > this + 1 sink
-    extra_skills: list[Word] = Field(default=[], max_length=50)  # skills not on the resume
-    include_presales: bool = False  # opt in to PRESALES_TITLES
+    include_titles: list[Word] = Field(default=[], max_length=50)
+    exclude_titles: list[Word] = Field(default=[], max_length=50)
+    locations: list[Word] = Field(default=[], max_length=50)
+    remote: bool = True
+    onsite: bool = True
+    years_experience: int | None = Field(default=None, ge=0, le=60)
+    extra_skills: list[Word] = Field(default=[], max_length=50)
+    include_presales: bool = False
 
     @field_validator("include_titles", "exclude_titles", "locations", "extra_skills")
     @classmethod
     def _clean(cls, words: list[str], info) -> list[str]:
-        keep_case = info.field_name == "extra_skills"  # "Go", "REST" are case-sensitive skills
+        keep_case = info.field_name == "extra_skills"
         out, seen = [], set()
         for w in words:
             w = w.strip()
             if not w:
                 raise ValueError("entries can't be blank")
             w = w if keep_case else w.lower()
-            if w.lower() not in seen:  # dedupe case-insensitively, keep the first
+            if w.lower() not in seen:
                 seen.add(w.lower())
                 out.append(w)
         return out
@@ -51,7 +49,7 @@ class Preferences(BaseModel):
         regions = data.pop("remote_regions", None) or []
         places = [loc for loc in old if str(loc).strip().lower() != "remote"]
         wants_remote = len(places) != len(old)
-        if wants_remote and not places:  # remote-only: the regions said where
+        if wants_remote and not places:
             data.update(locations=list(regions), remote=True, onsite=False)
         else:
             data.update(locations=places, remote=wants_remote or not old, onsite=True)
@@ -84,7 +82,6 @@ def for_resume(account: Preferences, own: dict | None) -> Preferences:
     if not over:
         return account
     merged = {**account.model_dump(), **over}
-    # an inherited list never contradicts this resume's own: "devops" in its includes beats the account's excludes
     if "include_titles" in over and "exclude_titles" not in over:
         merged["exclude_titles"] = [w for w in merged["exclude_titles"] if w not in over["include_titles"]]
     if "exclude_titles" in over and "include_titles" not in over:

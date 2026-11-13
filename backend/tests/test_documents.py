@@ -29,7 +29,7 @@ async def test_plain_text_and_docx_rules_still_work():
 async def test_long_pdfs_are_refused():
     with pytest.raises(docs.Unreadable, match="20 pages"):
         await docs.extract_text_safely(pdf(20))
-    assert await docs.extract_text_safely(pdf(2)) == "\n"  # blank pages: empty text, not an error
+    assert await docs.extract_text_safely(pdf(2)) == "\n"
 
 
 async def test_a_hanging_parse_is_killed_and_the_loop_keeps_running():
@@ -47,8 +47,8 @@ async def test_a_hanging_parse_is_killed_and_the_loop_keeps_running():
         await docs.extract_text_safely(b"anything", timeout=1, target=slow_parsers.hang)
     elapsed = time.monotonic() - start
     t.cancel()
-    assert elapsed < 3  # killed at ~1 s, not 60
-    assert ticks >= 10  # other work kept running meanwhile
+    assert elapsed < 3
+    assert ticks >= 10
 
 
 async def test_a_memory_bomb_dies_alone():
@@ -69,7 +69,7 @@ async def test_at_most_two_files_are_parsed_at_once():
         *(docs.extract_text_safely(b"x", target=slow_parsers.nap) for _ in range(4))
     )
     assert results == ["ok"] * 4
-    assert time.monotonic() - start >= 1.1  # 4 naps of 0.6 s through 2 slots = two waves
+    assert time.monotonic() - start >= 1.1
 
 
 async def test_a_long_queue_says_try_again(monkeypatch):

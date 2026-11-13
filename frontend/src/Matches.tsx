@@ -17,9 +17,7 @@ function Skills({ label, items }: { label: string; items: string[] }) {
   )
 }
 
-// real names come as-is ("eBay", "Defense Unicorns"); a bare slug gets a capital letter
 const company = (c: string | null) => (c ? (/[A-Z\s]/.test(c) ? c : c.charAt(0).toUpperCase() + c.slice(1)) : null)
-// "2 of 3 skills": how much of what the posting asks for you already have
 const skillCount = (d: Match['detail']) => {
   const total = (d?.met.length ?? 0) + (d?.partial?.length ?? 0) + (d?.missing.length ?? 0)
   return total ? `${d?.met.length ?? 0} of ${total} skills` : null
@@ -29,12 +27,12 @@ const message = (e: unknown) => (e instanceof ApiError ? e.message : 'Could not 
 export function Matches({ api, onUpload, onPreferences }:
   { api: Api; onUpload?: () => void; onPreferences?: () => void }) {
   const [matches, setMatches] = useState<Match[] | null>(null)
-  const [resumes, setResumes] = useState<ResumeInfo[] | null>(null)  // null = still checking
-  const [pick, setPick] = useState<string | undefined>(undefined)     // which resume's matches; undefined = first
+  const [resumes, setResumes] = useState<ResumeInfo[] | null>(null)
+  const [pick, setPick] = useState<string | undefined>(undefined)
   const hasResume = resumes === null ? null : resumes.length > 0
   const [error, setError] = useState<string | null>(null)
-  const [asking, setAsking] = useState<string | null>(null)          // opened this posting: "did you apply?"
-  const [moved, setMoved] = useState<{ m: Match; hidden: boolean } | null>(null)  // last job moved or hidden (for Undo)
+  const [asking, setAsking] = useState<string | null>(null)
+  const [moved, setMoved] = useState<{ m: Match; hidden: boolean } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
   const load = (id = pick) => api.matches(id).then(setMatches).catch((e) => setError(message(e)))
@@ -43,7 +41,7 @@ export function Matches({ api, onUpload, onPreferences }:
     Promise.resolve().then(() => api.listResumes())
       .then(setResumes)
       .catch(() => setResumes([]))
-  }, [api])                                                          // eslint-disable-line react-hooks/exhaustive-deps
+  }, [api])  // eslint-disable-line react-hooks/exhaustive-deps
   const choose = (id: string) => { setPick(id); setMoved(null); setAsking(null); load(id) }
 
   async function applied(m: Match) {
@@ -52,7 +50,7 @@ export function Matches({ api, onUpload, onPreferences }:
     try {
       await api.markApplied(m.job_id)
       setMoved({ m, hidden: false })
-      await load()                                                   // the next match moves up
+      await load()
     } catch (e) {
       setNotice(message(e))
     }
@@ -64,7 +62,7 @@ export function Matches({ api, onUpload, onPreferences }:
     try {
       await api.dismiss(m.job_id)
       setMoved({ m, hidden: true })
-      await load()                                                   // the next match moves up
+      await load()
     } catch (e) {
       setNotice(message(e))
     }
@@ -96,7 +94,7 @@ export function Matches({ api, onUpload, onPreferences }:
       ))}
     </div>
   )
-  if (!matches.length && hasResume)            // resume is in, so the filters are what's empty
+  if (!matches.length && hasResume)
     return (
       <div className="max-w-3xl space-y-3">
         {tabs}

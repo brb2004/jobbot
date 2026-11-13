@@ -22,7 +22,7 @@ def ref_of(feedback_id: UUID) -> str:
 async def submit(
     s: AsyncSession, user_id: UUID, kind: str, message: str, page: str | None, user_agent: str | None
 ) -> UUID:
-    fid = uuid4()  # set here: no attribute reads after commit
+    fid = uuid4()
     s.add(
         Feedback(
             id=fid,

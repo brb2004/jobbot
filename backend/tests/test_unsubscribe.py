@@ -58,9 +58,7 @@ async def test_the_page_can_unsubscribe_and_resubscribe(client, session):
     await session.commit()
     token = make_unsubscribe_token(str(user.id))
     assert (await client.post("/email/unsubscribe", json={"token": token})).status_code == 204
-    assert (
-        await client.post("/email/unsubscribe", json={"token": token})
-    ).status_code == 204  # twice is fine
+    assert (await client.post("/email/unsubscribe", json={"token": token})).status_code == 204
     assert (await client.post("/email/resubscribe", json={"token": token})).status_code == 204
     await session.refresh(user)
     assert user.digest_opt_out_at is None
@@ -79,6 +77,6 @@ async def test_bad_tokens_and_gets_change_nothing(client, session):
         f"not-a-uuid.{'0' * 64}",
     ):
         assert (await client.post("/email/unsubscribe", json={"token": bad})).status_code == 400, bad
-    assert (await client.get(f"/email/unsubscribe?token={good}")).status_code == 405  # scanners can't
+    assert (await client.get(f"/email/unsubscribe?token={good}")).status_code == 405
     await session.refresh(user)
     assert user.digest_opt_out_at is None

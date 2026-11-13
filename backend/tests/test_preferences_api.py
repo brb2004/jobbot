@@ -56,9 +56,7 @@ async def test_users_only_see_their_own_preferences(client):
 
 async def test_wrong_shape_is_rejected(client):
     h = await register(client, "shape@prefs.com")
-    r = await client.put(
-        "/me/preferences", json={"include_titles": "engineer"}, headers=h
-    )  # string, not list
+    r = await client.put("/me/preferences", json={"include_titles": "engineer"}, headers=h)
     assert r.status_code == 422
 
 
@@ -82,7 +80,7 @@ async def test_saving_preferences_rematches_immediately(client, session):
 
     await session.execute(
         update(User).where(User.email == "rematch@prefs.com").values(email_verified_at=func.now())
-    )  # sign-ups start unconfirmed
+    )
     session.add_all(
         [Job(title="Senior Engineer", skills=["Python"]), Job(title="Engineer", skills=["Python"])]
     )

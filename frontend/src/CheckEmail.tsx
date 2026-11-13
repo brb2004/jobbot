@@ -8,8 +8,6 @@ export function CheckEmail({ api, email, onConfirmed, onLogout }:
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Moves on by itself once the link is clicked: instantly when the link opens in this browser
-  // (the confirmation page broadcasts), within POLL_MS from another device, or on returning to this tab.
   useEffect(() => {
     const check = () => { if (!document.hidden) onConfirmed().catch(() => {}) }
     const timer = setInterval(check, POLL_MS)

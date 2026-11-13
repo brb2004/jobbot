@@ -20,8 +20,6 @@ Beta, Platform Engineer
 Education
 B.S. Computer Science, 2018 – 2022
 """
-    # 2022-01..2024-03 overlaps 2024-01..2026-11 -> one stretch 2022-01..2026-11 = 58 months = 4 years.
-    # The degree's 2018-2022 is in Education, so it doesn't count.
     assert years_from_resume(text, TODAY) == 4
 
 
@@ -41,8 +39,8 @@ Python Developer — Acme   Remote  |  Jan 2023 – Present
 Built Python APIs
 Education
 """
-    assert years_from_resume(text, TODAY) == 6  # every role: 2020-01..2026-11
-    assert years_from_resume(text, TODAY, has_skills=has_python) == 3  # warehouse skipped: 2023-01..2026-11
+    assert years_from_resume(text, TODAY) == 6
+    assert years_from_resume(text, TODAY, has_skills=has_python) == 3
 
 
 def test_roles_without_skills_dont_count_title_above_dates():

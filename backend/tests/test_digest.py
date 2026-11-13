@@ -50,7 +50,7 @@ async def test_digest_only_includes_recent_scores(session):
 
 class FakeSender:
     def __init__(self):
-        self.sent = []  # (user_id, body) for every email "sent"
+        self.sent = []
 
     async def send(self, user_id, body):
         self.sent.append((user_id, body))
@@ -77,7 +77,7 @@ async def test_sends_one_email_per_user_with_new_matches(session):
     sent = await digest.send_weekly(session, sender, now=now)
 
     assert sent == 2
-    assert {user_id for user_id, _ in sender.sent} == {alice.id, bob.id}  # carol's match is too old
+    assert {user_id for user_id, _ in sender.sent} == {alice.id, bob.id}
 
 
 def test_each_match_shows_its_link_and_what_you_have_and_lack():
@@ -160,9 +160,7 @@ async def test_rerunning_the_same_week_sends_nothing_twice_but_retries_failures(
     a, b, c = await _three_users_with_matches(session, now)
     await digest.send_weekly(session, FlakySender(broken={b}), now=now)
     second = FakeSender()
-    assert await digest.send_weekly(session, second, now=now) == 1  # only b, who failed
+    assert await digest.send_weekly(session, second, now=now) == 1
     assert [u for u, _ in second.sent] == [b]
     next_week = FakeSender()
-    assert (
-        await digest.send_weekly(session, next_week, now=now + timedelta(days=7)) == 3
-    )  # a new week: new digest
+    assert await digest.send_weekly(session, next_week, now=now + timedelta(days=7)) == 3

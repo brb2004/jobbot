@@ -44,10 +44,8 @@ async def test_an_edited_posting_is_fetched_again_and_retagged(session):
         session, "edits", [bj(1, "2026-11-09T10:00:00-05:00"), bj(2, "2026-11-01T00:00:00-05:00")]
     )
     edited, same = await job(session, "edits", 1), await job(session, "edits", 2)
-    assert edited.description is None and edited.skills == [
-        "Python"
-    ]  # refetch queued; still matchable meanwhile
-    assert same.description == "old"  # unchanged: no refetch
+    assert edited.description is None and edited.skills == ["Python"]
+    assert same.description == "old"
 
     def handler(req):
         return httpx.Response(200, json={"content": "<h3>Requirements</h3><ul><li>Rust</li></ul>"})
@@ -60,9 +58,7 @@ async def test_an_edited_posting_is_fetched_again_and_retagged(session):
 
 
 async def test_rows_from_before_the_column_existed_are_not_all_refetched(session):
-    await save_board(
-        session, "legacy", [BoardJob(id=1, title="Job", absolute_url="https://x/1")]
-    )  # no updated_at
+    await save_board(session, "legacy", [BoardJob(id=1, title="Job", absolute_url="https://x/1")])
     j = await job(session, "legacy", 1)
     j.description = "kept"
     await session.commit()
@@ -103,9 +99,9 @@ async def test_closed_postings_shrink_after_30_days_and_go_after_90(session):
         for j in (await session.scalars(select(Job).execution_options(populate_existing=True))).all()
         if j.title in {"open", "recent", "month", "old", "applied"}
     }
-    assert set(rows) == {"open", "recent", "month", "applied"}  # "old" deleted
-    assert rows["open"].content_html and rows["recent"].content_html  # untouched
+    assert set(rows) == {"open", "recent", "month", "applied"}
+    assert rows["open"].content_html and rows["recent"].content_html
     assert rows["month"].content_html is None and rows["month"].description is None
-    assert rows["applied"].content_html is None  # kept for the Applied tab, slimmed
+    assert rows["applied"].content_html is None
     assert (await session.scalars(select(MatchScore).where(MatchScore.job_id == old.id))).all() == []
     assert (result.cleared, result.deleted) == (3, 1)

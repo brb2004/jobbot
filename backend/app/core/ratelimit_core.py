@@ -15,7 +15,7 @@ class RateLimiter:
         if q:
             self.hits[key] = q
         else:
-            self.hits.pop(key, None)  # don't keep empty keys around forever
+            self.hits.pop(key, None)
         return q
 
     def blocked(self, key: str) -> float:

@@ -21,7 +21,7 @@ describe('applying from Matches', () => {
     render(<Matches api={api} />)
     fireEvent.click((await screen.findAllByRole('link', { name: /apply/i }))[0])
     fireEvent.click(screen.getByRole('button', { name: /yes, move to applied/i }))
-    await screen.findByText('Backend C')                              // next match moved up
+    await screen.findByText('Backend C')
     expect(markApplied).toHaveBeenCalledWith('a')
     expect(screen.queryByText('Backend A')).toBeNull()
     screen.getByText(/moved “backend a” to applied/i)

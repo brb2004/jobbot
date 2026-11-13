@@ -44,7 +44,7 @@ async def _tell_existing(s, email: str, tasks: BackgroundTasks, send) -> None:
         return
     limits.SIGNUP_EMAIL.hit(email)
     if user.email_verified_at is None:
-        queue_verify(tasks, send, user)  # never confirmed: a fresh link is what they need
+        queue_verify(tasks, send, user)
     else:
         st = get_settings()
         tasks.add_task(send, account_exists_email(st.EMAIL_FROM, user.email, st.APP_URL))
@@ -65,7 +65,7 @@ async def login(
     limits.LOGIN_FAILS.reset(pair)
     limits.LOGIN_EMAIL.reset(email)
     session_token = set_session_cookie(response, user.id)
-    return TokenOut(access_token=session_token if token else None)  # body token only when a script asks
+    return TokenOut(access_token=session_token if token else None)
 
 
 async def _slow_down(ip: str, email: str, pair: str) -> None:

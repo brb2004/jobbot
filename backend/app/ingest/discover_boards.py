@@ -23,7 +23,7 @@ NOT_SLUGS = {"embed", "jobs", "v1", "api", "static", "assets", "favicon.ico", "r
 SLUG = re.compile(r"^[a-z0-9][a-z0-9_-]{1,60}$")
 US_STATE = re.compile(
     r",\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|DC|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b"
-)  # "Columbia, MO"
+)
 BOARDS = Path(__file__).resolve().parents[2] / "boards.txt"
 REPORT = Path("/tmp/discovered_boards.csv")
 
@@ -35,24 +35,23 @@ def get(url: str, tries: int = 6) -> str:
                 return r.read().decode()
         except urllib.error.HTTPError as e:
             if e.code < 500 or i == tries - 1:
-                raise  # 4xx is an answer (e.g. past the last page)
+                raise
         except Exception:
             if i == tries - 1:
                 raise
-        time.sleep(3 * 2**i)  # busy server: 3, 6, 12, 24, 48 s
+        time.sleep(3 * 2**i)
 
 
 def slug_of(url: str, keep_case: bool = False) -> str | None:
     u = urllib.parse.urlsplit(url if "://" in url else "https://" + url)
     first = u.path.strip("/").split("/")[0]
-    if first.lower() == "embed":  # boards.greenhouse.io/embed/job_board?for=<slug>
+    if first.lower() == "embed":
         first = (urllib.parse.parse_qs(u.query).get("for") or [""])[0]
     first = urllib.parse.unquote(first) if keep_case else urllib.parse.unquote(first).lower()
     return first if first.lower() not in NOT_SLUGS and SLUG.match(first.lower()) else None
 
 
 DATA = "https://data.commoncrawl.org/"
-# SURT keys (reversed host, sorted) per source, and how a board key is written in boards.txt.
 SURTS = {
     "greenhouse": ("io,greenhouse,boards)/", "io,greenhouse,job-boards)/"),
     "ashby": ("com,ashbyhq,jobs)/",),
@@ -82,14 +81,14 @@ def size_of(url: str) -> int:
 def key_at(url: str, pos: int, size: int) -> str:
     data = chunk(url, pos, min(pos + 8191, size - 1))
     if pos:
-        data = data[data.index(b"\n") + 1 :]  # skip the partial line we landed in
+        data = data[data.index(b"\n") + 1 :]
     return data.split(b"\n", 1)[0].decode().split(" ", 1)[0]
 
 
 def blocks_for(idx_url: str, prefix: str) -> list[list[str]]:
     size = size_of(idx_url)
     lo, hi = 0, size
-    while hi - lo > 65536:  # ~20 small reads for a few hundred MB
+    while hi - lo > 65536:
         mid = (lo + hi) // 2
         if key_at(idx_url, mid, size) < prefix:
             lo = mid
@@ -106,12 +105,12 @@ def blocks_for(idx_url: str, prefix: str) -> list[list[str]]:
         lines = buf.split(b"\n")
         buf = lines.pop()
         for raw in lines:
-            parts = raw.decode().split("\t")  # "SURT TIMESTAMP", file, offset, length, id
+            parts = raw.decode().split("\t")
             if len(parts) < 4:
                 continue
             key = parts[0].split(" ", 1)[0]
             if key < prefix:
-                prev = parts  # the block just before may hold matches
+                prev = parts
                 continue
             if not key.startswith(prefix):
                 return blocks
@@ -156,11 +155,11 @@ def from_common_crawl(
             if max_blocks:
                 blocks = blocks[:max_blocks]
             print(f"  {c} {prefix}: {len(blocks)} blocks", file=sys.stderr)
-            with ThreadPoolExecutor(max_workers=6) as pool:  # a few at a time: polite, still fast
+            with ThreadPoolExecutor(max_workers=6) as pool:
                 for n, urls in enumerate(
                     pool.map(lambda b, c=c, prefix=prefix: urls_in(c, b, prefix), blocks), 1
                 ):
-                    keep = source != "greenhouse"  # Ashby/Lever slugs keep their case
+                    keep = source != "greenhouse"
                     found.update(filter(None, (slug_of(u, keep) for u in urls)))
                     if n % 20 == 0 or n == len(blocks):
                         print(f"    {n}/{len(blocks)} blocks, {len(found)} companies so far", file=sys.stderr)
@@ -182,7 +181,7 @@ def listing(source: str, slug: str) -> list[tuple[str, str]]:
 
 def check(slug: str, source: str = "greenhouse") -> tuple[int, int, int]:
     jobs = listing(source, slug)
-    eng = [(t, loc) for t, loc in jobs if allowed(Job(title=t), Preferences())]  # same rules as matching
+    eng = [(t, loc) for t, loc in jobs if allowed(Job(title=t), Preferences())]
     us = [
         1
         for _, loc in eng
@@ -208,16 +207,16 @@ def main() -> None:
     known = {k.lower() for k in load_slugs(BOARDS.read_text())}
     found: dict[str, str] = {}
     for slug in from_common_crawl(a.indexes, a.max_blocks, a.crawl, a.source):
-        found.setdefault(slug.lower(), slug)  # one spelling per board
+        found.setdefault(slug.lower(), slug)
     fresh = sorted(s for low, s in found.items() if (pre + low) not in known)
-    random.Random(0).shuffle(fresh)  # a fair sample, not just the A's; same order every run
+    random.Random(0).shuffle(fresh)
     print(
         f"{len(fresh)} companies we don't crawl yet; checking {len(fresh[: a.check or None])}",
         file=sys.stderr,
     )
 
     rows = []
-    for slug in fresh[: a.check or None]:  # --check 0 = all
+    for slug in fresh[: a.check or None]:
         try:
             total, eng, us = check(slug, a.source)
             rows.append(
@@ -233,7 +232,7 @@ def main() -> None:
             )
         except Exception:
             rows.append((slug, "dead", 0, 0, 0))
-        time.sleep(0.15)  # one request at a time
+        time.sleep(0.15)
     rows.sort(key=lambda r: (-r[4], -r[3], r[0]))
 
     with REPORT.open("w", newline="") as f:

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ApiError, type Api, type Application } from './api'
 
-// real names come as-is ("eBay", "Defense Unicorns"); a bare slug gets a capital letter
 const company = (c: string | null) => (c ? (/[A-Z\s]/.test(c) ? c : c.charAt(0).toUpperCase() + c.slice(1)) : null)
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 
@@ -11,7 +10,7 @@ export function Applied({ api }: { api: Api }) {
   const fail = (e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not reach the server')
 
   const load = () => api.applications().then(setItems).catch(fail)
-  useEffect(() => { load() }, [api])                                 // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load() }, [api])  // eslint-disable-line react-hooks/exhaustive-deps
 
   async function moveBack(a: Application) {
     try {

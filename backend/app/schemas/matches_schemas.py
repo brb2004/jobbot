@@ -15,7 +15,7 @@ class MatchOut(BaseModel):
     score: float
     url: str | None = None
     detail: dict | None = None
-    resume: str | None = Field(default=None, exclude=True)  # which resume matched (weekly email sections)
+    resume: str | None = Field(default=None, exclude=True)
 
     @computed_field
     @property

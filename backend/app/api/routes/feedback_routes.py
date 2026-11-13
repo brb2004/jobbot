@@ -27,5 +27,5 @@ async def report(
         limiter.hit(key)
     agent = (request.headers.get("user-agent") or "")[:300] or None
     fid = await feedback.submit(s, user_id, body.kind, body.message.strip(), body.page, agent)
-    tasks.add_task(feedback.acknowledge_now, maker, send, fid)  # after the response; the cron retries
+    tasks.add_task(feedback.acknowledge_now, maker, send, fid)
     return {"ref": feedback.ref_of(fid), "detail": "Thanks. We've emailed you a confirmation."}

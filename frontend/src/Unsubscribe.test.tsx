@@ -12,7 +12,7 @@ describe('Unsubscribe', () => {
     const unsubscribe = vi.fn().mockResolvedValue(undefined)
     const resubscribe = vi.fn().mockResolvedValue(undefined)
     render(<Unsubscribe api={{ unsubscribe, resubscribe } as unknown as Api} token="tok" />)
-    expect(unsubscribe).not.toHaveBeenCalled()                     // opening the link isn't enough
+    expect(unsubscribe).not.toHaveBeenCalled()
     await userEvent.click(screen.getByRole('button', { name: 'Unsubscribe' }))
     expect(unsubscribe).toHaveBeenCalledWith('tok')
     await screen.findByText(/won't get the weekly email/i)

@@ -17,13 +17,12 @@ BOILERPLATE = re.compile(
 
 
 def text_of(node) -> str:
-    # separator=" ": "<span>field</span><span>of</span>" -> "field of", not "fieldof"
     return node.text(deep=True, separator=" ")
 
 
 def clean(text: str) -> str:
-    text = " ".join(text.replace("\xa0", " ").split())  # collapse runs of whitespace
-    text = re.sub(r" ([,.;:!?)])", r"\1", text)  # "Go ," -> "Go,"
+    text = " ".join(text.replace("\xa0", " ").split())
+    text = re.sub(r" ([,.;:!?)])", r"\1", text)
     text = text.replace("( ", "(")
     return text.rstrip(":").strip()
 
@@ -43,7 +42,7 @@ def requirement_bullets(html: str) -> list[str]:
     tree = LexborHTMLParser(html)
     in_requirements = False
     bullets: list[str] = []
-    for node in tree.css(f"{HEADINGS}, li"):  # document order
+    for node in tree.css(f"{HEADINGS}, li"):
         if node.tag == "li":
             text = clean(text_of(node))
             if in_requirements and text and not BOILERPLATE.search(text):

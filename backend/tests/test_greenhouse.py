@@ -57,10 +57,10 @@ async def test_save_board_inserts_then_updates_without_duplicates(session):
         gh.BoardJob(id=1, title="Backend", absolute_url="https://x/1"),
         gh.BoardJob(id=2, title="Data", absolute_url="https://x/2"),
     ]
-    assert await gh.save_board(session, "stripe", jobs) == 2  # 2 new
+    assert await gh.save_board(session, "stripe", jobs) == 2
 
     jobs[0] = gh.BoardJob(id=1, title="Senior Backend", absolute_url="https://x/1")
-    assert await gh.save_board(session, "stripe", jobs) == 0  # 0 new, 1 updated
+    assert await gh.save_board(session, "stripe", jobs) == 0
 
     rows = (await session.execute(select(Job).order_by(Job.external_id))).scalars().all()
     assert [r.title for r in rows] == ["Senior Backend", "Data"]
@@ -85,8 +85,8 @@ async def test_fetch_details_returns_clean_description_and_salary():
 async def test_fill_descriptions_only_fetches_jobs_missing_one(session):
     session.add_all(
         [
-            Job(board="stripe", external_id="1", title="A"),  # needs details
-            Job(board="stripe", external_id="2", title="B", description="already"),  # skip
+            Job(board="stripe", external_id="1", title="A"),
+            Job(board="stripe", external_id="2", title="B", description="already"),
         ]
     )
     await session.commit()
@@ -102,7 +102,7 @@ async def test_fill_descriptions_only_fetches_jobs_missing_one(session):
         second = await gh.fill_descriptions(c, session)
 
     assert (first, second) == (1, 0)
-    assert calls == ["/v1/boards/stripe/jobs/1"]  # job 2 never fetched, nothing re-fetched
+    assert calls == ["/v1/boards/stripe/jobs/1"]
     job = (await session.execute(select(Job).where(Job.external_id == "1"))).scalar_one()
     assert job.description == "Build things."
     assert job.salary_min == 120000
@@ -134,7 +134,7 @@ async def test_fill_descriptions_works_in_batches_and_commits_each(session, monk
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(details)) as c:
         assert await gh.fill_descriptions(c, session) == 5
-    assert commits == 3  # 2 + 2 + 1
+    assert commits == 3
     left = (await session.execute(select(Job).where(Job.board == "bigco", Job.description.is_(None)))).all()
     assert left == []
 
@@ -154,4 +154,4 @@ async def test_crawl_saves_the_real_company_name_once(session):
         await gh.crawl(c, session, ["stripe"])
         await gh.crawl(c, session, ["stripe"])
     assert (await session.get(Board, "stripe")).name == "Stripe, Inc."
-    assert calls.count("/v1/boards/stripe") == 1  # not re-fetched once known
+    assert calls.count("/v1/boards/stripe") == 1

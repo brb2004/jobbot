@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Application, Board, Job, MatchScore, Resume
 
-SHOW = 20  # matches on the dashboard; more are stored as a reserve (matching_services.RESERVE)
+SHOW = 20
 
 
 def marked(user_id: UUID):
@@ -28,11 +28,11 @@ async def for_user(s: AsyncSession, user_id: UUID, resume_id: UUID | None = None
             MatchScore.detail,
         )
         .join(MatchScore, MatchScore.job_id == Job.id)
-        .outerjoin(Board, Board.slug == Job.board)  # real name when we have it
+        .outerjoin(Board, Board.slug == Job.board)
         .join(Resume, Resume.id == MatchScore.resume_id)
         .where(Resume.user_id == user_id, Resume.id == resume_id)
-        .where(Job.closed_at.is_(None))  # closed since the last match run: gone now
-        .where(Job.id.not_in(marked(user_id)))  # applied / dismissed: the next one moves up
+        .where(Job.closed_at.is_(None))
+        .where(Job.id.not_in(marked(user_id)))
         .order_by(MatchScore.score.desc(), Job.id)
         .limit(SHOW)
     )

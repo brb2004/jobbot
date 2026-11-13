@@ -5,7 +5,7 @@ from app.ingest.crawl_ingest import Source
 from app.ingest.greenhouse_ingest import GREENHOUSE
 from app.ingest.lever_ingest import LEVER
 
-BOARDS_FILE = Path(__file__).resolve().parents[2] / "boards.txt"  # backend/boards.txt
+BOARDS_FILE = Path(__file__).resolve().parents[2] / "boards.txt"
 HEADERS = {"User-Agent": "jobbot3-crawler (github.com/brb2004)"}
 SOURCES = (GREENHOUSE, ASHBY, LEVER)
 

@@ -1,4 +1,3 @@
-# tests/test_sections.py
 from pathlib import Path
 
 from app.ingest.sections_ingest import requirement_bullets
@@ -19,7 +18,7 @@ def test_discord_wording():
         "<p><strong>What you should have</strong></p><ul><li>Python</li></ul>"
         "<p><strong>Why Discord?&nbsp;</strong></p><ul><li>Free snacks</li></ul>"
     )
-    assert requirement_bullets(html) == ["Python"]  # stops at the next heading
+    assert requirement_bullets(html) == ["Python"]
 
 
 def test_airbnb_wording_with_colon():

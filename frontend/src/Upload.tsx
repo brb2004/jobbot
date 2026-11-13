@@ -8,10 +8,9 @@ const message = (e: unknown) => (e instanceof ApiError ? e.message : 'Could not 
 const box = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-slate-900 focus:outline-none'
 const fileBox = 'block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-white'
 
-// Up to two resumes. Each is matched on its own; its job titles and years can differ from Preferences.
 export function Upload({ api, onDone }: { api: Api; onDone: () => void }) {
   const [resumes, setResumes] = useState<ResumeInfo[] | null>(null)
-  const [ownYears, setOwnYears] = useState<number | null | undefined>(undefined)  // undefined = not loaded
+  const [ownYears, setOwnYears] = useState<number | null | undefined>(undefined)
 
   const load = () => api.listResumes().then(setResumes).catch(() => setResumes([]))
   useEffect(() => {
@@ -19,7 +18,7 @@ export function Upload({ api, onDone }: { api: Api; onDone: () => void }) {
     Promise.resolve().then(() => api.getPreferences())
       .then((p) => setOwnYears(p.years_experience ?? null))
       .catch(() => {})
-  }, [api])                                                          // eslint-disable-line react-hooks/exhaustive-deps
+  }, [api])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const list = resumes ?? []
   return (
@@ -107,7 +106,7 @@ function ResumeCard({ api, resume, ownYears, several, onChanged, onDone }:
   }
 
   const save = () => {
-    const inc = addAll(include, toList(pendingIn))                 // typed but not added yet still counts
+    const inc = addAll(include, toList(pendingIn))
     const exc = addAll(exclude, toList(pendingEx))
     return run(() => api.updateResume(resume.id, {
       name: name.trim() || undefined,

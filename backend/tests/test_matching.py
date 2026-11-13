@@ -15,7 +15,7 @@ async def test_tag_jobs_fills_skills_once(session):
     session.add_all([new, done])
     await tag_jobs(session)
     assert new.skills == ["Go", "PostgreSQL"]
-    assert done.skills == ["Rust"]  # already tagged: untouched
+    assert done.skills == ["Rust"]
 
 
 async def test_tag_resumes_uses_the_taxonomy(session):
@@ -35,21 +35,21 @@ async def test_match_all_respects_preferences_and_replaces_old_scores(session):
     resume = Resume(user_id=user.id, skills=["Python"])
     session.add_all([user, fit, senior, unrelated, resume])
     await session.flush()
-    session.add(MatchScore(resume_id=resume.id, job_id=unrelated.id, score=0.9, detail={}))  # stale
+    session.add(MatchScore(resume_id=resume.id, job_id=unrelated.id, score=0.9, detail={}))
     await session.flush()
 
     await match_all(session)
 
     rows = (await session.scalars(select(MatchScore).where(MatchScore.resume_id == resume.id))).all()
-    assert [r.job_id for r in rows] == [fit.id]  # senior filtered, unrelated shares nothing, stale gone
+    assert [r.job_id for r in rows] == [fit.id]
     assert rows[0].detail["met"] == ["Python"]
     assert rows[0].detail["missing"] == ["Kubernetes"]
-    assert 0 < rows[0].score < 0.5  # Kubernetes is rarer, so it outweighs Python
+    assert 0 < rows[0].score < 0.5
 
 
 async def test_match_all_credits_implied_skills(session):
     job = Job(title="AI Engineer", skills=["LLMs & Generative AI"])
-    resume = Resume(user=user_row(), skills=["RAG"])  # skills.txt: LLM > ... > AI
+    resume = Resume(user=user_row(), skills=["RAG"])
     session.add_all([job, resume])
     await session.flush()
     await match_all(session)
@@ -72,7 +72,7 @@ async def test_match_all_sinks_jobs_asking_for_too_many_years(session):
             select(MatchScore).where(MatchScore.resume_id == resume.id).order_by(MatchScore.score.desc())
         )
     ).all()
-    assert [r.job_id for r in rows] == [fair_ask.id, senior_ask.id]  # still shown, just lower
+    assert [r.job_id for r in rows] == [fair_ask.id, senior_ask.id]
     assert rows[1].detail["years_asked"] == 4
 
 
@@ -99,9 +99,9 @@ async def test_jobs_are_retagged_when_the_taxonomy_changes(session):
     assert v1.version != v2.version
     await tag_jobs(session, v1)
     assert job.skills == ["Go"]
-    assert await tag_jobs(session, v2) == 1  # stale -> re-tagged
+    assert await tag_jobs(session, v2) == 1
     assert job.skills == ["Go", "Rust"]
-    assert await tag_jobs(session, v2) == 0  # current -> untouched
+    assert await tag_jobs(session, v2) == 0
 
 
 async def test_resumes_are_retagged_when_the_taxonomy_changes(session):
@@ -118,15 +118,13 @@ async def test_match_all_for_one_user_leaves_everyone_else_alone(session):
     theirs = Resume(user=user_row(), skills=["Python"])
     session.add_all([job, mine, theirs])
     await session.flush()
-    session.add(
-        MatchScore(resume_id=theirs.id, job_id=job.id, score=0.99, detail={})
-    )  # someone else's old row
+    session.add(MatchScore(resume_id=theirs.id, job_id=job.id, score=0.99, detail={}))
     await session.flush()
     await match_all(session, user_id=mine.user_id)
     my_rows = (await session.scalars(select(MatchScore).where(MatchScore.resume_id == mine.id))).all()
     their_rows = (await session.scalars(select(MatchScore).where(MatchScore.resume_id == theirs.id))).all()
     assert len(my_rows) == 1
-    assert [r.score for r in their_rows] == [0.99]  # untouched
+    assert [r.score for r in their_rows] == [0.99]
 
 
 async def test_same_role_posted_per_location_shows_once(session):

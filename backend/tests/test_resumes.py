@@ -61,7 +61,7 @@ async def test_uploading_again_replaces_the_previous_resume_and_its_scores(sessi
     mine = (await session.scalars(select(Resume).where(Resume.user_id == me))).all()
     assert [(r.id, r.raw_text) for r in mine] == [(second.id, "Go")]
     assert (await session.scalars(select(MatchScore).where(MatchScore.resume_id == first.id))).all() == []
-    assert (await session.get(Resume, theirs.id)) is not None  # other users untouched
+    assert (await session.get(Resume, theirs.id)) is not None
 
 
 async def test_upload_matches_the_user_immediately(session):
@@ -90,7 +90,7 @@ async def test_empty_file_is_rejected_and_keeps_the_old_resume(client, auth_head
     )
     assert r.status_code == 422
     assert "text" in r.json()["detail"]
-    assert len((await client.get("/dashboard", headers=auth_headers)).json()) == 1  # matches survived
+    assert len((await client.get("/dashboard", headers=auth_headers)).json()) == 1
 
 
 async def test_file_with_no_skills_is_rejected_and_keeps_the_old_resume(client, auth_headers, session):
@@ -113,7 +113,7 @@ async def _user(session):
         email=f"{uuid4().hex[:12]}@fixture.test",
         hashed_password="x",
         email_verified_at=datetime.now(UTC),
-    )  # confirmed: can use resumes and matches
+    )
     session.add(u)
     await session.flush()
     return u.id
@@ -128,7 +128,7 @@ def _docx_with(document_xml: bytes) -> bytes:
 
 
 async def test_zip_bomb_docx_is_rejected_cleanly(client, auth_headers):
-    bomb = _docx_with(b" " * (11 * 1024 * 1024))  # ~11 MB unpacked, a few KB packed
+    bomb = _docx_with(b" " * (11 * 1024 * 1024))
     r = await client.post(
         "/resumes", headers=auth_headers, files={"file": ("big.docx", bomb, "application/octet-stream")}
     )
