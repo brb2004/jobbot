@@ -18,6 +18,7 @@ describe('Matches', () => {
     expect(link.getAttribute('href')).toBe('https://x/1')
     expect(screen.getByText('Strong match')).toBeTruthy()
     expect(screen.getByText('2 of 3 skills')).toBeTruthy()
+    expect(screen.queryByText('New')).toBeNull()
     expect(screen.getByText('Python, Go')).toBeTruthy()
     expect(screen.getByText('Kafka')).toBeTruthy()
     expect(screen.getByText('asks for 5+ years')).toBeTruthy()
@@ -54,5 +55,12 @@ describe('two resumes', () => {
     await screen.findByRole('link', { name: 'Backend Engineer' })
     await new Promise((r) => setTimeout(r, 0))
     expect(screen.queryByRole('tablist')).toBeNull()
+  })
+})
+
+describe('new matches', () => {
+  it('marks a match you have not seen before', async () => {
+    render(<Matches api={fakeApi(async () => [{ ...m, new: true }])} />)
+    expect(await screen.findByText('New')).toBeTruthy()
   })
 })

@@ -147,3 +147,21 @@ async def test_dashboard_shows_the_real_company_name(client, auth_headers, sessi
     session.add(MatchScore(resume_id=resume.id, job_id=job.id, score=0.5, detail={"met": [], "missing": []}))
     await session.flush()
     assert (await client.get("/dashboard", headers=auth_headers)).json()[0]["company"] == "Ivanti"
+
+
+async def test_a_match_is_new_until_it_has_been_shown_once(client, session):
+    me = await _user(session)
+    first, second = Job(title="Backend"), Job(title="Platform")
+    resume = Resume(user_id=me)
+    session.add_all([first, second, resume])
+    await session.flush()
+    session.add(MatchScore(resume_id=resume.id, job_id=first.id, score=0.9))
+    await session.commit()
+    h = {"Authorization": f"Bearer {create_access_token(str(me))}"}
+
+    assert [m["new"] for m in (await client.get("/dashboard", headers=h)).json()] == [True]
+    assert [m["new"] for m in (await client.get("/dashboard", headers=h)).json()] == [False]
+    session.add(MatchScore(resume_id=resume.id, job_id=second.id, score=0.8))
+    await session.commit()
+    news = {m["title"]: m["new"] for m in (await client.get("/dashboard", headers=h)).json()}
+    assert news == {"Backend": False, "Platform": True}

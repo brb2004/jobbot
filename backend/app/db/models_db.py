@@ -1,129 +1,17 @@
-import uuid
-from datetime import datetime
+from app.db.activity_db import Application, DigestSent, Feedback, SeenJob
+from app.db.base_db import Base
+from app.db.jobs_db import Board, Job, MatchScore
+from app.db.users_db import Resume, User
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-
-
-class Base(DeclarativeBase):
-    pass
-
-
-class User(Base):
-    __tablename__ = "users"
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    email: Mapped[str] = mapped_column(String(255), unique=True)
-    hashed_password: Mapped[str] = mapped_column(String(255))
-    preferences: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
-    tokens_valid_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    digest_opt_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-
-class Job(Base):
-    __tablename__ = "jobs"
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    title: Mapped[str | None]
-    board: Mapped[str | None] = mapped_column(String(100))
-    external_id: Mapped[str | None] = mapped_column(String(64))
-    url: Mapped[str | None]
-    location: Mapped[str | None]
-    description: Mapped[str | None] = mapped_column(Text)
-    content_html: Mapped[str | None] = mapped_column(Text)
-    salary_min: Mapped[float | None] = mapped_column(Float)
-    salary_max: Mapped[float | None] = mapped_column(Float)
-    salary_currency: Mapped[str | None] = mapped_column(String(10))
-    requirements: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
-    skills: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
-    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    source_updated_at: Mapped[str | None] = mapped_column(String(40))
-    skills_version: Mapped[str | None] = mapped_column(String(12))
-
-    __table_args__ = (
-        UniqueConstraint("board", "external_id", name="uq_jobs_board_external"),
-        Index("ix_jobs_open", "id", postgresql_where=closed_at.is_(None)),
-    )
-
-
-class Resume(Base):
-    __tablename__ = "resumes"
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE", name="fk_resumes_user_id"), index=True
-    )
-    name: Mapped[str | None] = mapped_column(String(40))
-    title_prefs: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.clock_timestamp()
-    )
-    filename: Mapped[str | None] = mapped_column(String(255))
-    raw_text: Mapped[str | None] = mapped_column(Text)
-    years_detected: Mapped[int | None]
-    skills: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
-    skills_version: Mapped[str | None] = mapped_column(String(12))
-    education: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
-    experience: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
-
-    user: Mapped["User"] = relationship(lazy="raise")
-
-
-class MatchScore(Base):
-    __tablename__ = "match_scores"
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    resume_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("resumes.id", ondelete="CASCADE"))
-    job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"))
-    score: Mapped[float]
-    detail: Mapped[dict | None] = mapped_column(JSONB)
-    scored_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    __table_args__ = (
-        UniqueConstraint("resume_id", "job_id"),
-        Index("ix_match_scores_job_id", "job_id"),
-    )
-
-
-class Application(Base):
-    __tablename__ = "applications"
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
-    )
-    job_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("jobs.id", ondelete="CASCADE"))
-    status: Mapped[str] = mapped_column(String(20), default="applied")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    __table_args__ = (UniqueConstraint("user_id", "job_id", name="uq_applications_user_job"),)
-
-
-class Feedback(Base):
-    __tablename__ = "feedback"
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
-    )
-    kind: Mapped[str] = mapped_column(String(20))
-    message: Mapped[str] = mapped_column(Text)
-    page: Mapped[str | None] = mapped_column(String(300))
-    user_agent: Mapped[str | None] = mapped_column(String(300))
-    status: Mapped[str] = mapped_column(String(20), default="open")
-    ack_status: Mapped[str] = mapped_column(String(20), default="queued")
-    attempts: Mapped[int] = mapped_column(default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    acked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-
-class Board(Base):
-    __tablename__ = "boards"
-    slug: Mapped[str] = mapped_column(String(100), primary_key=True)
-    name: Mapped[str | None] = mapped_column(String(200))
-    checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    misses: Mapped[int] = mapped_column(default=0, server_default="0")
-
-
-class DigestSent(Base):
-    __tablename__ = "digest_sent"
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    week: Mapped[str] = mapped_column(String(8), primary_key=True)
-    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+__all__ = [
+    "Application",
+    "Base",
+    "Board",
+    "DigestSent",
+    "Feedback",
+    "Job",
+    "MatchScore",
+    "Resume",
+    "SeenJob",
+    "User",
+]

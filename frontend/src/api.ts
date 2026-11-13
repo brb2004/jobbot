@@ -31,6 +31,7 @@ export interface Match {
   years_note: string | null
   url: string | null
   detail: MatchDetail | null
+  new?: boolean
 }
 
 export interface Application {

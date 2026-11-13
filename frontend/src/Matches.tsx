@@ -135,6 +135,7 @@ export function Matches({ api, onUpload, onPreferences }:
                   : <span className="font-medium">{m.title}</span>}
               </span>
               <span className={`rounded-full px-2 py-0.5 text-xs ${BADGE[m.tier] ?? BADGE.Stretch}`}>{m.tier}</span>
+              {m.new && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">New</span>}
               {skillCount(m.detail) && <span className="text-xs text-slate-600">{skillCount(m.detail)}</span>}
               {m.years_note && (
                 <span className={`text-xs ${m.detail?.over_years ? 'text-amber-700' : 'text-slate-600'}`}>{m.years_note}</span>

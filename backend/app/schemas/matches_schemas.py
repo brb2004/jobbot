@@ -16,6 +16,7 @@ class MatchOut(BaseModel):
     url: str | None = None
     detail: dict | None = None
     resume: str | None = Field(default=None, exclude=True)
+    new: bool = False
 
     @computed_field
     @property

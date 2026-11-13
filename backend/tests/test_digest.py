@@ -2,10 +2,14 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+from sqlalchemy import select
+
 from app.db.models_db import Job, MatchScore, Resume
 from app.schemas.matches_schemas import MatchOut
 from app.services import digest_services as digest
-from app.services.digest_services import render, tier
+from app.services.digest_render_services import render
+from app.services.scoring_services import tier
+from app.services.seen_services import mark_seen
 from tests.conftest import user_row
 
 
@@ -26,26 +30,22 @@ def test_digest_with_no_matches_says_so():
     assert "no new matches" in digest.render([], top_n=5).lower()
 
 
-async def test_digest_only_includes_recent_scores(session):
+async def test_jobs_already_seen_are_still_open_not_new(session):
     owner = user_row()
-    me = owner.id
-    old_job, new_job = Job(title="Old"), Job(title="New")
+    seen_job, fresh_job = Job(title="Seen", url="https://x/s"), Job(title="Fresh", url="https://x/f")
     resume = Resume(user=owner)
-    session.add_all([old_job, new_job, resume])
+    session.add_all([seen_job, fresh_job, resume])
     await session.flush()
-
-    now = datetime(2026, 11, 2, tzinfo=UTC)
-    session.add_all(
-        [
-            MatchScore(resume_id=resume.id, job_id=old_job.id, score=0.9, scored_at=now - timedelta(days=10)),
-            MatchScore(resume_id=resume.id, job_id=new_job.id, score=0.7, scored_at=now - timedelta(days=2)),
-        ]
-    )
+    session.add_all([MatchScore(resume_id=resume.id, job_id=j.id, score=0.8) for j in (seen_job, fresh_job)])
+    await mark_seen(session, owner.id, [seen_job.id])
     await session.commit()
+    sender = FakeSender()
 
-    matches = await digest.matches_for(session, me, since=now - timedelta(days=7))
+    assert await digest.send_weekly(session, sender, now=datetime(2026, 11, 2, tzinfo=UTC)) == 1
 
-    assert [m.title for m in matches] == ["New"]
+    [(_, body)] = sender.sent
+    new, still = body.split("Still open from earlier:")
+    assert "Fresh" in new and "Seen" not in new and "Seen — https://x/s" in still
 
 
 class FakeSender:
@@ -62,19 +62,12 @@ async def test_sends_one_email_per_user_with_new_matches(session):
     r_alice, r_bob, r_carol = Resume(user=alice), Resume(user=bob), Resume(user=carol)
     session.add_all([job, r_alice, r_bob, r_carol])
     await session.flush()
-
-    now = datetime(2026, 11, 2, tzinfo=UTC)
-    session.add_all(
-        [
-            MatchScore(resume_id=r_alice.id, job_id=job.id, score=0.9, scored_at=now - timedelta(days=1)),
-            MatchScore(resume_id=r_bob.id, job_id=job.id, score=0.8, scored_at=now - timedelta(days=3)),
-            MatchScore(resume_id=r_carol.id, job_id=job.id, score=0.7, scored_at=now - timedelta(days=30)),
-        ]
-    )
+    session.add_all([MatchScore(resume_id=r.id, job_id=job.id, score=0.9) for r in (r_alice, r_bob, r_carol)])
+    await mark_seen(session, carol.id, [job.id])
     await session.commit()
     sender = FakeSender()
 
-    sent = await digest.send_weekly(session, sender, now=now)
+    sent = await digest.send_weekly(session, sender, now=datetime(2026, 11, 2, tzinfo=UTC))
 
     assert sent == 2
     assert {user_id for user_id, _ in sender.sent} == {alice.id, bob.id}
@@ -162,5 +155,11 @@ async def test_rerunning_the_same_week_sends_nothing_twice_but_retries_failures(
     second = FakeSender()
     assert await digest.send_weekly(session, second, now=now) == 1
     assert [u for u, _ in second.sent] == [b]
-    next_week = FakeSender()
-    assert await digest.send_weekly(session, next_week, now=now + timedelta(days=7)) == 3
+    assert await digest.send_weekly(session, FakeSender(), now=now + timedelta(days=7)) == 0
+    fresh = Job(title="Platform")
+    session.add(fresh)
+    await session.flush()
+    resumes = (await session.scalars(select(Resume).where(Resume.user_id.in_([a, b, c])))).all()
+    session.add_all([MatchScore(resume_id=r.id, job_id=fresh.id, score=0.8) for r in resumes])
+    await session.commit()
+    assert await digest.send_weekly(session, FakeSender(), now=now + timedelta(days=7)) == 3
