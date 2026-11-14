@@ -5,6 +5,7 @@ from app.api.deps_api import client_ip, get_current_user, get_mailer
 from app.core.db_core import get_session, get_sessionmaker
 from app.schemas.feedback_schemas import FeedbackIn
 from app.services import feedback_services as feedback
+from app.services.notify_services import notify
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
 
@@ -28,4 +29,5 @@ async def report(
     agent = (request.headers.get("user-agent") or "")[:300] or None
     fid = await feedback.submit(s, user_id, body.kind, body.message.strip(), body.page, agent)
     tasks.add_task(feedback.acknowledge_now, maker, send, fid)
+    tasks.add_task(notify, f"New {body.kind} report #{feedback.ref_of(fid)}.")
     return {"ref": feedback.ref_of(fid), "detail": "Thanks. We've emailed you a confirmation."}

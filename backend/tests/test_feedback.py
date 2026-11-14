@@ -162,3 +162,15 @@ async def test_a_hanging_smtp_server_times_out_and_leaves_it_for_the_cron(client
     ).status_code == 202
     [fb] = await rows(session, user)
     assert (fb.ack_status, fb.attempts) == ("queued", 1)
+
+
+async def test_a_report_pings_the_owner_without_the_message(client, session, outbox, monkeypatch):
+    sent = []
+
+    async def capture(message, transport=None):
+        sent.append(message)
+
+    monkeypatch.setattr("app.api.routes.feedback_routes.notify", capture)
+    _, h = await account(session)
+    ref = (await client.post("/feedback", json=BUG, headers=h)).json()["ref"]
+    assert sent == [f"New bug report #{ref}."]

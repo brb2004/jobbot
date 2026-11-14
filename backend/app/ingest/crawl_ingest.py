@@ -7,11 +7,13 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 import httpx
-from sqlalchemy import case, func, literal_column, select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Board, Job
+from app.ingest.upsert_ingest import deferred_upsert, inline_upsert, upsert
 
 TRIES = 3
 BACKOFF = 0.5
@@ -120,51 +122,12 @@ def _row(key: str, p: Posting) -> dict:
 
 
 async def save_postings(s: AsyncSession, key: str, postings: list[Posting]) -> int:
-    if not postings:
-        return 0
-    inline = [p for p in postings if p.content_html is not None]
-    deferred = [p for p in postings if p.content_html is None]
-    new = 0
-    if deferred:
-        stmt = insert(Job).values([_row(key, p) for p in deferred])
-        edited = Job.source_updated_at.is_not(None) & Job.source_updated_at.is_distinct_from(
-            stmt.excluded.source_updated_at
-        )
-        stmt = stmt.on_conflict_do_update(
-            constraint="uq_jobs_board_external",
-            set_={
-                "title": stmt.excluded.title,
-                "url": stmt.excluded.url,
-                "location": stmt.excluded.location,
-                "description": case((edited, None), else_=Job.description),
-                "source_updated_at": stmt.excluded.source_updated_at,
-                "closed_at": None,
-            },
-        ).returning(literal_column("xmax = 0"))
-        new += sum((await s.execute(stmt)).scalars().all())
-    if inline:
-        stmt = insert(Job).values([_row(key, p) for p in inline])
-        x = stmt.excluded
-        changed = Job.source_updated_at.is_distinct_from(x.source_updated_at) | Job.content_html.is_(None)
-        fresh = {
-            c: case((changed, getattr(x, c)), else_=getattr(Job, c))
-            for c in ("content_html", "description", "salary_min", "salary_max", "salary_currency")
-        }
-        stmt = stmt.on_conflict_do_update(
-            constraint="uq_jobs_board_external",
-            set_={
-                "title": x.title,
-                "url": x.url,
-                "location": x.location,
-                **fresh,
-                "requirements": case((changed, None), else_=Job.requirements),
-                "skills_version": case((changed, None), else_=Job.skills_version),
-                "source_updated_at": x.source_updated_at,
-                "closed_at": None,
-            },
-        ).returning(literal_column("xmax = 0"))
-        new += sum((await s.execute(stmt)).scalars().all())
-    await s.commit()
+    rows = [_row(key, p) for p in postings]
+    deferred = [r for r in rows if "content_html" not in r]
+    inline = [r for r in rows if "content_html" in r]
+    new = await upsert(s, deferred_upsert, deferred) + await upsert(s, inline_upsert, inline)
+    if rows:
+        await s.commit()
     return new
 
 
@@ -238,11 +201,21 @@ async def crawl_source(
             summary.missing += 1
             summary.closed += await note_missing(s, key)
         else:
-            postings, listed = got
-            summary.found += 1
-            if name:
-                await save_name(s, key, name)
-            await s.execute(update(Board).where(Board.slug == key, Board.misses > 0).values(misses=0))
-            summary.new_jobs += await save_postings(s, key, postings)
-            summary.closed += await close_missing(s, key, listed)
+            await _store(s, key, got, name, summary)
     return summary
+
+
+async def _store(s: AsyncSession, key: str, got, name: str | None, summary: CrawlSummary) -> None:
+    postings, listed = got
+    try:
+        if name:
+            await save_name(s, key, name)
+        await s.execute(update(Board).where(Board.slug == key, Board.misses > 0).values(misses=0))
+        summary.new_jobs += await save_postings(s, key, postings)
+        summary.closed += await close_missing(s, key, listed)
+    except SQLAlchemyError as e:
+        await s.rollback()
+        log.warning("board %s could not be saved: %s", key, repr(e)[:200])
+        summary.failed += 1
+        return
+    summary.found += 1

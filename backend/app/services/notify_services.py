@@ -22,4 +22,4 @@ async def notify(message: str, transport: httpx.AsyncBaseTransport | None = None
         async with httpx.AsyncClient(timeout=5, transport=transport) as client:
             await client.post(url, content=message.encode(), headers={"Title": "SkillFit", "Tags": "tada"})
     except httpx.HTTPError:
-        log.warning("sign-up notification failed")
+        log.warning("notification failed")
