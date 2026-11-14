@@ -1,3 +1,5 @@
+import asyncio
+
 import httpx
 import pytest
 from sqlalchemy import func, select
@@ -47,3 +49,27 @@ async def test_a_board_that_cannot_be_saved_fails_alone(session, monkeypatch):
     async with httpx.AsyncClient(transport=transport) as c:
         summary = await gh.crawl(c, session, ["broken", "good"])
     assert (summary.failed, summary.found, summary.new_jobs) == (1, 1, 1)
+
+
+async def test_fetched_boards_wait_for_the_database_instead_of_piling_up(session, monkeypatch):
+    held, peak = [0], [0]
+
+    async def fetch_board(client, slug):
+        held[0] += 1
+        peak[0] = max(peak[0], held[0])
+        return [], []
+
+    async def no_name(client, slug):
+        return None
+
+    async def slow_store(s, key, got, name, summary):
+        await asyncio.sleep(0.001)
+        held[0] -= 1
+        summary.found += 1
+
+    monkeypatch.setattr(crawl_ingest, "_store", slow_store)
+    source = crawl_ingest.Source(name="t", prefix="t:", fetch_board=fetch_board, fetch_name=no_name)
+    summary = await crawl_ingest.crawl_source(
+        None, session, source, [str(i) for i in range(200)], concurrency=4
+    )
+    assert summary.found == 200 and peak[0] <= 9

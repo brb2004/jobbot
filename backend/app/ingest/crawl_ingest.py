@@ -174,35 +174,44 @@ async def retire_dropped(s: AsyncSession, keys: list[str]) -> int:
 async def crawl_source(
     client: httpx.AsyncClient, s: AsyncSession, source: Source, slugs: list[str], concurrency: int = 4
 ) -> CrawlSummary:
-    sem = asyncio.Semaphore(concurrency)
     named = set((await s.scalars(select(Board.slug).where(Board.name.is_not(None)))).all())
+    ready = asyncio.Queue(maxsize=concurrency)
+    todo = iter(slugs)
 
-    async def fetch(slug):
-        async with sem:
-            try:
-                got = await source.fetch_board(client, slug)
-            except Exception as e:
-                log.warning("%s board %s failed: %s", source.name, slug, repr(e)[:200])
-                return slug, None, e, None
-            name = None
-            if got is not None and source.key(slug) not in named:
-                with contextlib.suppress(Exception):
-                    name = await source.fetch_name(client, slug)
-            return slug, got, None, name
+    async def worker():
+        for slug in todo:
+            await ready.put(await _fetch(client, source, slug, named))
 
+    workers = [asyncio.create_task(worker()) for _ in range(concurrency)]
     summary = CrawlSummary()
-    tasks = [asyncio.ensure_future(fetch(slug)) for slug in slugs]
-    for done in asyncio.as_completed(tasks):
-        slug, got, err, name = await done
-        key = source.key(slug)
-        if err:
-            summary.failed += 1
-        elif got is None:
-            summary.missing += 1
-            summary.closed += await note_missing(s, key)
-        else:
-            await _store(s, key, got, name, summary)
+    for _ in slugs:
+        slug, got, err, name = await ready.get()
+        await _record(s, source.key(slug), got, err, name, summary)
+    await asyncio.gather(*workers)
     return summary
+
+
+async def _fetch(client: httpx.AsyncClient, source: Source, slug: str, named: set[str]):
+    try:
+        got = await source.fetch_board(client, slug)
+    except Exception as e:
+        log.warning("%s board %s failed: %s", source.name, slug, repr(e)[:200])
+        return slug, None, e, None
+    name = None
+    if got is not None and source.key(slug) not in named:
+        with contextlib.suppress(Exception):
+            name = await source.fetch_name(client, slug)
+    return slug, got, None, name
+
+
+async def _record(s: AsyncSession, key: str, got, err, name, summary: CrawlSummary) -> None:
+    if err:
+        summary.failed += 1
+    elif got is None:
+        summary.missing += 1
+        summary.closed += await note_missing(s, key)
+    else:
+        await _store(s, key, got, name, summary)
 
 
 async def _store(s: AsyncSession, key: str, got, name: str | None, summary: CrawlSummary) -> None:
