@@ -4,6 +4,7 @@ from app.db.models_db import Job
 from app.services.experience_services import years_from_resume
 from app.services.preferences_services import Preferences, allowed
 from app.services.requirements_services import years_required
+from app.services.title_rules_services import title_ok
 
 DEFAULT = Preferences()
 
@@ -85,3 +86,11 @@ def test_job_years_are_experience_asks_only(bullet, years):
 )
 def test_resume_years_are_the_writers_own(text, years):
     assert years_from_resume(text) == years
+
+
+def test_lab_and_biology_scientists_are_hidden_unless_asked_for():
+    assert not title_ok("Bioinformatics Scientist – HIV-SOMAL", [], [], False)
+    assert not title_ok("Senior Clinical Scientist", [], [], False)
+    assert title_ok("Data Scientist", [], [], False)
+    assert title_ok("Research Scientist, Machine Learning", [], [], False)
+    assert title_ok("Bioinformatics Scientist", ["bioinformatics"], [], False)

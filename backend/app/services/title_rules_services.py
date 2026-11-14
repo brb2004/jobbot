@@ -17,6 +17,12 @@ HARDWARE_TITLES = tuple(
     "process engineer, chemical engineer, civil engineer, structural engineer, optical engineer, "
     "thermal engineer, packaging engineer".split(", ")
 )
+SCIENCE_TITLES = tuple(
+    "bioinformatics, bioinformatician, computational biology, computational biologist, biologist, biology, "
+    "biostatistics, biostatistician, genomics, chemist, chemistry, clinical, laboratory, lab scientist, "
+    "epidemiologist, pharmacologist, toxicologist, immunologist, neuroscientist, materials scientist, "
+    "process scientist, formulation scientist, assay".split(", ")
+)
 BUILDER_TITLES = tuple(
     "software, backend, back-end, frontend, front-end, full stack, full-stack, fullstack, data scientist, "
     "machine learning, ml engineer, site reliability, platform engineer, data engineer, devops".split(", ")
@@ -34,7 +40,7 @@ def title_ok(title: str, include: list[str], exclude: list[str], presales: bool)
 def _hidden(title: str, include: list[str], presales: bool) -> bool:
     if not presales and has_any(title, PRESALES_TITLES, hyphen_joins=True):
         return True
-    for phrases in (NON_DEV_TITLES, HARDWARE_TITLES):
+    for phrases in (NON_DEV_TITLES, HARDWARE_TITLES, SCIENCE_TITLES):
         named = any(has_any(t, phrases, hyphen_joins=True) for t in include)
         if not named and has_any(title, phrases, hyphen_joins=True):
             return True
