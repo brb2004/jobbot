@@ -8,7 +8,7 @@ import { Preferences } from './Preferences'
 afterEach(cleanup)
 const saved: Prefs = {
   include_titles: ['engineer'], exclude_titles: ['senior'], locations: ['us'],
-  remote: true, onsite: false, years_experience: 1, extra_skills: [], include_presales: false,
+  remote: true, onsite: false, years_experience: 1, extra_skills: [], include_presales: false, education: null,
 }
 const fakeApi = (o: Partial<Api> = {}) =>
   ({ getPreferences: vi.fn().mockResolvedValue(saved), savePreferences: vi.fn(async (p: Prefs) => p), ...o }) as unknown as Api
@@ -54,5 +54,15 @@ describe('presales category', () => {
     await userEvent.click(await screen.findByLabelText(/Include sales & pre-sales roles/))
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     expect(api.savePreferences).toHaveBeenCalledWith({ ...saved, include_presales: true })
+  })
+})
+
+describe('education', () => {
+  it('saves the picked degree, and blank as no filter', async () => {
+    const api = fakeApi()
+    render(<Preferences api={api} onSaved={vi.fn()} />)
+    await userEvent.selectOptions(await screen.findByLabelText('Highest education'), "Associate's")
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(api.savePreferences).toHaveBeenCalledWith({ ...saved, education: 'associate' })
   })
 })

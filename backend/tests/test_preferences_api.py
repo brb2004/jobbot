@@ -16,6 +16,7 @@ async def test_put_then_get_returns_what_was_saved(client):
         "years_experience": 2,
         "extra_skills": ["Go"],
         "include_presales": False,
+        "education": "associate",
     }
 
     assert (await client.put("/me/preferences", json=body, headers=h)).status_code == 200
@@ -33,6 +34,7 @@ async def test_new_users_have_empty_preferences(client):
         "years_experience": None,
         "extra_skills": [],
         "include_presales": False,
+        "education": None,
     }
 
 
@@ -51,6 +53,7 @@ async def test_users_only_see_their_own_preferences(client):
         "years_experience": None,
         "extra_skills": [],
         "include_presales": False,
+        "education": None,
     }
 
 

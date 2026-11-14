@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, Float, ForeignKey, Index, SmallInteger, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -26,6 +26,7 @@ class Job(Base):
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     source_updated_at: Mapped[str | None] = mapped_column(String(40))
     skills_version: Mapped[str | None] = mapped_column(String(12))
+    degree: Mapped[int | None] = mapped_column(SmallInteger)
 
     __table_args__ = (
         UniqueConstraint("board", "external_id", name="uq_jobs_board_external"),

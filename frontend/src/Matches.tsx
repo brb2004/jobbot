@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ApiError, type Api, type Match, type ResumeInfo } from './api'
+import { LinksBar } from './Links'
 
 const BADGE: Record<string, string> = {
   'Strong match': 'bg-green-100 text-green-800',
@@ -116,6 +117,7 @@ export function Matches({ api, onUpload, onPreferences }:
   return (
     <div className="max-w-3xl space-y-3">
       {tabs}
+      <LinksBar api={api} onEdit={onPreferences} />
       {moved && (
         <p role="status" className="flex flex-wrap items-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
           {moved.hidden ? <>Hid “{moved.m.title}”.</> : <>Moved “{moved.m.title}” to Applied.</>}

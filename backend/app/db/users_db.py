@@ -14,6 +14,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True)
     hashed_password: Mapped[str] = mapped_column(String(255))
     preferences: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
+    links: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
     tokens_valid_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     digest_opt_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

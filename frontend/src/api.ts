@@ -8,6 +8,15 @@ export interface Preferences {
   years_experience: number | null
   extra_skills: string[]
   include_presales: boolean
+  education?: Education | null
+}
+
+export type Education = 'none' | 'associate' | 'bachelor' | 'master' | 'phd'
+
+export interface Links {
+  linkedin: string | null
+  github: string | null
+  website: string | null
 }
 
 export interface MatchDetail {
@@ -132,6 +141,8 @@ export function createApi(fetchFn: Fetch = (input, init) => fetch(input, init), 
     onUnauthorized: (fn: () => void) => { unauthorized.add(fn); return () => { unauthorized.delete(fn) } },
     getPreferences: () => call<Preferences>('/me/preferences'),
     savePreferences: (p: Preferences) => call<Preferences>('/me/preferences', { method: 'PUT', body: JSON.stringify(p) }),
+    getLinks: () => call<Links>('/me/links'),
+    saveLinks: (l: Links) => call<Links>('/me/links', { method: 'PUT', body: JSON.stringify(l) }),
     uploadResume: (file: File, opts: { name?: string; replace?: string } = {}) => {
       const form = new FormData()
       form.append('file', file)

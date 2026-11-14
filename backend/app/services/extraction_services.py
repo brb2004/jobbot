@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.batches_db import batches
 from app.db.models_db import Job
+from app.ingest.degree_ingest import required_degree
 from app.ingest.sections_ingest import requirement_bullets
 from app.services.requirements_services import seniority_pitch
 
@@ -18,6 +19,7 @@ async def fill_job_requirements(s: AsyncSession, job_ids=None) -> int:
         for job in jobs:
             pitch = seniority_pitch(job.description)
             job.requirements = requirement_bullets(job.content_html) + ([pitch] if pitch else [])
+            job.degree = required_degree(job.content_html)
         await s.commit()
         done += len(jobs)
     return done

@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -21,6 +21,7 @@ class Preferences(BaseModel):
     years_experience: int | None = Field(default=None, ge=0, le=60)
     extra_skills: list[Word] = Field(default=[], max_length=50)
     include_presales: bool = False
+    education: Literal["none", "associate", "bachelor", "master", "phd"] | None = None
 
     @field_validator("include_titles", "exclude_titles", "locations", "extra_skills")
     @classmethod
@@ -87,6 +88,13 @@ def for_resume(account: Preferences, own: dict | None) -> Preferences:
     if "exclude_titles" in over and "include_titles" not in over:
         merged["include_titles"] = [w for w in merged["include_titles"] if w not in over["exclude_titles"]]
     return Preferences.model_validate(merged)
+
+
+EDUCATION = {"none": 0, "associate": 1, "bachelor": 2, "master": 3, "phd": 4}
+
+
+def degree_ok(required: int | None, prefs: Preferences) -> bool:
+    return prefs.education is None or (required or 0) <= EDUCATION[prefs.education]
 
 
 def allowed(job: Job, prefs: Preferences) -> bool:

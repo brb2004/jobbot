@@ -29,6 +29,7 @@ _ROWS = select(
     Job.requirements,
     Job.salary_min,
     Job.salary_currency,
+    Job.degree,
 ).where(*OPEN)
 
 
@@ -53,6 +54,7 @@ class JobIndex:
     clearance: dict
     core: dict = field(default_factory=dict)
     pay: dict = field(default_factory=dict)
+    degree: dict = field(default_factory=dict)
     fingerprint: tuple = ()
     built_at: float = 0.0
 
@@ -103,6 +105,7 @@ def build_job_index(rows, fingerprint: tuple = ()) -> JobIndex:
         clearance={r.id: needs_clearance(r.title, r.requirements or []) for r in rows},
         core=_title_skills(rows),
         pay={r.id: int(r.salary_min) for r in rows if years[r.id][1] == "pay"},
+        degree={r.id: r.degree for r in rows if getattr(r, "degree", None)},
         fingerprint=fingerprint,
         built_at=time.monotonic(),
     )

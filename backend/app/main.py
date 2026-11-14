@@ -15,6 +15,7 @@ from app.api.routes import (
     email_routes,
     feedback_routes,
     jobs_routes,
+    links_routes,
     matches_routes,
     password_routes,
     places_routes,
@@ -36,6 +37,7 @@ app = FastAPI(
     **docs_kwargs(get_settings().DOCS_ENABLED),
 )
 app.include_router(preferences_routes.router)
+app.include_router(links_routes.router)
 app.include_router(auth_routes.router)
 app.include_router(account_routes.router)
 app.include_router(account_routes.account)

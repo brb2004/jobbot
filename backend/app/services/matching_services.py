@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models_db import Application, MatchScore, Resume, User
 from app.services import job_index_services
 from app.services.job_index_services import JobIndex, fresh_index
-from app.services.preferences_services import Preferences, allowed, for_resume
+from app.services.preferences_services import Preferences, allowed, degree_ok, for_resume
 from app.services.scoring_services import top_matches
 from app.services.skills_services import default_tagger
 
@@ -55,7 +55,7 @@ def _pick(idx: JobIndex, resume: Resume, prefs: Preferences, store: int):
     typed = set().union(*(tagger.tag(word) for word in prefs.extra_skills))
     mine = tagger.expand(set(resume.skills) | typed)
     years = prefs.years_experience if prefs.years_experience is not None else resume.years_detected
-    ok = {j.id for j in idx.jobs if allowed(j, prefs)}
+    ok = {j.id for j in idx.jobs if allowed(j, prefs) and degree_ok(idx.degree.get(j.id), prefs)}
     return top_matches(mine, idx.skills, idx.weights, store, index=idx.index, within=ok, dedupe_key=idx.roles,
                        company=idx.companies, per_company=PER_COMPANY, job_years=idx.years, user_years=years,
                        core=idx.core, soft=job_index_services.soft_years(idx))  # fmt: skip

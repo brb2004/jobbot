@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { ApiError, type Api, type Place, type Preferences as Prefs } from './api'
+import { ApiError, type Api, type Education as Level, type Place, type Preferences as Prefs } from './api'
 import { ChipInput } from './ChipInput'
+import { Education } from './Education'
+import { LinksEditor } from './Links'
 import { addAll, canonFrom, toList } from './lists'
 
 type ListKey = 'include_titles' | 'exclude_titles' | 'locations' | 'extra_skills'
-type Draft = { lists: Record<ListKey, string[]>; remote: boolean; onsite: boolean; years: string; presales: boolean }
+type Draft = {
+  lists: Record<ListKey, string[]>; remote: boolean; onsite: boolean; years: string; presales: boolean; education: Level | ''
+}
 const NO_PENDING: Record<ListKey, string> = { include_titles: '', exclude_titles: '', locations: '', extra_skills: '' }
 
 const INCLUDE_TIPS = ['software engineer', 'backend', 'frontend', 'full stack', 'platform', 'infrastructure', 'sre',
@@ -44,7 +48,7 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
           lists: { include_titles: p.include_titles, exclude_titles: p.exclude_titles, locations: p.locations,
                    extra_skills: p.extra_skills },
           remote: p.remote ?? true, onsite: p.onsite ?? true,
-          years: p.years_experience?.toString() ?? '', presales: p.include_presales,
+          years: p.years_experience?.toString() ?? '', presales: p.include_presales, education: p.education ?? '',
         }
         setDraft(d)
         setSaved(JSON.stringify(d))
@@ -103,7 +107,8 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
           .map((v) => canonFor[k](v) ?? v))])) as Record<ListKey, string[]>
       const final = { ...draft, lists }
       await api.savePreferences({ ...lists, remote: final.remote, onsite: final.onsite,
-        years_experience: years === '' ? null : Number(years), include_presales: final.presales } satisfies Prefs)
+        years_experience: years === '' ? null : Number(years), include_presales: final.presales,
+        education: final.education || null } satisfies Prefs)
       setDraft(final)
       setPending(NO_PENDING)
       setSaved(JSON.stringify(final))
@@ -119,13 +124,14 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
   if (error && !draft) return <p role="alert" className="text-red-600">{error}</p>
   if (!draft) return <p className="text-slate-600">Loading…</p>
 
-  const { lists, remote, onsite, years, presales } = draft
+  const { lists, remote, onsite, years, presales, education } = draft
   const set = (patch: Partial<Draft>) => setDraft({ ...draft, ...patch })
   const setList = (k: ListKey, v: string[]) => set({ lists: { ...lists, [k]: v } })
   const typed = (k: ListKey) => ({ pending: pending[k], onPending: (v: string) => setPending({ ...pending, [k]: v }) })
   const clash = presales ? lists.exclude_titles.filter(salesWord) : []
 
   return (
+    <>
     <form onSubmit={submit} className="max-w-xl space-y-5">
       <h2 className="text-xl font-semibold">Preferences</h2>
       <p className="text-sm text-slate-600">
@@ -199,6 +205,7 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
           </p>
         )}
       </div>
+      <Education value={education} onChange={(v) => set({ education: v })} />
       <div>
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" className="mt-1" checked={presales} aria-describedby="presales-hint"
@@ -245,5 +252,7 @@ export function Preferences({ api, onSaved, onDeleted, onDirty }:
         )}
       </section>
     </form>
+    <LinksEditor api={api} />
+    </>
   )
 }
