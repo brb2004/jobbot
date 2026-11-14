@@ -77,6 +77,7 @@ SSO: single sign-on
 PyTorch
 TensorFlow
 Machine Learning: ml
+Reinforcement Learning: rlhf
 LLMs & Generative AI: llm, llms, large language models, genai, gen ai, generative ai, =AI, artificial intelligence
 # concepts
 Distributed Systems
@@ -214,6 +215,7 @@ Compilers: compiler design, compiler construction
 # implications: left > right means "having left implies having right" (expands YOUR skills only)
 RAG > LLMs & Generative AI
 PyTorch > Machine Learning
+Reinforcement Learning > Machine Learning
 TensorFlow > Machine Learning
 Kubernetes > Docker
 PostgreSQL > SQL

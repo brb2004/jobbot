@@ -9,6 +9,8 @@ YEARS_PENALTY = 0.5
 YEARS_HIDE = 3
 TIERS = [(0.45, "Strong match"), (0.30, "Worth applying"), (0.0, "Stretch")]
 LANG_CAP = round(TIERS[0][0] - 0.01, 2)
+TITLE_WEIGHT = 3.0
+TITLE_CAP = round(TIERS[1][0] - 0.01, 2)
 LANGUAGES = frozenset(
     "Python Go Java Ruby JavaScript TypeScript C C++ C# Rust Kotlin Swift Scala PHP Elixir".split()
 )
@@ -32,22 +34,38 @@ def idf_weights(job_skill_sets: list[set[str]]) -> dict[str, float]:
 
 
 def score_job(
-    job_id, job_skills, user_skills, weights, prior=PRIOR, job_years=None, user_years=None, avg=None
+    job_id,
+    job_skills,
+    user_skills,
+    weights,
+    prior=PRIOR,
+    job_years=None,
+    user_years=None,
+    avg=None,
+    core=frozenset(),
 ):
     if not job_skills:
         return None
     if job_years is not None and user_years is not None and job_years > user_years + YEARS_HIDE:
         return None
-    ordered = sorted(job_skills, key=lambda s: (-weights.get(s, 1.0), s))
+    job_skills = job_skills | core
+
+    def weight(s):
+        return weights.get(s, 1.0) * (TITLE_WEIGHT if s in core else 1.0)
+
+    ordered = sorted(job_skills, key=lambda s: (-weight(s), s))
     matched = [s for s in ordered if s in user_skills]
     avg = avg if avg is not None else _average(weights)
-    score = sum(weights.get(s, 1.0) for s in matched) / (
-        sum(weights.get(s, 1.0) for s in ordered) + prior * avg
-    )
+    score = sum(map(weight, matched)) / (sum(map(weight, ordered)) + prior * avg)
+    return _finish(job_id, score, ordered, matched, user_skills, job_years, user_years, core)
+
+
+def _finish(job_id, score, ordered, matched, user_skills, job_years, user_years, core) -> Match:
     over = job_years is not None and user_years is not None and job_years > user_years + YEARS_SLACK
-    named = job_skills & LANGUAGES
+    named = set(ordered) & LANGUAGES
     no_language = bool(named) and not (named & user_skills)
-    score = min(score * (YEARS_PENALTY if over else 1), LANG_CAP if no_language else 1)
+    cap = min(LANG_CAP if no_language else 1, TITLE_CAP if core - user_skills else 1)
+    score = min(score * (YEARS_PENALTY if over else 1), cap)
     missing = [s for s in ordered if s not in user_skills]
     return Match(job_id, round(score, 2), matched, missing, job_years, over, no_language)
 
@@ -99,14 +117,25 @@ def top_matches(
     dedupe_key=None,
     company=None,
     per_company=None,
+    core=None,
 ) -> list[Match]:
     index = index if index is not None else build_index(jobs)
-    job_years, avg = job_years or {}, _average(weights)
+    job_years, core, avg = job_years or {}, core or {}, _average(weights)
     candidates = set().union(*(index.get(s, set()) for s in user_skills))
     if within is not None:
         candidates &= within
     scored = (
-        score_job(j, jobs[j], user_skills, weights, PRIOR, job_years.get(j), user_years, avg)
+        score_job(
+            j,
+            jobs[j],
+            user_skills,
+            weights,
+            PRIOR,
+            job_years.get(j),
+            user_years,
+            avg,
+            core.get(j, frozenset()),
+        )
         for j in candidates
     )
     heap = [((-m.score, str(m.job_id)), m) for m in scored if m]

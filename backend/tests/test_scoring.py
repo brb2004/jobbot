@@ -1,5 +1,5 @@
 from app.services.requirements_services import years_from_title, years_note, years_required
-from app.services.scoring_services import idf_weights, score_job, top_matches
+from app.services.scoring_services import TITLE_CAP, idf_weights, score_job, top_matches
 
 
 def test_rare_skills_weigh_more():
@@ -140,3 +140,22 @@ def test_at_most_n_picks_per_company():
     out = top_matches({"Python"}, jobs, {"Python": 1.0}, k=10, company=company, per_company=2)
     picked = [m.job_id[0] for m in out]
     assert picked.count("a") == 2 and picked.count("b") == 2 and len(out) == 4
+
+
+def test_a_skill_in_the_title_outweighs_the_stack_list():
+    stack = {"Python", "Docker", "Linux", "C", "GitHub Actions"}
+    me = stack | {"LLMs & Generative AI"}
+    weights = dict.fromkeys(stack | {"Reinforcement Learning", "LLMs & Generative AI"}, 1.0)
+    plain = score_job("j", stack, me, weights)
+    rl = score_job("j", stack, me, weights, core=frozenset({"Reinforcement Learning"}))
+    assert rl.score < plain.score and rl.score <= TITLE_CAP
+    assert rl.missing[0] == "Reinforcement Learning"
+
+
+def test_having_the_title_skill_helps():
+    weights = dict.fromkeys({"Python", "Machine Learning", "Docker", "Go"}, 1.0)
+    job = {"Python", "Docker", "Go"}
+    me = {"Python", "Machine Learning"}
+    plain = score_job("j", job, me, weights)
+    ml = score_job("j", job, me, weights, core=frozenset({"Machine Learning"}))
+    assert ml.score > plain.score

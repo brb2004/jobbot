@@ -1,6 +1,6 @@
 import asyncio
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sqlalchemy import String, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,6 +50,7 @@ class JobIndex:
     roles: dict
     companies: dict
     clearance: dict
+    core: dict = field(default_factory=dict)
     fingerprint: tuple = ()
     built_at: float = 0.0
 
@@ -70,6 +71,12 @@ def _years(row) -> tuple[int | None, str]:
     return next(((y, src) for src, fn in found if (y := fn()) is not None), (None, "title"))
 
 
+def _title_skills(rows) -> dict:
+    tagger = default_tagger()
+    by_title = {t: frozenset(tagger.tag(t)) for t in {r.title or "" for r in rows}}
+    return {r.id: by_title[r.title or ""] for r in rows if by_title[r.title or ""]}
+
+
 def build_job_index(rows, fingerprint: tuple = ()) -> JobIndex:
     rows = [r for r in rows if r.skills]
     skills = {r.id: set(r.skills) for r in rows}
@@ -84,6 +91,7 @@ def build_job_index(rows, fingerprint: tuple = ()) -> JobIndex:
         roles={r.id: (r.board, role_key(r.title)) for r in rows},
         companies={r.id: r.board for r in rows if r.board},
         clearance={r.id: needs_clearance(r.title, r.requirements or []) for r in rows},
+        core=_title_skills(rows),
         fingerprint=fingerprint,
         built_at=time.monotonic(),
     )

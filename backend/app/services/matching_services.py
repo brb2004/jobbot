@@ -57,7 +57,8 @@ def _pick(idx: JobIndex, resume: Resume, prefs: Preferences, store: int):
     years = prefs.years_experience if prefs.years_experience is not None else resume.years_detected
     ok = {j.id for j in idx.jobs if allowed(j, prefs)}
     return top_matches(mine, idx.skills, idx.weights, store, index=idx.index, within=ok, dedupe_key=idx.roles,
-                       company=idx.companies, per_company=PER_COMPANY, job_years=idx.years, user_years=years)  # fmt: skip
+                       company=idx.companies, per_company=PER_COMPANY, job_years=idx.years, user_years=years,
+                       core=idx.core)  # fmt: skip
 
 
 async def _replace_scores(s: AsyncSession, idx: JobIndex, resume_id, picks) -> int:
