@@ -43,10 +43,11 @@ def score_job(
     user_years=None,
     avg=None,
     core=frozenset(),
+    soft=False,
 ):
     if not job_skills:
         return None
-    if job_years is not None and user_years is not None and job_years > user_years + YEARS_HIDE:
+    if not soft and job_years is not None and user_years is not None and job_years > user_years + YEARS_HIDE:
         return None
     job_skills = job_skills | core
 
@@ -57,15 +58,15 @@ def score_job(
     matched = [s for s in ordered if s in user_skills]
     avg = avg if avg is not None else _average(weights)
     score = sum(map(weight, matched)) / (sum(map(weight, ordered)) + prior * avg)
-    return _finish(job_id, score, ordered, matched, user_skills, job_years, user_years, core)
+    return _finish(job_id, score, ordered, matched, user_skills, job_years, user_years, core, soft)
 
 
-def _finish(job_id, score, ordered, matched, user_skills, job_years, user_years, core) -> Match:
+def _finish(job_id, score, ordered, matched, user_skills, job_years, user_years, core, soft) -> Match:
     over = job_years is not None and user_years is not None and job_years > user_years + YEARS_SLACK
     named = set(ordered) & LANGUAGES
     no_language = bool(named) and not (named & user_skills)
     cap = min(LANG_CAP if no_language else 1, TITLE_CAP if core - user_skills else 1)
-    score = min(score * (YEARS_PENALTY if over else 1), cap)
+    score = min(score * (YEARS_PENALTY if over and not soft else 1), cap)
     missing = [s for s in ordered if s not in user_skills]
     return Match(job_id, round(score, 2), matched, missing, job_years, over, no_language)
 
@@ -118,6 +119,7 @@ def top_matches(
     company=None,
     per_company=None,
     core=None,
+    soft=frozenset(),
 ) -> list[Match]:
     index = index if index is not None else build_index(jobs)
     job_years, core, avg = job_years or {}, core or {}, _average(weights)
@@ -135,6 +137,7 @@ def top_matches(
             user_years,
             avg,
             core.get(j, frozenset()),
+            j in soft,
         )
         for j in candidates
     )

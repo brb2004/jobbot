@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models_db import Job
 from app.services.pay_level_services import years_from_pay
 from app.services.requirements_services import (
+    experienced_pitch,
     needs_clearance,
     years_from_pitch,
     years_from_title,
@@ -51,6 +52,7 @@ class JobIndex:
     companies: dict
     clearance: dict
     core: dict = field(default_factory=dict)
+    pay: dict = field(default_factory=dict)
     fingerprint: tuple = ()
     built_at: float = 0.0
 
@@ -61,6 +63,7 @@ def _years(row) -> tuple[int | None, str]:
         ("requirements", lambda: years_required(bullets)),
         ("title", lambda: years_from_title(row.title)),
         ("pitch", lambda: years_from_pitch(bullets)),
+        ("experienced", lambda: experienced_pitch(bullets)),
         (
             "pay",
             lambda: years_from_pay(
@@ -75,6 +78,13 @@ def _title_skills(rows) -> dict:
     tagger = default_tagger()
     by_title = {t: frozenset(tagger.tag(t)) for t in {r.title or "" for r in rows}}
     return {r.id: by_title[r.title or ""] for r in rows if by_title[r.title or ""]}
+
+
+SOFT = frozenset({"pay", "experienced"})
+
+
+def soft_years(idx) -> set:
+    return {j for j, src in idx.years_src.items() if src in SOFT}
 
 
 def build_job_index(rows, fingerprint: tuple = ()) -> JobIndex:
@@ -92,6 +102,7 @@ def build_job_index(rows, fingerprint: tuple = ()) -> JobIndex:
         companies={r.id: r.board for r in rows if r.board},
         clearance={r.id: needs_clearance(r.title, r.requirements or []) for r in rows},
         core=_title_skills(rows),
+        pay={r.id: int(r.salary_min) for r in rows if years[r.id][1] == "pay"},
         fingerprint=fingerprint,
         built_at=time.monotonic(),
     )

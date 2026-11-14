@@ -2,7 +2,14 @@ from types import SimpleNamespace
 
 from app.services.job_index_services import _years
 from app.services.pay_level_services import years_from_pay
-from app.services.requirements_services import seniority_pitch, years_from_pitch, years_from_title, years_note
+from app.services.requirements_services import (
+    experienced_pitch,
+    seniority_pitch,
+    years_from_pitch,
+    years_from_title,
+    years_note,
+)
+from app.services.scoring_services import score_job
 
 
 def test_level_numbers_in_titles_imply_years():
@@ -59,7 +66,7 @@ def test_experienced_in_the_summary_means_mid_level():
     pitch = seniority_pitch(
         "We're looking for an experienced full-stack Documentation Platform Engineer to evolve"
     )
-    assert years_from_pitch([pitch]) == 3
+    assert years_from_pitch([pitch]) is None and experienced_pitch([pitch]) == 3
     assert years_from_pitch([seniority_pitch("looking for a Senior/Staff engineer")]) == 5
 
 
@@ -79,4 +86,15 @@ def test_the_pay_floor_is_the_last_resort():
     assert _years(row) == (3, "requirements")
     row = SimpleNamespace(title="Engineer", requirements=[], salary_min=200_000, salary_currency="USD")
     assert _years(row) == (5, "pay")
-    assert years_note({"years_asked": 5, "years_source": "pay"}) == "pay suggests ~5+ years"
+    note = years_note({"years_asked": 5, "years_source": "pay", "pay_floor": 204400})
+    assert note == "pay ($204k+) usually means ~5+ years"
+
+
+def test_guessed_levels_warn_but_never_hide_or_demote():
+    weights = dict.fromkeys({"Python", "React"}, 1.0)
+    args = ("j", {"Python", "React"}, {"Python", "React"}, weights)
+    stated = score_job(*args, job_years=5, user_years=0)
+    guessed = score_job(*args, job_years=5, user_years=0, soft=True)
+    plain = score_job(*args)
+    assert stated is None
+    assert guessed.score == plain.score and guessed.over_years and guessed.years_asked == 5

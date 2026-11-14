@@ -58,7 +58,7 @@ def _pick(idx: JobIndex, resume: Resume, prefs: Preferences, store: int):
     ok = {j.id for j in idx.jobs if allowed(j, prefs)}
     return top_matches(mine, idx.skills, idx.weights, store, index=idx.index, within=ok, dedupe_key=idx.roles,
                        company=idx.companies, per_company=PER_COMPANY, job_years=idx.years, user_years=years,
-                       core=idx.core)  # fmt: skip
+                       core=idx.core, soft=job_index_services.soft_years(idx))  # fmt: skip
 
 
 async def _replace_scores(s: AsyncSession, idx: JobIndex, resume_id, picks) -> int:
@@ -74,4 +74,5 @@ async def _replace_scores(s: AsyncSession, idx: JobIndex, resume_id, picks) -> i
 def _detail(idx: JobIndex, m) -> dict:
     return {"met": m.matched, "partial": [], "missing": m.missing, "soft": [], "years_asked": m.years_asked,
             "years_source": idx.years_src.get(m.job_id), "over_years": m.over_years,
-            "no_language": m.no_language, "clearance": idx.clearance.get(m.job_id, False)}  # fmt: skip
+            "no_language": m.no_language, "clearance": idx.clearance.get(m.job_id, False),
+            "pay_floor": idx.pay.get(m.job_id)}  # fmt: skip

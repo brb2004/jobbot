@@ -62,12 +62,18 @@ def seniority_pitch(text: str | None) -> str | None:
 
 
 def years_from_pitch(bullets: list[str]) -> int | None:
-    found = next((m for b in bullets if (m := PITCH.search(b))), None)
-    if not found:
-        return None
-    words = re.findall(LEVEL_WORDS, found.group(1), re.I)
+    words = _pitch_words(bullets)
     titled = [y for w in words if (y := years_from_title(w)) is not None]
-    return min(titled) if titled else EXPERIENCED_YEARS
+    return min(titled) if titled else None
+
+
+def experienced_pitch(bullets: list[str]) -> int | None:
+    return EXPERIENCED_YEARS if _pitch_words(bullets) and years_from_pitch(bullets) is None else None
+
+
+def _pitch_words(bullets: list[str]) -> list[str]:
+    found = next((m for b in bullets if (m := PITCH.search(b))), None)
+    return re.findall(LEVEL_WORDS, found.group(1), re.I) if found else []
 
 
 def years_note(detail: dict) -> str | None:
@@ -79,8 +85,12 @@ def years_note(detail: dict) -> str | None:
         return f"{level}-level title (~{y}+ years)"
     if detail.get("years_source") == "pitch":
         return f"{level}-level role (~{y}+ years)"
+    if detail.get("years_source") == "experienced":
+        return f"asks for an experienced hire (~{y}+ years)"
     if detail.get("years_source") == "pay":
-        return f"pay suggests ~{y}+ years"
+        pay = detail.get("pay_floor")
+        said = f"pay (${pay // 1000:,}k+)" if pay else "pay"
+        return f"{said} usually means ~{y}+ years"
     return f"asks for {y}+ years"
 
 
