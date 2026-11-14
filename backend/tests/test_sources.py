@@ -313,3 +313,12 @@ async def test_greenhouse_details_run_skips_other_sources(session):
 
 def test_backoff_lives_in_the_shared_core():
     assert crawl_ingest.BACKOFF == 0
+
+
+def test_ashby_hybrid_wins_over_the_remote_flag():
+    hybrid = ashby_ingest.posting(
+        ashby_job(isRemote=True, workplaceType="Hybrid", location="New York, NY (HQ)")
+    )
+    assert hybrid.location == "New York, NY (HQ)"
+    unsaid = ashby_ingest.posting(ashby_job(isRemote=True, workplaceType=None))
+    assert unsaid.location == "Remote - United States"

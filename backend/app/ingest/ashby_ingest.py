@@ -29,7 +29,8 @@ def posting(job: dict) -> Posting:
     places = [job.get("location") or ""] + [
         (s or {}).get("location") or "" for s in job.get("secondaryLocations") or []
     ]
-    remote = bool(job.get("isRemote")) or (job.get("workplaceType") or "").lower() == "remote"
+    kind = (job.get("workplaceType") or "").lower()
+    remote = kind == "remote" if kind else bool(job.get("isRemote"))
     lo, hi, cur = salary(job)
     return Posting(
         external_id=str(job["id"]),
