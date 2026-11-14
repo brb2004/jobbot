@@ -47,12 +47,32 @@ def years_from_title(title: str | None) -> int | None:
     return next((n for pattern, n in TITLE_YEARS if pattern.search(title or "")), None)
 
 
+PITCH = re.compile(
+    r"(?:looking for|seeking|hiring|searching for)\s+(?:an?\s+)?(?:experienced\s+|seasoned\s+)?"
+    r"(senior|sr\.|staff|principal|lead)\b[^.\n]{0,120}",
+    re.I,
+)
+
+
+def seniority_pitch(text: str | None) -> str | None:
+    m = PITCH.search(text or "")
+    return m.group(0) if m else None
+
+
+def years_from_pitch(bullets: list[str]) -> int | None:
+    found = next((m for b in bullets if (m := PITCH.search(b))), None)
+    return years_from_title(found.group(1)) if found else None
+
+
 def years_note(detail: dict) -> str | None:
     y = detail.get("years_asked")
     if y is None:
         return None
+    level = "senior" if y >= 5 else "mid"
     if detail.get("years_source") == "title":
-        return f"{'senior' if y >= 5 else 'mid'}-level title (~{y}+ years)"
+        return f"{level}-level title (~{y}+ years)"
+    if detail.get("years_source") == "pitch":
+        return f"{level}-level role (~{y}+ years)"
     return f"asks for {y}+ years"
 
 

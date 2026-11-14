@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.batches_db import batches
 from app.db.models_db import Job
 from app.ingest.sections_ingest import requirement_bullets
+from app.services.requirements_services import seniority_pitch
 
 
 async def fill_job_requirements(s: AsyncSession, job_ids=None) -> int:
@@ -15,7 +16,8 @@ async def fill_job_requirements(s: AsyncSession, job_ids=None) -> int:
     done = 0
     async for jobs in batches(s, stmt, Job.id):
         for job in jobs:
-            job.requirements = requirement_bullets(job.content_html)
+            pitch = seniority_pitch(job.description)
+            job.requirements = requirement_bullets(job.content_html) + ([pitch] if pitch else [])
         await s.commit()
         done += len(jobs)
     return done

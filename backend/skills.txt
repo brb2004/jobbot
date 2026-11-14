@@ -190,6 +190,12 @@ SOC 2: soc2, =SOC 2 Type II
 =NIST
 =RBAC: role-based access control
 =CISSP
+=OSCP
+Penetration Testing: pentest, pentests, pentesting, pen testing, pen test, penetration tester
+Burp Suite: burp
+Bug Bounty: bug bounties
+Exploit Development: exploit dev, exploit writing
+Neo4j
 FedRAMP
 Cisco: cisco ios
 =DHCP
