@@ -6,6 +6,7 @@ from sqlalchemy import String, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Job
+from app.services.pay_level_services import years_from_pay
 from app.services.requirements_services import (
     needs_clearance,
     years_from_pitch,
@@ -18,7 +19,16 @@ from app.services.titles_services import role_key
 
 MAX_AGE_S = 3600
 OPEN = (Job.skills.is_not(None), Job.closed_at.is_(None))
-_ROWS = select(Job.id, Job.board, Job.title, Job.location, Job.skills, Job.requirements).where(*OPEN)
+_ROWS = select(
+    Job.id,
+    Job.board,
+    Job.title,
+    Job.location,
+    Job.skills,
+    Job.requirements,
+    Job.salary_min,
+    Job.salary_currency,
+).where(*OPEN)
 
 
 @dataclass(frozen=True)
@@ -46,11 +56,18 @@ class JobIndex:
 
 def _years(row) -> tuple[int | None, str]:
     bullets = row.requirements or []
-    if (y := years_required(bullets)) is not None:
-        return y, "requirements"
-    if (y := years_from_title(row.title)) is not None:
-        return y, "title"
-    return years_from_pitch(bullets), "pitch"
+    found = (
+        ("requirements", lambda: years_required(bullets)),
+        ("title", lambda: years_from_title(row.title)),
+        ("pitch", lambda: years_from_pitch(bullets)),
+        (
+            "pay",
+            lambda: years_from_pay(
+                row.title, getattr(row, "salary_min", None), getattr(row, "salary_currency", None)
+            ),
+        ),
+    )
+    return next(((y, src) for src, fn in found if (y := fn()) is not None), (None, "title"))
 
 
 def build_job_index(rows, fingerprint: tuple = ()) -> JobIndex:

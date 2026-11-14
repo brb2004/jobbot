@@ -47,11 +47,13 @@ def years_from_title(title: str | None) -> int | None:
     return next((n for pattern, n in TITLE_YEARS if pattern.search(title or "")), None)
 
 
+LEVEL_WORDS = r"(?:experienced|seasoned|senior|sr\.|staff|principal|lead)"
 PITCH = re.compile(
-    r"(?:looking for|seeking|hiring|searching for)\s+(?:an?\s+)?(?:experienced\s+|seasoned\s+)?"
-    r"(senior|sr\.|staff|principal|lead)\b[^.\n]{0,120}",
+    r"(?:looking for|seeking|hiring|searching for)\s+(?:an?\s+)?"
+    rf"((?:{LEVEL_WORDS}[\s/,]+(?:or\s+|and\s+)?)+)[^.\n]{{0,120}}",
     re.I,
 )
+EXPERIENCED_YEARS = 3
 
 
 def seniority_pitch(text: str | None) -> str | None:
@@ -61,7 +63,11 @@ def seniority_pitch(text: str | None) -> str | None:
 
 def years_from_pitch(bullets: list[str]) -> int | None:
     found = next((m for b in bullets if (m := PITCH.search(b))), None)
-    return years_from_title(found.group(1)) if found else None
+    if not found:
+        return None
+    words = re.findall(LEVEL_WORDS, found.group(1), re.I)
+    titled = [y for w in words if (y := years_from_title(w)) is not None]
+    return min(titled) if titled else EXPERIENCED_YEARS
 
 
 def years_note(detail: dict) -> str | None:
@@ -73,6 +79,8 @@ def years_note(detail: dict) -> str | None:
         return f"{level}-level title (~{y}+ years)"
     if detail.get("years_source") == "pitch":
         return f"{level}-level role (~{y}+ years)"
+    if detail.get("years_source") == "pay":
+        return f"pay suggests ~{y}+ years"
     return f"asks for {y}+ years"
 
 

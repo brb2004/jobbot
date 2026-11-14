@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from app.services.job_index_services import _years
+from app.services.pay_level_services import years_from_pay
 from app.services.requirements_services import seniority_pitch, years_from_pitch, years_from_title, years_note
 
 
@@ -52,3 +53,30 @@ def test_ordinary_text_has_no_seniority_pitch():
 def test_the_title_wins_over_the_summary():
     row = SimpleNamespace(title="Staff Engineer", requirements=["looking for a senior engineer"])
     assert _years(row) == (8, "title")
+
+
+def test_experienced_in_the_summary_means_mid_level():
+    pitch = seniority_pitch(
+        "We're looking for an experienced full-stack Documentation Platform Engineer to evolve"
+    )
+    assert years_from_pitch([pitch]) == 3
+    assert years_from_pitch([seniority_pitch("looking for a Senior/Staff engineer")]) == 5
+
+
+def test_the_pay_floor_hints_at_level_unless_the_title_says_junior():
+    assert years_from_pay("Machine Learning Engineer", 175_000, "USD") == 3
+    assert years_from_pay("Applied AI Engineer", 204_400, "USD") == 5
+    assert years_from_pay("Software Engineer", 120_000, "USD") is None
+    assert years_from_pay("Software Engineer, New Grad", 190_000, "USD") is None
+    assert years_from_pay("Marketing Engineer I", 190_000, "USD") is None
+    assert years_from_pay("Software Engineer", 190_000, "EUR") is None
+
+
+def test_the_pay_floor_is_the_last_resort():
+    row = SimpleNamespace(
+        title="Engineer", requirements=["3+ years of Python"], salary_min=200_000, salary_currency="USD"
+    )
+    assert _years(row) == (3, "requirements")
+    row = SimpleNamespace(title="Engineer", requirements=[], salary_min=200_000, salary_currency="USD")
+    assert _years(row) == (5, "pay")
+    assert years_note({"years_asked": 5, "years_source": "pay"}) == "pay suggests ~5+ years"
