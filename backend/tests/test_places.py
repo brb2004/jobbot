@@ -81,3 +81,21 @@ def test_arlington_virginia_is_not_a_dfw_job():
     dfw = Preferences(locations=["Dallas-Fort Worth"], remote=False, onsite=True)
     assert not allowed(Job(title="Software Engineer", location="Arlington, VA"), dfw)
     assert allowed(Job(title="Software Engineer", location="Arlington, TX"), dfw)
+
+
+def test_a_region_does_not_bring_in_remote_jobs_tied_to_another_country():
+    prefs = Preferences(locations=["dfw", "americas"])
+    for loc in ("Remote - AMER", "US, Remote", "Remote - New York, NY (HQ)", "Remote - North America"):
+        assert allowed(job(loc), prefs), loc
+    for loc in (
+        "Remote - Sao Paulo, Brazil",
+        "Canada - Remote",
+        "Remote; Brazil",
+        "Sao Paulo, Brazil",
+        "Remote - AMER; Remote - Canada; Remote - Brazil",
+    ):
+        assert not allowed(job(loc), prefs), loc
+
+
+def test_a_region_alone_still_takes_any_country_in_it():
+    assert allowed(job("Remote - Sao Paulo, Brazil"), Preferences(locations=["americas"]))
