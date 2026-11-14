@@ -6,6 +6,7 @@ from sqlalchemy import String, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_db import Job
+from app.services.locations_services import scoped_location
 from app.services.pay_level_services import years_from_pay
 from app.services.requirements_services import (
     experienced_pitch,
@@ -94,7 +95,7 @@ def build_job_index(rows, fingerprint: tuple = ()) -> JobIndex:
     skills = {r.id: set(r.skills) for r in rows}
     years = {r.id: _years(r) for r in rows}
     return JobIndex(
-        jobs=[JobRow(r.id, r.board, r.title, r.location) for r in rows],
+        jobs=[JobRow(r.id, r.board, r.title, scoped_location(r.title, r.location)) for r in rows],
         skills=skills,
         weights=idf_weights(list(skills.values())),
         index=build_index(skills),

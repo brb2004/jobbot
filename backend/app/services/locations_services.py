@@ -79,3 +79,11 @@ def _piece_ok(piece: str, prefs, want_ids, want_words, anywhere: bool) -> bool:
     if anywhere or places_in(piece) & want_ids or has_any(piece, want_words):
         return True
     return remote and (_bare_remote(piece) or bool(places_named(piece) & _around(want_ids)))
+
+
+def scoped_location(title: str | None, location: str | None) -> str | None:
+    named = sorted(places_named(title or ""))
+    if not named or places_named(location or ""):
+        return location
+    remote = has_any(location or "", REMOTE)
+    return "; ".join(f"Remote - {n}" if remote else n for n in named)

@@ -1,4 +1,8 @@
+from types import SimpleNamespace
+
 from app.db.models_db import Job
+from app.services.job_index_services import build_job_index
+from app.services.locations_services import scoped_location
 from app.services.places_services import place_of, places_in
 from app.services.preferences_services import Preferences, allowed
 
@@ -99,3 +103,33 @@ def test_a_region_does_not_bring_in_remote_jobs_tied_to_another_country():
 
 def test_a_region_alone_still_takes_any_country_in_it():
     assert allowed(job("Remote - Sao Paulo, Brazil"), Preferences(locations=["americas"]))
+
+
+def scoped(title, location):
+    return Job(title=title, location=scoped_location(title, location))
+
+
+def test_a_country_in_the_title_scopes_a_bare_remote_location():
+    prefs = Preferences(locations=["dfw", "americas"])
+    assert not allowed(scoped("Software Engineer, AI Data - Noida, India", "Remote"), prefs)
+    assert allowed(scoped("Software Engineer (Remote, US)", "Remote"), prefs)
+    assert allowed(scoped("Senior Go Engineer", "Remote"), prefs)
+
+
+def test_a_location_field_with_places_wins_over_the_title():
+    assert allowed(scoped("Engineer - Canada team", "Remote - US"), Preferences(locations=["dfw"]))
+
+
+def test_the_index_scopes_locations_by_title():
+    row = SimpleNamespace(
+        id=1,
+        board="speechify",
+        title="Software Engineer - Noida, India",
+        location="Remote",
+        skills=["Python"],
+        requirements=[],
+        salary_min=None,
+        salary_currency=None,
+        degree=None,
+    )
+    assert build_job_index([row]).jobs[0].location == "Remote - India"
